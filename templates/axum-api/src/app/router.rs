@@ -9,12 +9,12 @@ use axum::Router;
 use axum::extract::{DefaultBodyLimit, Request, State};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
-use tower_http::cors::CorsLayer;
 use tower_http::request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer};
 use tower_http::trace::TraceLayer;
 use utoipa_swagger_ui::SwaggerUi;
 
 use super::AppState;
+use super::middleware::{catch_panic, cors, security_headers, set_security_headers};
 use crate::error::AppError;
 use crate::features;
 use crate::features::{account, api_keys, auth, media, two_factor};
@@ -32,7 +32,9 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 /// Swagger UI at `/docs/`, every feature's routes (the hand-written
 /// `account`, `auth` and `two_factor`, their `/auth` routes behind
 /// `state.rate_limit`), and the middleware: tracing, request ids
-/// (`x-request-id`), CORS, a timeout and a body limit. Tests drive the same router.
+/// (`x-request-id`), the security headers, CORS, a timeout, a body limit,
+/// a panic answered `500`, and everything but health under
+/// `state.global_rate_limit`. Tests drive the same router.
 ///
 /// The generated features' routes (`features::router`) are stateless: they
 /// hold their services as extensions. The hand-written ones are a
@@ -46,6 +48,9 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 pub fn router(state: AppState) -> Router {
     let pool = state.pool.clone();
     let keys = state.keys.clone();
+    let global_rate_limit = state.global_rate_limit.clone();
+    let cors_layer = cors(&state.cors_allowed_origins);
+    let headers = security_headers(state.https);
     let hand_written: Router = Router::new()
         .merge(account::routes(&state.rate_limit))
         .merge(auth::routes(&state.rate_limit))
@@ -53,12 +58,17 @@ pub fn router(state: AppState) -> Router {
         .merge(two_factor::routes(&state.rate_limit))
         .merge(media::routes(state.media.max_upload_bytes))
         .with_state(state);
-    let extensions = pool.clone();
-    Router::new()
-        .merge(health::routes(&pool))
+    // Everything but health counts against `GLOBAL_RATE_LIMIT`: a probe is
+    // never refused.
+    let api = Router::new()
         .merge(SwaggerUi::new("/docs").url("/api-docs/openapi.json", document()))
         .merge(hand_written)
         .merge(features::router(&pool))
+        .layer(global_rate_limit);
+    let extensions = pool.clone();
+    Router::new()
+        .merge(health::routes(&pool))
+        .merge(api)
         .layer(middleware::from_fn(
             move |mut request: Request, next: Next| {
                 request.extensions_mut().insert(keys.clone());
@@ -66,10 +76,15 @@ pub fn router(state: AppState) -> Router {
                 next.run(request)
             },
         ))
+        .layer(catch_panic())
         .layer(DefaultBodyLimit::max(BODY_LIMIT))
         .layer(middleware::from_fn_with_state(REQUEST_TIMEOUT, time_out))
-        // Same-origin only: allow your front end's origin here.
-        .layer(CorsLayer::new())
+        // `CORS_ALLOWED_ORIGINS`; unset, the API's own origin only.
+        .layer(cors_layer)
+        .layer(middleware::from_fn_with_state(
+            headers,
+            set_security_headers,
+        ))
         .layer(PropagateRequestIdLayer::x_request_id())
         .layer(TraceLayer::new_for_http())
         .layer(SetRequestIdLayer::x_request_id(MakeRequestUuid))

@@ -25,9 +25,9 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use actix_api::app::{AppState, configure};
+use actix_api::app::{AppState, app};
 use actix_api::config::Config;
-use actix_web::{App, test};
+use actix_web::test;
 use serde_json::Value;
 
 /// The target document.
@@ -450,7 +450,7 @@ async fn served_document() -> Result<Value, Box<dyn std::error::Error>> {
         _ => None,
     })?;
     let state = AppState::new(pool, &config)?;
-    let app = test::init_service(App::new().configure(|cfg| configure(cfg, &state))).await;
+    let app = test::init_service(app(state.clone())).await;
     let request = test::TestRequest::get().uri("/api-docs/openapi.json");
     let response = test::call_service(&app, request.to_request()).await;
     assert!(response.status().is_success(), "{}", response.status());

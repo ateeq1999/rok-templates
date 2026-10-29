@@ -13,7 +13,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use actix_api::app::{AppState, configure};
+use actix_api::app::{AppState, app};
 use actix_api::config::Config;
 use actix_api::db::schema::SCHEMA_SQL;
 use actix_api::db::types::Role;
@@ -21,7 +21,7 @@ use actix_api::db::users::models::{NewUser, User};
 use actix_api::shared::mail::{Mail, MemoryMailer, Outbox, Sender};
 use actix_api::shared::security::jwt::JwtKeys;
 use actix_web::http::{Method, StatusCode, header};
-use actix_web::{App, test, web};
+use actix_web::{test, web};
 use serde_json::Value;
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
 use sqlx::{AssertSqlSafe, PgPool};
@@ -121,7 +121,7 @@ pub async fn call_with(
     uri: &str,
     body: Option<Value>,
 ) -> Result<Answer, Box<dyn std::error::Error>> {
-    let app = test::init_service(App::new().configure(|cfg| configure(cfg, state))).await;
+    let app = test::init_service(app(state.clone())).await;
     let mut request = test::TestRequest::default().method(method).uri(uri);
     if let Some(token) = token {
         request = request.insert_header((header::AUTHORIZATION, format!("Bearer {token}")));
@@ -150,7 +150,7 @@ pub async fn call_headers(
     body: Option<Value>,
 ) -> Result<Answer, Box<dyn std::error::Error>> {
     let state = state(pool)?;
-    let app = test::init_service(App::new().configure(|cfg| configure(cfg, &state))).await;
+    let app = test::init_service(app(state.clone())).await;
     let mut request = test::TestRequest::default().method(method).uri(uri);
     for (name, value) in headers {
         request = request.insert_header((*name, *value));
@@ -360,7 +360,7 @@ pub async fn send(
     headers: &[(&str, &str)],
     body: Vec<u8>,
 ) -> Result<Raw, Box<dyn std::error::Error>> {
-    let app = test::init_service(App::new().configure(|cfg| configure(cfg, state))).await;
+    let app = test::init_service(app(state.clone())).await;
     let mut request = test::TestRequest::default().method(method).uri(uri);
     if let Some(token) = token {
         request = request.insert_header((header::AUTHORIZATION, format!("Bearer {token}")));

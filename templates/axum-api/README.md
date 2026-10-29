@@ -33,6 +33,34 @@ You need PostgreSQL and Rust 1.94 or newer.
    Swagger UI at `/docs/`. Ctrl+C or `SIGTERM` stops it gracefully:
    requests in flight finish, then the mail sender stops.
 
+## Security
+
+Every answer passes through `src/app/middleware.rs`, over what
+`src/shared/security/headers.rs` decides (the same in both templates):
+
+- **Headers.** `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`,
+  `Content-Security-Policy: frame-ancestors 'none'` and `Referrer-Policy:
+  no-referrer` on every answer, and `Strict-Transport-Security` once
+  `APP_URL` is `https://`. A header a handler set itself is kept.
+- **CORS.** Unset, `CORS_ALLOWED_ORIGINS` allows no other origin. Set it to
+  your front ends (`https://app.example.com,http://localhost:5173`), or `*`;
+  a request from another origin gets no `Access-Control-Allow-Origin`.
+- **Panics.** A handler that panics is answered `500 internal_error`, and
+  the panic is logged, instead of the connection being dropped.
+- **Rate limits.** `AUTH_RATE_LIMIT` (20 a minute per IP) guards `/auth`;
+  `GLOBAL_RATE_LIMIT` (off by default) guards every route but health, so a
+  probe is never refused. Both count per process.
+- **Rotating `JWT_SECRET`.** Set the new secret as `JWT_SECRET` and the old
+  one as `JWT_SECRET_PREVIOUS`, wait one `JWT_TTL`, then remove it: nobody
+  is signed out. The links the API signs itself (for a store that can't
+  sign its own) use a key derived from `JWT_SECRET`, so those handed out
+  before the switch stop working
+  (they last minutes).
+- **Dependencies.** `deny.toml` is `cargo deny check`'s policy: no known
+  advisory, licenses from an allow list, crates only from crates.io. The
+  advisories it ignores are listed there, each with why it can't reach this
+  project; review them when you update.
+
 ## Accounts
 
 The account flows are hand-written features, yours to change:
@@ -168,7 +196,8 @@ holds the pool, the generated features' `Services`, the JWT keys, the mail
 outbox and templates, the breach check and the rate limit; a handler takes
 any of them with `State<...>`. `router(state)` merges health, Swagger UI
 and every feature's `routes()`, under tower-http's tracing, request ids
-(`x-request-id`), CORS (same origin until you allow yours), a 30-second
+(`x-request-id`), the security headers and CORS (see Security), a panic
+answered `500`, `GLOBAL_RATE_LIMIT`, a 30-second
 timeout (`408`) and a 2 MiB body limit (`413`). `serve` runs it with the
 mail sender beside it (`tokio::spawn`), both stopped by the same shutdown
 signal.
@@ -232,7 +261,7 @@ thiserror = "2"
 tokio = { version = "1", features = ["macros", "net", "rt", "rt-multi-thread", "signal", "sync", "time"] }
 totp-rs = { version = "5", features = ["otpauth"] }
 tower = { version = "0.5", features = ["util"] }
-tower-http = { version = "0.6", features = ["cors", "request-id", "timeout", "trace"] }
+tower-http = { version = "0.6", features = ["catch-panic", "cors", "request-id", "timeout", "trace"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 utoipa = { version = "5", features = ["chrono", "uuid"] }

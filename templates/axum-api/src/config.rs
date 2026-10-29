@@ -10,6 +10,7 @@
 //! | `BIND_ADDR` | `0.0.0.0:8080` | where the server listens |
 //! | `JWT_SECRET` | required | the HS256 key tokens are signed with, at least 32 bytes |
 //! | `JWT_TTL` | 3600 | seconds an issued token lasts |
+//! | `JWT_SECRET_PREVIOUS` | unset | the secret being rotated out: tokens it signed still pass (at least 32 bytes) |
 //! | `TOTP_ENCRYPTION_KEY` | required | the AES-256 key two-factor secrets are stored under: 32 bytes, base64 |
 //! | `REQUIRE_VERIFIED_EMAIL` | `true` | sign-in needs a verified email |
 //! | `APP_URL` | `http://localhost:8080` | the base of the links mails carry |
@@ -19,6 +20,8 @@
 //! | `BREACH_CHECK` | `false` | reject passwords Have I Been Pwned knows |
 //! | `TRUST_PROXY` | `false` | take the client IP from `X-Forwarded-For` |
 //! | `AUTH_RATE_LIMIT` | 20 | requests per minute per IP on `/auth` (`0`: off) |
+//! | `GLOBAL_RATE_LIMIT` | 0 | requests per minute per IP on every route but health (`0`: off) |
+//! | `CORS_ALLOWED_ORIGINS` | unset | the other origins a browser may call the API from: `*`, or a list such as `https://app.example.com,http://localhost:5173`; unset, none |
 //! | `STORAGE_URL` | `file://./storage` | where uploads are stored: `file://<dir>`, `s3://<bucket>` (`AWS_*` settings) or `memory://` |
 //! | `MEDIA_MAX_UPLOAD_BYTES` | 10485760 (10 MiB) | the largest `POST /media` body |
 //! | `MEDIA_ALLOWED_TYPES` | `image/jpeg,image/png,image/webp,image/gif,application/pdf` | the detected types an upload may have |
@@ -48,6 +51,7 @@ use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 
 use crate::db::pool::PoolSettings;
+use crate::shared::security::headers::CorsOrigins;
 use crate::shared::security::totp::KEY_BYTES as TOTP_KEY_BYTES;
 use crate::shared::storage::StorageUrl;
 
@@ -125,6 +129,9 @@ pub struct Config {
     pub jwt_secret: String,
     /// `JWT_TTL`: how long an issued token lasts.
     pub jwt_ttl: Duration,
+    /// `JWT_SECRET_PREVIOUS`: the secret being rotated out, whose tokens
+    /// still pass until they expire.
+    pub jwt_secret_previous: Option<String>,
     /// `TOTP_ENCRYPTION_KEY`: the key two-factor secrets are encrypted
     /// with at rest (AES-256-GCM).
     pub totp_encryption_key: [u8; TOTP_KEY_BYTES],
@@ -147,6 +154,12 @@ pub struct Config {
     /// `AUTH_RATE_LIMIT`: requests per minute per IP on `/auth`; `0` turns
     /// the limit off.
     pub auth_rate_limit: u32,
+    /// `GLOBAL_RATE_LIMIT`: requests per minute per IP on every route but
+    /// health; `0` (the default) turns the limit off.
+    pub global_rate_limit: u32,
+    /// `CORS_ALLOWED_ORIGINS`: the other origins a browser may call the API
+    /// from.
+    pub cors_allowed_origins: CorsOrigins,
     /// `STORAGE_URL`: where uploaded files are stored.
     pub storage_url: StorageUrl,
     /// `MEDIA_MAX_UPLOAD_BYTES`: the largest upload, in bytes.
@@ -273,6 +286,7 @@ impl Config {
         let database_url = vars.required("DATABASE_URL");
         let jwt_secret = vars.secret("JWT_SECRET", MIN_JWT_SECRET_BYTES);
         let jwt_ttl = vars.number("JWT_TTL").unwrap_or(DEFAULT_JWT_TTL_SECS);
+        let jwt_secret_previous = vars.optional_secret("JWT_SECRET_PREVIOUS", MIN_JWT_SECRET_BYTES);
         let totp_encryption_key = vars.key("TOTP_ENCRYPTION_KEY");
         let mail_transport = match var("MAIL_TRANSPORT").as_deref() {
             None | Some("log") => MailTransport::Log,
@@ -295,6 +309,7 @@ impl Config {
             bind_addr: var("BIND_ADDR").unwrap_or_else(|| DEFAULT_BIND_ADDR.to_owned()),
             jwt_secret,
             jwt_ttl: Duration::from_secs(jwt_ttl),
+            jwt_secret_previous,
             totp_encryption_key,
             require_verified_email: vars.flag("REQUIRE_VERIFIED_EMAIL").unwrap_or(true),
             app_url: var("APP_URL").unwrap_or_else(|| DEFAULT_APP_URL.to_owned()),
@@ -306,6 +321,18 @@ impl Config {
             auth_rate_limit: vars
                 .number("AUTH_RATE_LIMIT")
                 .unwrap_or(DEFAULT_AUTH_RATE_LIMIT),
+            global_rate_limit: vars.number("GLOBAL_RATE_LIMIT").unwrap_or(0),
+            cors_allowed_origins: match var("CORS_ALLOWED_ORIGINS") {
+                Some(value) => value.parse().unwrap_or_else(|_| {
+                    vars.fail(ConfigError::NotOneOf {
+                        name: "CORS_ALLOWED_ORIGINS",
+                        value,
+                        expected: "*, or origins such as https://app.example.com",
+                    });
+                    CorsOrigins::SameOrigin
+                }),
+                None => CorsOrigins::SameOrigin,
+            },
             storage_url: match var("STORAGE_URL") {
                 Some(url) => url.parse().unwrap_or_else(|_| {
                     vars.fail(ConfigError::NotOneOf {
@@ -358,6 +385,13 @@ impl Config {
         }
     }
 
+    /// Whether the API is served over HTTPS (`APP_URL` is `https://…`), so
+    /// answers carry `Strict-Transport-Security`.
+    #[must_use]
+    pub fn https(&self) -> bool {
+        self.app_url.starts_with("https://")
+    }
+
     /// The settings as `NAME=value` pairs, one per line, for the start-up
     /// log: every secret is its length only (`JWT_SECRET=<34 bytes>`), and
     /// a URL's password is `<redacted>`.
@@ -371,6 +405,12 @@ impl Config {
             ("BIND_ADDR", self.bind_addr.clone()),
             ("JWT_SECRET", format!("<{} bytes>", self.jwt_secret.len())),
             ("JWT_TTL", secs(self.jwt_ttl)),
+            (
+                "JWT_SECRET_PREVIOUS",
+                self.jwt_secret_previous
+                    .as_ref()
+                    .map_or_else(unset, |secret| format!("<{} bytes>", secret.len())),
+            ),
             (
                 "TOTP_ENCRYPTION_KEY",
                 format!("<{} bytes>", self.totp_encryption_key.len()),
@@ -392,6 +432,11 @@ impl Config {
             ("BREACH_CHECK", flag(self.breach_check)),
             ("TRUST_PROXY", flag(self.trust_proxy)),
             ("AUTH_RATE_LIMIT", self.auth_rate_limit.to_string()),
+            ("GLOBAL_RATE_LIMIT", self.global_rate_limit.to_string()),
+            (
+                "CORS_ALLOWED_ORIGINS",
+                self.cors_allowed_origins.to_string(),
+            ),
             ("STORAGE_URL", self.storage_url.to_string()),
             (
                 "MEDIA_MAX_UPLOAD_BYTES",
@@ -477,6 +522,19 @@ impl Vars<'_> {
             });
         }
         value
+    }
+
+    /// A key that may be unset, but when set is at least `min` bytes long.
+    fn optional_secret(&self, name: &'static str, min: usize) -> Option<String> {
+        let value = (self.var)(name).filter(|value| !value.is_empty())?;
+        if value.len() < min {
+            self.fail(ConfigError::TooShort {
+                name,
+                len: value.len(),
+                min,
+            });
+        }
+        Some(value)
     }
 
     /// A key that must be set: base64 (standard, padded) of exactly

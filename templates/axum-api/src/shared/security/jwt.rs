@@ -34,9 +34,15 @@ pub struct Claims {
 /// The keys tokens are signed and verified with, from `JWT_SECRET`, and
 /// how long an issued token lasts (`JWT_TTL`). `app/` registers them as
 /// app data.
+///
+/// To rotate the secret without signing everyone out: set the new one as
+/// `JWT_SECRET` and the old one as `JWT_SECRET_PREVIOUS`, wait one
+/// `JWT_TTL` (every token signed with the old one has expired), then unset
+/// `JWT_SECRET_PREVIOUS`. Tokens are always signed with `JWT_SECRET`.
 pub struct JwtKeys {
     encoding: EncodingKey,
     decoding: DecodingKey,
+    previous: Option<DecodingKey>,
     ttl: Duration,
 }
 
@@ -47,8 +53,18 @@ impl JwtKeys {
         JwtKeys {
             encoding: EncodingKey::from_secret(secret.as_bytes()),
             decoding: DecodingKey::from_secret(secret.as_bytes()),
+            previous: None,
             ttl,
         }
+    }
+
+    /// These keys, also accepting tokens signed with `previous`, the secret
+    /// being rotated out (`JWT_SECRET_PREVIOUS`); `None` accepts only the
+    /// current one.
+    #[must_use]
+    pub fn with_previous(mut self, previous: Option<&str>) -> Self {
+        self.previous = previous.map(|secret| DecodingKey::from_secret(secret.as_bytes()));
+        self
     }
 
     /// How long an issued token lasts: `TokenResponse.expires_in`.
@@ -70,15 +86,17 @@ impl JwtKeys {
             .map_err(|err| AppError::Internal(Box::new(err)))
     }
 
-    /// The claims of `token`, when it is signed with these keys and not
-    /// expired; otherwise a `401`.
+    /// The claims of `token`, when it is signed with the current secret or
+    /// the previous one and not expired; otherwise a `401`.
     pub fn decode(&self, token: &str) -> Result<Claims, AppError> {
         let mut validation = Validation::new(Algorithm::HS256);
         // The server checks its own tokens: no clock skew to allow for.
         validation.leeway = 0;
-        jsonwebtoken::decode::<Claims>(token, &self.decoding, &validation)
+        std::iter::once(&self.decoding)
+            .chain(self.previous.as_ref())
+            .find_map(|key| jsonwebtoken::decode::<Claims>(token, key, &validation).ok())
             .map(|data| data.claims)
-            .map_err(|_| AppError::Unauthorized("the token is invalid or expired".to_owned()))
+            .ok_or_else(|| AppError::Unauthorized("the token is invalid or expired".to_owned()))
     }
 }
 
@@ -116,6 +134,31 @@ mod tests {
         assert!(
             matches!(rejected, Err(AppError::Unauthorized(_))),
             "{rejected:?}"
+        );
+        Ok(())
+    }
+
+    /// While a secret is rotated out, tokens signed with it still pass, new
+    /// ones are signed with the current one, and a third secret's fail.
+    #[test]
+    fn a_token_signed_with_the_previous_secret_passes_during_rotation() -> Result<(), AppError> {
+        let ttl = Duration::from_secs(3600);
+        let old = JwtKeys::new("the old secret", ttl).issue(Uuid::now_v7(), Role::User, 1)?;
+        let rotating = JwtKeys::new(SECRET, ttl).with_previous(Some("the old secret"));
+        assert!(rotating.decode(&old).is_ok());
+        let new = rotating.issue(Uuid::now_v7(), Role::User, 1)?;
+        assert!(JwtKeys::new(SECRET, ttl).decode(&new).is_ok());
+        let other = JwtKeys::new("another secret", ttl).issue(Uuid::now_v7(), Role::User, 1)?;
+        assert!(matches!(
+            rotating.decode(&other),
+            Err(AppError::Unauthorized(_))
+        ));
+        // Rotation done: the old secret's tokens fail again.
+        assert!(
+            JwtKeys::new(SECRET, ttl)
+                .with_previous(None)
+                .decode(&old)
+                .is_err()
         );
         Ok(())
     }

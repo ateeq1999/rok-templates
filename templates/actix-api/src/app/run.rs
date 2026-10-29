@@ -2,9 +2,9 @@
 
 //! [`run`]: the server, and the mail sender and the upload sweep beside it.
 
-use actix_web::{App, HttpServer};
+use actix_web::HttpServer;
 
-use super::{AppState, configure};
+use super::{AppState, app};
 use crate::config::Config;
 use crate::db::pool::init_pool;
 use crate::shared::mail::{Sender, transport};
@@ -30,7 +30,7 @@ pub async fn run(config: Config) -> std::io::Result<()> {
     }
     tracing::info!(addr = %config.bind_addr, "listening");
     let server_state = state.clone();
-    let served = HttpServer::new(move || App::new().configure(|cfg| configure(cfg, &server_state)))
+    let served = HttpServer::new(move || app(server_state.clone()))
         .bind(&config.bind_addr)?
         .run()
         .await;

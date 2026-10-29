@@ -8,6 +8,7 @@ publish = false
 # What the skeleton and the generated code need: `rok-data-sqlc.toml`'s hints and
 # the generated `src/db/mod.rs`'s.
 [dependencies]
+actix-cors = "0.7"
 actix-web = "4"
 aes-gcm = { version = "0.10", default-features = false, features = ["aes", "alloc"] }
 argon2 = "0.6"
@@ -15,6 +16,7 @@ async-trait = "0.1"
 base64 = "0.22"
 bytes = "1"
 chrono = { version = "0.4", features = ["serde"] }
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
 governor = { version = "0.10", default-features = false, features = ["std"] }
 hmac = "0.13"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }

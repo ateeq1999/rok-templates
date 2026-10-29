@@ -35,6 +35,8 @@ const SHARED: &[&str] = &[
     // The ports features declare for each other, implemented: the wiring's
     // one framework-free part.
     "src/app/ports.rs",
+    // `cargo deny check`'s policy.
+    "deny.toml",
 ];
 
 /// The features whose framework-independent files both templates share.

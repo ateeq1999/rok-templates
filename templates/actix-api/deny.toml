@@ -1,0 +1,60 @@
+# `cargo deny check`'s policy for this project: run it in CI (and before a
+# release) so a dependency with a known advisory, an unexpected license or
+# an unknown source fails the build. https://embarkstudios.github.io/cargo-deny/
+
+[advisories]
+# Every advisory in the RustSec database fails the check, yanked crates
+# too, but those below: each has no fix this project can take yet, and its
+# reason says why it is ignored. Review the list whenever you update; drop
+# an entry once `cargo update` clears it.
+yanked = "deny"
+ignore = [
+    # `rsa` (Marvin attack; no fixed version exists) and `crypto-bigint` 0.5
+    # come in through `jsonwebtoken`'s RSA and ECDSA support. Tokens here are
+    # HS256 only, so that code never runs.
+    { id = "RUSTSEC-2023-0071", reason = "jsonwebtoken's RSA support; this project signs HS256 only" },
+    { id = "RUSTSEC-2026-0387", reason = "jsonwebtoken's ECDSA curves; this project signs HS256 only" },
+    # `zip` 3 is `utoipa-swagger-ui`'s build dependency: it unpacks the
+    # vendored Swagger UI archive at build time, never anything at run time.
+    { id = "RUSTSEC-2026-0367", reason = "utoipa-swagger-ui's build-time zip of its own vendored archive" },
+    { id = "RUSTSEC-2026-0368", reason = "utoipa-swagger-ui's build-time zip of its own vendored archive" },
+    { id = "RUSTSEC-2026-0369", reason = "utoipa-swagger-ui's build-time zip of its own vendored archive" },
+    # `quick-xml` 0.39 parses the S3 answers `object_store` reads: only the
+    # store `STORAGE_URL` names, which you run or trust, sends it XML.
+    { id = "RUSTSEC-2026-0194", reason = "object_store's S3 client; only the configured store sends it XML" },
+    { id = "RUSTSEC-2026-0195", reason = "object_store's S3 client; only the configured store sends it XML" },
+    # `h2` 0.3 is actix-http's HTTP/2, which runs only over TLS: this project
+    # serves plain HTTP/1.1 behind your proxy. (The axum template has no h2 0.3.)
+    { id = "RUSTSEC-2026-0258", reason = "actix-http's HTTP/2, which needs TLS this project doesn't serve" },
+]
+
+[licenses]
+# The licenses a dependency may carry. Add one only after reading it.
+allow = [
+    "0BSD",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "CDLA-Permissive-2.0",
+    "ISC",
+    "MIT",
+    "MPL-2.0",
+    "Unicode-3.0",
+    "Zlib",
+]
+confidence-threshold = 0.9
+# This project (`publish = false`) needs no license of its own.
+private = { ignore = true }
+
+[bans]
+# Two versions of one crate are common in a tree this size.
+multiple-versions = "allow"
+wildcards = "deny"
+
+[sources]
+# Crates come from crates.io only: no other registry, no git dependency.
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

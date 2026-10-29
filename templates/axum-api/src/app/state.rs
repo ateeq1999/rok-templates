@@ -20,6 +20,7 @@ use crate::features::two_factor::TwoFactorService;
 use crate::shared::mail::{Outbox, Templates};
 use crate::shared::rate_limit::RateLimit;
 use crate::shared::security::breach::{self, BreachCheck};
+use crate::shared::security::headers::CorsOrigins;
 use crate::shared::security::jwt::JwtKeys;
 use crate::shared::security::totp::TotpCipher;
 use crate::shared::storage::{self, Storage};
@@ -61,6 +62,18 @@ pub struct AppState {
     pub storage: Arc<dyn Storage>,
     /// `media`'s service, over `storage` and the `MEDIA_*` settings.
     pub media: Arc<MediaService>,
+    /// The per-IP limit on every route but health (`GLOBAL_RATE_LIMIT`,
+    /// off by default), counted apart from `rate_limit`.
+    #[from_ref(skip)]
+    pub global_rate_limit: RateLimit,
+    /// The other origins a browser may call the API from
+    /// (`CORS_ALLOWED_ORIGINS`).
+    #[from_ref(skip)]
+    pub cors_allowed_origins: CorsOrigins,
+    /// Whether answers carry `Strict-Transport-Security` (`APP_URL` is
+    /// `https://…`).
+    #[from_ref(skip)]
+    pub https: bool,
 }
 
 impl AppState {
@@ -69,7 +82,10 @@ impl AppState {
     /// can't be opened, such as a `file://` directory that can't be
     /// created, is an error.
     pub fn new(pool: PgPool, config: &Config) -> Result<Self, object_store::Error> {
-        let keys = Arc::new(JwtKeys::new(&config.jwt_secret, config.jwt_ttl));
+        let keys = Arc::new(
+            JwtKeys::new(&config.jwt_secret, config.jwt_ttl)
+                .with_previous(config.jwt_secret_previous.as_deref()),
+        );
         let outbox = Outbox::new();
         let templates = Arc::new(Templates::new(&config.app_url));
         let auth = Arc::new(AuthService {
@@ -116,6 +132,9 @@ impl AppState {
             outbox,
             templates,
             rate_limit: RateLimit::per_minute(config.auth_rate_limit, config.trust_proxy),
+            global_rate_limit: RateLimit::per_minute(config.global_rate_limit, config.trust_proxy),
+            cors_allowed_origins: config.cors_allowed_origins.clone(),
+            https: config.https(),
         })
     }
 

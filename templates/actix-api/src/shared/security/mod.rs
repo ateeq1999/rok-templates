@@ -10,6 +10,8 @@
 pub mod api_key;
 pub mod auth_token;
 pub mod breach;
+/// The security headers every answer carries, and `CORS_ALLOWED_ORIGINS`.
+pub mod headers;
 pub mod jwt;
 pub mod password;
 pub mod token;

@@ -39,7 +39,7 @@ thiserror = "2"
 tokio = { version = "1", features = ["macros", "net", "rt", "rt-multi-thread", "signal", "sync", "time"] }
 totp-rs = { version = "5", features = ["otpauth"] }
 tower = { version = "0.5", features = ["util"] }
-tower-http = { version = "0.6", features = ["cors", "request-id", "timeout", "trace"] }
+tower-http = { version = "0.6", features = ["catch-panic", "cors", "request-id", "timeout", "trace"] }
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 utoipa = { version = "5", features = ["chrono", "uuid"] }
