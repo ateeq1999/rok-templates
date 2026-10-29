@@ -3,7 +3,7 @@
 //! `UsersService`: the `users` feature's business rules. Override any
 //! [`UsersServiceApi`] method here; the others keep their generated defaults.
 //! A port this feature needs from another feature is a trait declared here
-//! and implemented in `app.rs`.
+//! and implemented in `app/ports.rs`.
 
 use sqlx::PgPool;
 

@@ -32,6 +32,9 @@ const SHARED: &[&str] = &[
     "src/shared/storage",
     // The profile photos' image processing: decode, crop, re-encode.
     "src/shared/thumbnail.rs",
+    // The ports features declare for each other, implemented: the wiring's
+    // one framework-free part.
+    "src/app/ports.rs",
 ];
 
 /// The features whose framework-independent files both templates share.
@@ -122,9 +125,9 @@ fn dir_name(path: &Path) -> String {
         .unwrap_or_default()
 }
 
-/// The engine's templates, beside this crate.
+/// The templates of this crate.
 fn templates() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../rok-data-sqlc/templates")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("templates")
 }
 
 #[test]

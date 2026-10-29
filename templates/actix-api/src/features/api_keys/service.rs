@@ -15,7 +15,7 @@ use crate::db::users::models::UserId;
 use crate::error::AppError;
 use crate::shared::security::api_key::{MAX_ACTIVE, NewApiKey};
 
-/// The `api_keys` service, built by `app.rs`.
+/// The `api_keys` service, built by `app/`.
 pub struct ApiKeyService {
     /// The pool the service reads and writes through.
     pub pool: PgPool,

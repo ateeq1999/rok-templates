@@ -3,7 +3,7 @@
 //! `AuditLogEntryService`: the `audit_log` feature's business rules. Override any
 //! [`AuditLogEntryServiceApi`] method here; the others keep their generated defaults.
 //! A port this feature needs from another feature is a trait declared here
-//! and implemented in `app.rs`.
+//! and implemented in `app/ports.rs`.
 
 use sqlx::{PgConnection, PgPool};
 
@@ -27,7 +27,7 @@ impl AuditLogEntryService {
 
     /// Records `input` on `conn`, the caller's transaction. The API has no
     /// create (the log is read-only there): the application writes it, and
-    /// other features reach this through a port `app.rs` implements.
+    /// other features reach this through a port `app/ports.rs` implements.
     pub async fn create_in(
         &self,
         conn: &mut PgConnection,

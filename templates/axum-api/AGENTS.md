@@ -18,7 +18,9 @@ yours: rok sqlc writes them once and never touches them again.
 src/
 ├─ lib.rs         declares every module `pub`: the application is a library
 ├─ main.rs        starts the server through the library. Nothing else.
-├─ app.rs         builds AppState and the router, serves it with the mail sender (the ONLY wiring file)
+├─ app/           the ONLY wiring: state.rs (AppState), router.rs (routes and
+│                 middleware), run.rs (the server and what runs beside it),
+│                 ports.rs (the ports features declare, implemented)
 ├─ config.rs      reads env vars into one Config (the ONLY env reader)
 ├─ error.rs       AppError and its HTTP mapping, shared by all features
 ├─ db/            generated data layer: rows, typed ids, enums, all SQL, pool.rs
@@ -62,18 +64,18 @@ rules below follow them.
 | Call to an outside system | `shared/<name>.rs` behind a trait | service directly |
 | Env variable | `config.rs` | `std::env` anywhere else |
 | Background or slow work | an outbox row written by `service.rs`, handled by a worker | request path |
-| Writing another feature's data | a port (trait) declared in your `service.rs`, implemented in `app.rs` with the other service's `_in` method | that feature's files |
-| Register a hand-written feature | `features/mod.rs` and `app.rs` | — |
+| Writing another feature's data | a port (trait) declared in your `service.rs`, implemented in `app/ports.rs` with the other service's `_in` method | that feature's files |
+| Register a hand-written feature | `features/mod.rs` and `app/router.rs` | — |
 
 ## The six rules
 
 1. In a feature, only `routes.rs` and `handlers.rs` use `axum`. Outside the
-   features, so may `app.rs`, `main.rs`, `error.rs`, the features'
+   features, so may `app.rs` or `app/`, `main.rs`, `error.rs`, the features'
    `generated.rs`, `shared/` and the data layer.
 2. In a feature, only `repo.rs` and `model.rs` use `sqlx`, and `service.rs`
    and `service_api.rs` may name `sqlx::PgPool` and `sqlx::PgConnection` and
-   nothing else. Outside the features, so may `app.rs`, `error.rs`, the
-   features' `generated.rs`, `shared/` and the data layer.
+   nothing else. Outside the features, so may `app.rs` or `app/`,
+   `error.rs`, the features' `generated.rs`, `shared/` and the data layer.
 3. `service.rs` never writes SQL. It calls the data layer's functions and
    traits from `shared/`.
 4. A feature never refers to another feature's modules. It may read any
@@ -94,10 +96,11 @@ in `src/db/`, by default). `rok sqlc check-arch` checks rules 1, 2, 4, 5 and
 `handlers.rs`, `dto.rs`, `model.rs`, `repo.rs`, `service_api.rs` and
 `service.rs`; no file or directory is named `utils`, `helpers` or `common`;
 and `src/` has no top-level directory but the data layer's, `shared/`, the
-features' and `bin/`. Test code is exempt from every rule: files under
-`#![cfg(test)]`, items under `#[cfg(test)]`, `#[test]` and `#[<path>::test]`
-functions, and `tests/`, which is not read. Each violation prints as
-`path:line: rule: message`. Rule 3 is yours to keep.
+features', `app/` (the wiring, split up) and `bin/`. Test code is exempt
+from every rule: files under `#![cfg(test)]`, items under `#[cfg(test)]`,
+`#[test]` and `#[<path>::test]` functions, and `tests/`, which is not read.
+Each violation prints as `path:line: rule: message`. Rule 3 is yours to
+keep.
 
 Handlers are thin: parse, call one service method, return. One service
 method does one thing; name it as a verb. DTOs are separate from rows, and

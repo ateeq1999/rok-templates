@@ -170,7 +170,7 @@ two-factor's TOTP codes, secret encryption and recovery codes, and the
 single-use token lifecycle (`auth_token.rs`).
 `src/shared/mail/` sends mail through an outbox: a flow writes its message
 as an `outbound_mail` row on its own transaction, and a sender task started
-by `app.rs` delivers it (SMTP, or the log), retrying with backoff; after
+by `app/` delivers it (SMTP, or the log), retrying with backoff; after
 five failures a row is `dead`, and loses its bodies and the link in them.
 
 ## Dependencies
@@ -251,7 +251,7 @@ test needs no database. The lints in `Cargo.toml` deny `unwrap`, `expect`,
   `mod.rs` and each feature's `service.rs`.
 - **Yours** (first line `Scaffolded once`, or no header): `rok-data-sqlc.toml`,
   `schema/` (the truth: the `.sql` files `rok sqlc g` reads), `queries/`,
-  `src/{lib,main,app,config,error,openapi}.rs`,
+  `src/{lib,main,config,error,openapi}.rs`, `src/app/`,
   `src/shared/{mod,auth}.rs`, `src/shared/rate_limit/`,
   `src/shared/security/`, `src/shared/mail/`, `src/shared/storage/`,
   `src/shared/thumbnail.rs`,

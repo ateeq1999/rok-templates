@@ -13,7 +13,7 @@ use crate::app::AppState;
 /// Every `media` endpoint, under `/api/v1/media`, and the storage URLs,
 /// under `/api/v1/storage`. `POST /media` and `PUT /storage/{token}` read a
 /// raw body of at most `max_upload_bytes` (`MEDIA_MAX_UPLOAD_BYTES`): the
-/// route's own `DefaultBodyLimit`, in place of the 2 MiB `app.rs` sets for
+/// route's own `DefaultBodyLimit`, in place of the 2 MiB `app/` sets for
 /// every route.
 pub fn routes(max_upload_bytes: usize) -> Router<AppState> {
     Router::new()

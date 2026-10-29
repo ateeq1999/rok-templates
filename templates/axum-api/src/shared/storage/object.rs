@@ -41,7 +41,7 @@ pub struct Signing {
 
 /// Opens the store `url` names: a `file://` directory is created when
 /// missing; an `s3://` bucket reads its settings from the `AWS_*`
-/// variables. `app.rs` calls it once, at startup.
+/// variables. `app/` calls it once, at startup.
 pub fn open(url: &StorageUrl, signing: Signing) -> Result<Arc<dyn Storage>, object_store::Error> {
     let storage = match url {
         StorageUrl::Memory => ObjectStorage::memory().with_api_signer(signing.api),

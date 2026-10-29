@@ -32,7 +32,7 @@ pub struct Claims {
 }
 
 /// The keys tokens are signed and verified with, from `JWT_SECRET`, and
-/// how long an issued token lasts (`JWT_TTL`). `app.rs` registers them as
+/// how long an issued token lasts (`JWT_TTL`). `app/` registers them as
 /// app data.
 pub struct JwtKeys {
     encoding: EncodingKey,

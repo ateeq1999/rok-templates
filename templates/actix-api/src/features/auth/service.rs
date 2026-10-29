@@ -42,7 +42,7 @@ use crate::shared::security::token;
 /// nor whether the account exists.
 const BAD_CREDENTIALS: &str = "invalid email or password, or the account is temporarily locked";
 
-/// The `auth` service, built by `app.rs`.
+/// The `auth` service, built by `app/`.
 #[derive(Clone)]
 pub struct AuthService {
     /// The pool the flows read and write through.
@@ -394,7 +394,7 @@ pub struct AuditEntry {
 
 /// The port onto the `audit_log` feature: `auth` records what admins do
 /// through it, on the flow's own connection, so the entry commits (or rolls
-/// back) with the change it records. `app.rs` implements it.
+/// back) with the change it records. `app/ports.rs` implements it.
 #[async_trait]
 pub trait AuditTrail: Send + Sync {
     /// Records `entry` on `conn`.

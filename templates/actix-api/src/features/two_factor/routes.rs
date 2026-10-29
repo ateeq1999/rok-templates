@@ -9,7 +9,7 @@ use super::handlers;
 use crate::shared::rate_limit::RateLimit;
 
 /// Mounts every `two_factor` endpoint under `/api/v1/auth/2fa`, each
-/// request counted against `limit` like the rest of `/auth`. `app.rs`
+/// request counted against `limit` like the rest of `/auth`. `app/`
 /// mounts it before the `auth` scope, so that scope doesn't swallow it.
 pub fn routes(cfg: &mut web::ServiceConfig, limit: &RateLimit) {
     cfg.service(

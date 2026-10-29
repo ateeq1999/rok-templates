@@ -8,7 +8,7 @@ use actix_web::web;
 use super::handlers;
 use crate::shared::rate_limit::RateLimit;
 
-/// Mounts the signed-in user's own routes. `app.rs` mounts them before the
+/// Mounts the signed-in user's own routes. `app/` mounts them before the
 /// `auth` scope and the generated `users` feature, so neither
 /// `/api/v1/auth` nor `/api/v1/users/{id}` captures them;
 /// `/api/v1/auth/me` counts against the `/auth` rate `limit` like the rest

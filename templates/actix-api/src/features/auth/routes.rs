@@ -9,7 +9,7 @@ use crate::error::AppError;
 use crate::shared::rate_limit::RateLimit;
 
 /// Mounts every `auth` endpoint under `/api/v1/auth`, each request counted
-/// against `limit`. `app.rs` mounts the `account` feature's
+/// against `limit`. `app/` mounts the `account` feature's
 /// `/api/v1/auth/me` first, so this scope doesn't swallow it. An unknown
 /// path under the scope, or a known one asked with the wrong method,
 /// answers the standard `404`, and counts.

@@ -33,9 +33,14 @@
 //! | `DB_MAX_LIFETIME_SECS` | 1800 | replace a connection after |
 //! | `RUST_LOG` | `info` | the log filter ([`log_filter`]) |
 //!
-//! A boolean is `true` or `false` (also `1` or `0`).
+//! A boolean is `true` or `false` (also `1` or `0`). Every setting is
+//! checked before the server starts, and every one that is wrong is
+//! reported at once ([`ConfigErrors`]). [`Config::summary`] is what the
+//! server logs it started with, secrets left out.
 
+use std::cell::RefCell;
 use std::env;
+use std::fmt;
 use std::str::FromStr;
 use std::time::Duration;
 
@@ -110,7 +115,7 @@ pub enum MailTransport {
 }
 
 /// The application's settings. It has no `Debug`, so the secrets can't end
-/// up in a log.
+/// up in a log; [`Config::summary`] is the loggable view.
 pub struct Config {
     /// `DATABASE_URL`.
     pub database_url: String,
@@ -212,73 +217,108 @@ pub enum ConfigError {
     },
 }
 
+/// Every setting missing from, or invalid in, the environment, in the
+/// order they are read: one start-up names all there is to fix. One error
+/// reads as itself; several as a count and a line each.
+#[derive(Debug)]
+pub struct ConfigErrors(pub Vec<ConfigError>);
+
+impl fmt::Display for ConfigErrors {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self.0.as_slice() {
+            [one] => write!(formatter, "{one}"),
+            all => {
+                write!(formatter, "{} settings are wrong:", all.len())?;
+                for error in all {
+                    write!(formatter, "\n  - {error}")?;
+                }
+                Ok(())
+            }
+        }
+    }
+}
+
+impl std::error::Error for ConfigErrors {}
+
 impl Config {
     /// Reads every setting from the environment.
-    pub fn from_env() -> Result<Self, ConfigError> {
+    pub fn from_env() -> Result<Self, ConfigErrors> {
         Config::from_vars(|name| env::var(name).ok())
     }
 
     /// Reads every setting through `var`, which gives a variable's value
-    /// when it is set.
-    pub fn from_vars(var: impl Fn(&str) -> Option<String>) -> Result<Self, ConfigError> {
-        let vars = Vars(&var);
+    /// when it is set. A wrong setting doesn't stop the reading: each is
+    /// recorded, and the result is every one of them.
+    pub fn from_vars(var: impl Fn(&str) -> Option<String>) -> Result<Self, ConfigErrors> {
+        let vars = Vars {
+            var: &var,
+            errors: RefCell::new(Vec::new()),
+        };
         let mut pool = PoolSettings::default();
-        if let Some(max) = vars.number("DB_MAX_CONNECTIONS")? {
+        if let Some(max) = vars.number("DB_MAX_CONNECTIONS") {
             pool.max_connections = max;
         }
-        if let Some(min) = vars.number("DB_MIN_CONNECTIONS")? {
+        if let Some(min) = vars.number("DB_MIN_CONNECTIONS") {
             pool.min_connections = min;
         }
-        if let Some(secs) = vars.number("DB_ACQUIRE_TIMEOUT_SECS")? {
+        if let Some(secs) = vars.number("DB_ACQUIRE_TIMEOUT_SECS") {
             pool.acquire_timeout = Duration::from_secs(secs);
         }
-        if let Some(secs) = vars.number("DB_IDLE_TIMEOUT_SECS")? {
+        if let Some(secs) = vars.number("DB_IDLE_TIMEOUT_SECS") {
             pool.idle_timeout = Duration::from_secs(secs);
         }
-        if let Some(secs) = vars.number("DB_MAX_LIFETIME_SECS")? {
+        if let Some(secs) = vars.number("DB_MAX_LIFETIME_SECS") {
             pool.max_lifetime = Duration::from_secs(secs);
         }
+        let database_url = vars.required("DATABASE_URL");
+        let jwt_secret = vars.secret("JWT_SECRET", MIN_JWT_SECRET_BYTES);
+        let jwt_ttl = vars.number("JWT_TTL").unwrap_or(DEFAULT_JWT_TTL_SECS);
+        let totp_encryption_key = vars.key("TOTP_ENCRYPTION_KEY");
         let mail_transport = match var("MAIL_TRANSPORT").as_deref() {
             None | Some("log") => MailTransport::Log,
             Some("smtp") => MailTransport::Smtp,
             Some(other) => {
-                return Err(ConfigError::NotOneOf {
+                vars.fail(ConfigError::NotOneOf {
                     name: "MAIL_TRANSPORT",
                     value: other.to_owned(),
                     expected: "log, smtp",
                 });
+                MailTransport::Log
             }
         };
         let smtp_url = match mail_transport {
-            MailTransport::Smtp => Some(vars.required("SMTP_URL")?),
+            MailTransport::Smtp => Some(vars.required("SMTP_URL")),
             MailTransport::Log => var("SMTP_URL"),
         };
-        Ok(Config {
-            database_url: vars.required("DATABASE_URL")?,
+        let config = Config {
+            database_url,
             bind_addr: var("BIND_ADDR").unwrap_or_else(|| DEFAULT_BIND_ADDR.to_owned()),
-            jwt_secret: vars.secret("JWT_SECRET", MIN_JWT_SECRET_BYTES)?,
-            jwt_ttl: Duration::from_secs(vars.number("JWT_TTL")?.unwrap_or(DEFAULT_JWT_TTL_SECS)),
-            totp_encryption_key: vars.key("TOTP_ENCRYPTION_KEY")?,
-            require_verified_email: vars.flag("REQUIRE_VERIFIED_EMAIL")?.unwrap_or(true),
+            jwt_secret,
+            jwt_ttl: Duration::from_secs(jwt_ttl),
+            totp_encryption_key,
+            require_verified_email: vars.flag("REQUIRE_VERIFIED_EMAIL").unwrap_or(true),
             app_url: var("APP_URL").unwrap_or_else(|| DEFAULT_APP_URL.to_owned()),
             mail_transport,
             smtp_url,
             mail_from: var("MAIL_FROM").unwrap_or_else(|| DEFAULT_MAIL_FROM.to_owned()),
-            breach_check: vars.flag("BREACH_CHECK")?.unwrap_or(false),
-            trust_proxy: vars.flag("TRUST_PROXY")?.unwrap_or(false),
+            breach_check: vars.flag("BREACH_CHECK").unwrap_or(false),
+            trust_proxy: vars.flag("TRUST_PROXY").unwrap_or(false),
             auth_rate_limit: vars
-                .number("AUTH_RATE_LIMIT")?
+                .number("AUTH_RATE_LIMIT")
                 .unwrap_or(DEFAULT_AUTH_RATE_LIMIT),
             storage_url: match var("STORAGE_URL") {
-                Some(url) => url.parse().map_err(|_| ConfigError::NotOneOf {
-                    name: "STORAGE_URL",
-                    value: url,
-                    expected: "file://<dir>, s3://<bucket>, memory://",
-                })?,
+                Some(url) => url.parse().unwrap_or_else(|_| {
+                    vars.fail(ConfigError::NotOneOf {
+                        name: "STORAGE_URL",
+                        value: url,
+                        expected: "file://<dir>, s3://<bucket>, memory://",
+                    });
+                    StorageUrl::default_for_development()
+                }),
                 None => StorageUrl::default_for_development(),
             },
             media_max_upload_bytes: vars
-                .number("MEDIA_MAX_UPLOAD_BYTES")?
+                .number("MEDIA_MAX_UPLOAD_BYTES")
                 .unwrap_or(DEFAULT_MEDIA_MAX_UPLOAD_BYTES),
             media_allowed_types: match var("MEDIA_ALLOWED_TYPES") {
                 Some(list) => list
@@ -293,15 +333,15 @@ impl Config {
                     .collect(),
             },
             media_upload_url_ttl: Duration::from_secs(
-                vars.number("MEDIA_UPLOAD_URL_TTL_SECS")?
+                vars.number("MEDIA_UPLOAD_URL_TTL_SECS")
                     .unwrap_or(DEFAULT_MEDIA_UPLOAD_URL_TTL_SECS),
             ),
             media_download_url_ttl: Duration::from_secs(
-                vars.number("MEDIA_DOWNLOAD_URL_TTL_SECS")?
+                vars.number("MEDIA_DOWNLOAD_URL_TTL_SECS")
                     .unwrap_or(DEFAULT_MEDIA_DOWNLOAD_URL_TTL_SECS),
             ),
             media_upload_sweep: match vars
-                .number("MEDIA_UPLOAD_SWEEP_SECS")?
+                .number("MEDIA_UPLOAD_SWEEP_SECS")
                 .unwrap_or(DEFAULT_MEDIA_UPLOAD_SWEEP_SECS)
             {
                 0 => None,
@@ -309,262 +349,181 @@ impl Config {
             },
             storage_public_endpoint: var("STORAGE_PUBLIC_ENDPOINT").filter(|url| !url.is_empty()),
             pool,
-        })
+        };
+        let errors = vars.errors.into_inner();
+        if errors.is_empty() {
+            Ok(config)
+        } else {
+            Err(ConfigErrors(errors))
+        }
+    }
+
+    /// The settings as `NAME=value` pairs, one per line, for the start-up
+    /// log: every secret is its length only (`JWT_SECRET=<34 bytes>`), and
+    /// a URL's password is `<redacted>`.
+    #[must_use]
+    pub fn summary(&self) -> String {
+        let secs = |duration: Duration| duration.as_secs().to_string();
+        let flag = |on: bool| on.to_string();
+        let unset = || "<unset>".to_owned();
+        let settings = [
+            ("DATABASE_URL", redact_url(&self.database_url)),
+            ("BIND_ADDR", self.bind_addr.clone()),
+            ("JWT_SECRET", format!("<{} bytes>", self.jwt_secret.len())),
+            ("JWT_TTL", secs(self.jwt_ttl)),
+            (
+                "TOTP_ENCRYPTION_KEY",
+                format!("<{} bytes>", self.totp_encryption_key.len()),
+            ),
+            ("REQUIRE_VERIFIED_EMAIL", flag(self.require_verified_email)),
+            ("APP_URL", self.app_url.clone()),
+            (
+                "MAIL_TRANSPORT",
+                match self.mail_transport {
+                    MailTransport::Log => "log".to_owned(),
+                    MailTransport::Smtp => "smtp".to_owned(),
+                },
+            ),
+            (
+                "SMTP_URL",
+                self.smtp_url.as_deref().map_or_else(unset, redact_url),
+            ),
+            ("MAIL_FROM", self.mail_from.clone()),
+            ("BREACH_CHECK", flag(self.breach_check)),
+            ("TRUST_PROXY", flag(self.trust_proxy)),
+            ("AUTH_RATE_LIMIT", self.auth_rate_limit.to_string()),
+            ("STORAGE_URL", self.storage_url.to_string()),
+            (
+                "MEDIA_MAX_UPLOAD_BYTES",
+                self.media_max_upload_bytes.to_string(),
+            ),
+            ("MEDIA_ALLOWED_TYPES", self.media_allowed_types.join(",")),
+            ("MEDIA_UPLOAD_URL_TTL_SECS", secs(self.media_upload_url_ttl)),
+            (
+                "MEDIA_DOWNLOAD_URL_TTL_SECS",
+                secs(self.media_download_url_ttl),
+            ),
+            (
+                "MEDIA_UPLOAD_SWEEP_SECS",
+                self.media_upload_sweep.map_or_else(|| "0".to_owned(), secs),
+            ),
+            (
+                "STORAGE_PUBLIC_ENDPOINT",
+                self.storage_public_endpoint.clone().unwrap_or_else(unset),
+            ),
+            ("DB_MAX_CONNECTIONS", self.pool.max_connections.to_string()),
+            ("DB_MIN_CONNECTIONS", self.pool.min_connections.to_string()),
+            ("DB_ACQUIRE_TIMEOUT_SECS", secs(self.pool.acquire_timeout)),
+            ("DB_IDLE_TIMEOUT_SECS", secs(self.pool.idle_timeout)),
+            ("DB_MAX_LIFETIME_SECS", secs(self.pool.max_lifetime)),
+        ];
+        settings
+            .iter()
+            .map(|(name, value)| format!("{name}={value}"))
+            .collect::<Vec<_>>()
+            .join("\n")
     }
 }
 
-/// The variables, read through a lookup.
-struct Vars<'a>(&'a dyn Fn(&str) -> Option<String>);
+/// `url` with the password of its user info, if it has one, as
+/// `<redacted>`: `postgres://app:<redacted>@db/app`.
+fn redact_url(url: &str) -> String {
+    let Some((scheme, rest)) = url.split_once("://") else {
+        return url.to_owned();
+    };
+    let authority_end = rest.find('/').unwrap_or(rest.len());
+    let Some((user_info, _)) = rest[..authority_end].rsplit_once('@') else {
+        return url.to_owned();
+    };
+    match user_info.split_once(':') {
+        Some((user, _)) => format!("{scheme}://{user}:<redacted>{}", &rest[user_info.len()..]),
+        None => url.to_owned(),
+    }
+}
+
+/// The variables, read through a lookup, and every failure met reading
+/// them. A reader that fails records it and answers a stand-in, so the
+/// reading goes on to the next variable.
+struct Vars<'a> {
+    var: &'a dyn Fn(&str) -> Option<String>,
+    errors: RefCell<Vec<ConfigError>>,
+}
 
 impl Vars<'_> {
-    /// A variable that must be set.
-    fn required(&self, name: &'static str) -> Result<String, ConfigError> {
-        (self.0)(name).ok_or(ConfigError::Missing(name))
+    /// Records `error`.
+    fn fail(&self, error: ConfigError) {
+        self.errors.borrow_mut().push(error);
+    }
+
+    /// A variable that must be set; empty when it isn't.
+    fn required(&self, name: &'static str) -> String {
+        (self.var)(name).unwrap_or_else(|| {
+            self.fail(ConfigError::Missing(name));
+            String::new()
+        })
     }
 
     /// A key that must be set, at least `min` bytes long.
-    fn secret(&self, name: &'static str, min: usize) -> Result<String, ConfigError> {
-        let value = self.required(name)?;
+    fn secret(&self, name: &'static str, min: usize) -> String {
+        let Some(value) = (self.var)(name) else {
+            self.fail(ConfigError::Missing(name));
+            return String::new();
+        };
         if value.len() < min {
-            return Err(ConfigError::TooShort {
+            self.fail(ConfigError::TooShort {
                 name,
                 len: value.len(),
                 min,
             });
         }
-        Ok(value)
+        value
     }
 
     /// A key that must be set: base64 (standard, padded) of exactly
-    /// [`TOTP_KEY_BYTES`] bytes.
-    fn key(&self, name: &'static str) -> Result<[u8; TOTP_KEY_BYTES], ConfigError> {
-        let value = self.required(name)?;
+    /// [`TOTP_KEY_BYTES`] bytes; zeros when it isn't.
+    fn key(&self, name: &'static str) -> [u8; TOTP_KEY_BYTES] {
+        let Some(value) = (self.var)(name) else {
+            self.fail(ConfigError::Missing(name));
+            return [0; TOTP_KEY_BYTES];
+        };
         STANDARD
             .decode(value.trim())
             .ok()
             .and_then(|bytes| <[u8; TOTP_KEY_BYTES]>::try_from(bytes).ok())
-            .ok_or(ConfigError::NotAKey {
-                name,
-                bytes: TOTP_KEY_BYTES,
+            .unwrap_or_else(|| {
+                self.fail(ConfigError::NotAKey {
+                    name,
+                    bytes: TOTP_KEY_BYTES,
+                });
+                [0; TOTP_KEY_BYTES]
             })
     }
 
-    /// A whole number, when the variable is set.
-    fn number<T: FromStr>(&self, name: &'static str) -> Result<Option<T>, ConfigError> {
-        match (self.0)(name) {
-            Some(value) => value
-                .parse()
-                .map(Some)
-                .map_err(|_| ConfigError::NotANumber { name, value }),
-            None => Ok(None),
+    /// A whole number, when the variable is set and is one.
+    fn number<T: FromStr>(&self, name: &'static str) -> Option<T> {
+        let value = (self.var)(name)?;
+        if let Ok(number) = value.parse() {
+            Some(number)
+        } else {
+            self.fail(ConfigError::NotANumber { name, value });
+            None
         }
     }
 
-    /// A boolean, when the variable is set.
-    fn flag(&self, name: &'static str) -> Result<Option<bool>, ConfigError> {
-        match (self.0)(name).as_deref() {
-            None => Ok(None),
-            Some("true" | "1") => Ok(Some(true)),
-            Some("false" | "0") => Ok(Some(false)),
-            Some(other) => Err(ConfigError::NotOneOf {
-                name,
-                value: other.to_owned(),
-                expected: "true, false",
-            }),
+    /// A boolean, when the variable is set and is one.
+    fn flag(&self, name: &'static str) -> Option<bool> {
+        match (self.var)(name).as_deref() {
+            None => None,
+            Some("true" | "1") => Some(true),
+            Some("false" | "0") => Some(false),
+            Some(other) => {
+                self.fail(ConfigError::NotOneOf {
+                    name,
+                    value: other.to_owned(),
+                    expected: "true, false",
+                });
+                None
+            }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use std::collections::HashMap;
-
-    use super::*;
-
-    /// The settings read from `vars` alone.
-    fn read(vars: &[(&str, &str)]) -> Result<Config, ConfigError> {
-        let vars: HashMap<String, String> = vars
-            .iter()
-            .map(|(name, value)| ((*name).to_owned(), (*value).to_owned()))
-            .collect();
-        Config::from_vars(|name| vars.get(name).cloned())
-    }
-
-    /// Base64 of the 32 bytes `01234567890123456789012345678901`.
-    const TOTP_KEY: &str = "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=";
-
-    const REQUIRED: &[(&str, &str)] = &[
-        ("DATABASE_URL", "postgres://db"),
-        ("JWT_SECRET", "a test secret of at least 32 bytes"),
-        ("TOTP_ENCRYPTION_KEY", TOTP_KEY),
-    ];
-
-    #[test]
-    fn the_auth_settings_default_for_development() -> Result<(), ConfigError> {
-        let config = read(REQUIRED)?;
-        assert_eq!(config.jwt_ttl, Duration::from_secs(3600));
-        assert!(config.require_verified_email);
-        assert_eq!(config.app_url, "http://localhost:8080");
-        assert_eq!(config.mail_transport, MailTransport::Log);
-        assert_eq!(config.smtp_url, None);
-        assert_eq!(config.mail_from, "Axum API <no-reply@localhost>");
-        assert!(!config.breach_check);
-        assert!(!config.trust_proxy);
-        assert_eq!(config.auth_rate_limit, 20);
-        Ok(())
-    }
-
-    #[test]
-    fn the_auth_settings_are_read() -> Result<(), ConfigError> {
-        let mut vars = REQUIRED.to_vec();
-        vars.extend([
-            ("JWT_TTL", "900"),
-            ("REQUIRE_VERIFIED_EMAIL", "false"),
-            ("APP_URL", "https://app.example.com"),
-            ("MAIL_TRANSPORT", "smtp"),
-            ("SMTP_URL", "smtps://u:p@mail.example.com"),
-            ("MAIL_FROM", "App <hi@example.com>"),
-            ("BREACH_CHECK", "1"),
-            ("TRUST_PROXY", "true"),
-            ("AUTH_RATE_LIMIT", "5"),
-        ]);
-        let config = read(&vars)?;
-        assert_eq!(config.jwt_ttl, Duration::from_secs(900));
-        assert!(!config.require_verified_email);
-        assert_eq!(config.app_url, "https://app.example.com");
-        assert_eq!(config.mail_transport, MailTransport::Smtp);
-        assert_eq!(
-            config.smtp_url.as_deref(),
-            Some("smtps://u:p@mail.example.com")
-        );
-        assert_eq!(config.mail_from, "App <hi@example.com>");
-        assert!(config.breach_check);
-        assert!(config.trust_proxy);
-        assert_eq!(config.auth_rate_limit, 5);
-        Ok(())
-    }
-
-    #[test]
-    fn a_jwt_secret_under_32_bytes_is_refused() {
-        let error = read(&[
-            ("DATABASE_URL", "postgres://db"),
-            ("JWT_SECRET", "change-me"),
-        ])
-        .err()
-        .map(|err| err.to_string());
-        assert_eq!(
-            error.as_deref(),
-            Some(
-                "environment variable `JWT_SECRET` is 9 bytes long; it needs at least 32 (try `openssl rand -base64 48`)"
-            )
-        );
-        let secret = "x".repeat(32);
-        assert!(
-            read(&[
-                ("DATABASE_URL", "postgres://db"),
-                ("JWT_SECRET", &secret),
-                ("TOTP_ENCRYPTION_KEY", TOTP_KEY),
-            ])
-            .is_ok()
-        );
-    }
-
-    #[test]
-    fn smtp_needs_its_url_and_values_are_checked() {
-        let mut vars = REQUIRED.to_vec();
-        vars.push(("MAIL_TRANSPORT", "smtp"));
-        let error = read(&vars).err().map(|err| err.to_string());
-        assert_eq!(
-            error.as_deref(),
-            Some("environment variable `SMTP_URL` is not set")
-        );
-
-        let mut vars = REQUIRED.to_vec();
-        vars.push(("TRUST_PROXY", "yes"));
-        let error = read(&vars).err().map(|err| err.to_string());
-        assert_eq!(
-            error.as_deref(),
-            Some("environment variable `TRUST_PROXY` is `yes`, which is not one of true, false")
-        );
-
-        let mut vars = REQUIRED.to_vec();
-        vars.push(("MAIL_TRANSPORT", "carrier-pigeon"));
-        let error = read(&vars).err().map(|err| err.to_string());
-        assert_eq!(
-            error.as_deref(),
-            Some(
-                "environment variable `MAIL_TRANSPORT` is `carrier-pigeon`, which is not one of log, smtp"
-            )
-        );
-    }
-
-    #[test]
-    fn the_media_settings_default_and_are_read() -> Result<(), ConfigError> {
-        let config = read(REQUIRED)?;
-        assert_eq!(config.storage_url, StorageUrl::default_for_development());
-        assert_eq!(config.media_max_upload_bytes, 10 * 1024 * 1024);
-        assert_eq!(
-            config.media_allowed_types,
-            [
-                "image/jpeg",
-                "image/png",
-                "image/webp",
-                "image/gif",
-                "application/pdf"
-            ]
-        );
-
-        let mut vars = REQUIRED.to_vec();
-        vars.extend([
-            ("STORAGE_URL", "s3://uploads"),
-            ("MEDIA_MAX_UPLOAD_BYTES", "1024"),
-            ("MEDIA_ALLOWED_TYPES", " image/png , application/pdf,"),
-        ]);
-        let config = read(&vars)?;
-        assert_eq!(config.storage_url, StorageUrl::S3("uploads".to_owned()));
-        assert_eq!(config.media_max_upload_bytes, 1024);
-        assert_eq!(config.media_allowed_types, ["image/png", "application/pdf"]);
-
-        let mut vars = REQUIRED.to_vec();
-        vars.push(("STORAGE_URL", "ftp://files"));
-        let error = read(&vars).err().map(|err| err.to_string());
-        assert_eq!(
-            error.as_deref(),
-            Some(
-                "environment variable `STORAGE_URL` is `ftp://files`, which is not one of file://<dir>, s3://<bucket>, memory://"
-            )
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn the_totp_key_is_32_bytes_in_base64() -> Result<(), ConfigError> {
-        assert_eq!(
-            &read(REQUIRED)?.totp_encryption_key,
-            b"01234567890123456789012345678901"
-        );
-        let refusal = Some(
-            "environment variable `TOTP_ENCRYPTION_KEY` is not 32 bytes in base64 (try `openssl rand -base64 32`)",
-        );
-        for key in [
-            "",
-            "not base64!",
-            "c2hvcnQ=",
-            "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDEy",
-        ] {
-            let mut vars = REQUIRED.to_vec();
-            vars.retain(|(name, _)| *name != "TOTP_ENCRYPTION_KEY");
-            vars.push(("TOTP_ENCRYPTION_KEY", key));
-            let error = read(&vars).err().map(|err| err.to_string());
-            assert_eq!(error.as_deref(), refusal, "{key}");
-        }
-        let mut vars = REQUIRED.to_vec();
-        vars.retain(|(name, _)| *name != "TOTP_ENCRYPTION_KEY");
-        let error = read(&vars).err().map(|err| err.to_string());
-        assert_eq!(
-            error.as_deref(),
-            Some("environment variable `TOTP_ENCRYPTION_KEY` is not set")
-        );
-        Ok(())
     }
 }

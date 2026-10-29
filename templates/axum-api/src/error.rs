@@ -43,7 +43,7 @@ pub enum AppError {
     /// `404 not_found`: no such row, or another caller's.
     #[error("{0}")]
     NotFound(String),
-    /// `408 request_timeout`: the request took longer than `app.rs`'
+    /// `408 request_timeout`: the request took longer than `app/`'s
     /// timeout (`time_out`).
     #[error("{0}")]
     RequestTimeout(String),

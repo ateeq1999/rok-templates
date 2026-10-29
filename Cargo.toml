@@ -1,0 +1,32 @@
+[package]
+name = "rok-templates"
+description = "The project templates `rok sqlc init --template` copies: actix-web and axum APIs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/rok-templates"
+keywords = ["template", "actix-web", "axum", "postgres", "starter"]
+categories = ["development-tools", "web-programming"]
+# Ship what `build.rs` embeds, not a build of a template made in place.
+include = [
+    "/src/**/*.rs",
+    "/build.rs",
+    "/templates/**",
+    "!/templates/*/target/**",
+    "/Cargo.toml",
+    "/README.md",
+    "/LICENSE-MIT",
+    "/LICENSE-APACHE",
+]
+
+[dev-dependencies]
+anyhow = "1"
+tempfile = "3"
+
+[lints]
+workspace = true

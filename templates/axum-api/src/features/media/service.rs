@@ -35,7 +35,7 @@ const KEY_PREFIX: &str = "media/";
 /// How many of an object's first bytes are read to detect its type.
 const SNIFF_BYTES: usize = 8 * 1024;
 
-/// The `media` service, built by `app.rs`.
+/// The `media` service, built by `app/`.
 #[derive(Clone)]
 pub struct MediaService {
     /// The pool the rows are read and written through.
@@ -263,7 +263,7 @@ impl MediaService {
         Ok(keys.len())
     }
 
-    /// Runs [`sweep`](Self::sweep) every `every`, forever: `app.rs` spawns it
+    /// Runs [`sweep`](Self::sweep) every `every`, forever: `app/` spawns it
     /// beside the server. A failed sweep is logged and tried again later.
     pub async fn sweep_every(self, every: Duration) {
         let mut ticks = tokio::time::interval(every);

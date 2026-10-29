@@ -22,7 +22,7 @@ use crate::shared::thumbnail;
 /// `avatars/<file>`, and `users.avatar_url` is `/api/v1/avatars/<file>`.
 const AVATAR_PREFIX: &str = "avatars/";
 
-/// The `account` service, built by `app.rs`.
+/// The `account` service, built by `app/`.
 #[derive(Clone)]
 pub struct AccountService {
     /// The pool the service reads and writes through.

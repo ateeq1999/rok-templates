@@ -162,7 +162,8 @@ off).
 
 ## The server
 
-`src/app.rs` is the only wiring file. `AppState` (`#[derive(FromRef)]`)
+`src/app/` is the only wiring: `state.rs`, `router.rs`, `run.rs` and
+`ports.rs`, one part each. `AppState` (`#[derive(FromRef)]`)
 holds the pool, the generated features' `Services`, the JWT keys, the mail
 outbox and templates, the breach check and the rate limit; a handler takes
 any of them with `State<...>`. `router(state)` merges health, Swagger UI
@@ -281,7 +282,7 @@ and rate-limit tests need no database. The lints in `Cargo.toml` deny
   `mod.rs` and each feature's `service.rs`.
 - **Yours** (first line `Scaffolded once`, or no header): `rok-data-sqlc.toml`,
   `schema/` (the truth: the `.sql` files `rok sqlc g` reads), `queries/`,
-  `src/{lib,main,app,config,error,openapi}.rs`,
+  `src/{lib,main,config,error,openapi}.rs`, `src/app/`,
   `src/shared/{mod,auth}.rs`, `src/shared/rate_limit/`,
   `src/shared/security/`, `src/shared/mail/`, `src/shared/storage/`,
   `src/shared/thumbnail.rs`,
@@ -339,7 +340,7 @@ reason: `avatar_url` (uploads, on every `UserResponse`), and the
 
 The framework-independent files are the same in both templates, byte for
 byte: `migrations/`, `queries/`, `src/shared/security/`, `src/shared/mail/`,
-`src/shared/storage/`
+`src/shared/storage/`, `src/app/ports.rs`
 and each feature's `dto.rs`, `model.rs`, `repo.rs`, `service.rs` and
 `service_api.rs`, the hand-written `auth`, `account` and `media` included:
 they differ only in their handlers and routes. This repository checks that

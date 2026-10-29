@@ -1,7 +1,7 @@
-//! Embeds the project templates of `rok-sqlc init --template` (the
-//! directories of `templates/`) in the binary, so `init` works from
+//! Embeds the project templates of `rok sqlc init --template` (the
+//! directories of `templates/`) in the crate, so `init` works from
 //! `cargo install`. It writes `$OUT_DIR/templates.rs`: one `Embedded` (see
-//! `src/init/template.rs`) per template, its directory and its files, each
+//! `src/lib.rs`) per template, its directory and its files, each
 //! a `File`: its path (relative, with `/`) and its bytes through
 //! `include_bytes!`. A template's
 //! top-level `target/` (a build of it in place) is left out; everything

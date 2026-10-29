@@ -3,7 +3,7 @@
 //! Who is calling: the [`AuthUser`] and [`AdminUser`] extractors.
 //!
 //! Each verifies the HS256 JWT from `Authorization: Bearer <token>` with the
-//! [`JwtKeys`] that `app.rs` registers as app data, then loads the account
+//! [`JwtKeys`] that `app/` registers as app data, then loads the account
 //! with one query (`db::queries::session::session_state`, on the
 //! `web::Data<PgPool>` app data): its `token_version`, whether it is active,
 //! and its role. A missing or invalid token, a soft-deleted or disabled

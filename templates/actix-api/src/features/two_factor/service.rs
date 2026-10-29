@@ -29,7 +29,7 @@ use crate::shared::security::password::{self, LOCK_MINUTES, MAX_FAILED_LOGINS};
 use crate::shared::security::token;
 use crate::shared::security::totp::{self, TotpCipher};
 
-/// The `two_factor` service, built by `app.rs`.
+/// The `two_factor` service, built by `app/`.
 #[derive(Clone)]
 pub struct TwoFactorService {
     /// The pool the flows read and write through.

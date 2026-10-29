@@ -1,7 +1,7 @@
 // Scaffolded once by rok-data-sqlc; this file is yours. It is never regenerated. See docs/guide/architecture.md.
 
 //! Starts the server. Nothing else: the modules are declared in `lib.rs`,
-//! wiring lives in `app.rs`, settings in `config.rs`.
+//! wiring lives in `app/`, settings in `config.rs`.
 
 use std::process::ExitCode;
 
@@ -20,7 +20,7 @@ async fn main() -> ExitCode {
     };
     match started {
         Ok(()) => ExitCode::SUCCESS,
-        // One readable line, such as "error: environment variable
+        // One readable line per wrong setting, such as "error: environment variable
         // `JWT_SECRET` is not set", and a non-zero exit.
         Err(err) => {
             eprintln!("error: {err}");

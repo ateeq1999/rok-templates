@@ -16,7 +16,7 @@ use crate::shared::rate_limit::RateLimit;
 /// `/auth` rate `limit` like the rest of `/auth`. axum's router prefers a
 /// static segment to a capture, so the generated `users` feature's
 /// `/api/v1/users/{id}` never takes `/api/v1/users/me`, whatever the
-/// order `app.rs` merges them in. `PUT /api/v1/users/me/avatar` reads a
+/// order `app/` merges them in. `PUT /api/v1/users/me/avatar` reads a
 /// raw body of at most 2 MiB, its own `DefaultBodyLimit`.
 pub fn routes(limit: &RateLimit) -> Router<AppState> {
     let auth_me = Router::new()
