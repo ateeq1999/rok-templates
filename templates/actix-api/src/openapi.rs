@@ -38,6 +38,9 @@ use crate::features::GeneratedApiDoc;
         crate::features::api_keys::handlers::list,
         crate::features::api_keys::handlers::create,
         crate::features::api_keys::handlers::revoke,
+        crate::features::jobs::handlers::list,
+        crate::features::jobs::handlers::retry,
+        crate::features::jobs::handlers::cancel,
         crate::features::media::handlers::list,
         crate::features::media::handlers::upload,
         crate::features::media::handlers::metadata,
@@ -50,7 +53,7 @@ use crate::features::GeneratedApiDoc;
         crate::features::media::handlers::get_object,
     ),
     components(schemas()),
-    tags((name = "auth"), (name = "api-keys")),
+    tags((name = "auth"), (name = "api-keys"), (name = "jobs")),
 )]
 pub struct ApiDoc;
 

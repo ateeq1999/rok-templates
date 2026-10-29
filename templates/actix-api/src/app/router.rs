@@ -3,6 +3,8 @@
 //! [`app`]: the whole application over an [`AppState`], its services and
 //! routes ([`configure`]) wrapped in the middleware.
 
+use std::sync::Arc;
+
 use actix_web::body::MessageBody;
 use actix_web::dev::{ServiceFactory, ServiceRequest, ServiceResponse};
 use actix_web::middleware::from_fn;
@@ -10,14 +12,16 @@ use actix_web::{App, web};
 use tracing_actix_web::TracingLogger;
 use utoipa_swagger_ui::SwaggerUi;
 
-use super::AppState;
 use super::middleware::{
     GlobalRateLimit, RequestSpan, catch_panic, cors, global_rate_limit, record_metrics, request_id,
     security_headers,
 };
+use super::{AppState, AuditLog};
 use crate::features::account::{self, AccountService};
 use crate::features::api_keys::{self, ApiKeyService};
+use crate::features::audit_log_entry::AuditLogEntryService;
 use crate::features::auth::{self, AuthService};
+use crate::features::jobs::{self, JobService};
 use crate::features::two_factor::{self, TwoFactorService};
 use crate::features::{configure_all, media, register_services};
 use crate::openapi::document;
@@ -92,9 +96,15 @@ pub fn configure(cfg: &mut web::ServiceConfig, state: &AppState) {
     health::routes(cfg);
     cfg.service(web::redirect("/docs", "/docs/").see_other())
         .service(SwaggerUi::new("/docs/{_:.*}").url("/api-docs/openapi.json", document()));
-    cfg.app_data(web::Data::new(ApiKeyService::new(state.pool.clone())));
+    cfg.app_data(web::Data::new(ApiKeyService::new(state.pool.clone())))
+        .app_data(web::Data::new(JobService {
+            pool: state.pool.clone(),
+            queue: state.queue.clone(),
+            audit: Arc::new(AuditLog(AuditLogEntryService::new(state.pool.clone()))),
+        }));
     account::routes(cfg, &state.rate_limit);
     api_keys::routes(cfg);
+    jobs::routes(cfg);
     two_factor::routes(cfg, &state.rate_limit);
     auth::routes(cfg, &state.rate_limit);
     media::routes(cfg);

@@ -60,7 +60,7 @@ const FEATURE_FILES: &[&str] = &["dto.rs", "model.rs", "repo.rs", "service_api.r
 /// The hand-written features (the account flows, API keys and uploads) whose
 /// [`HAND_WRITTEN_FILES`] both templates share: they have no `model.rs`,
 /// `repo.rs` or `service_api.rs`.
-const HAND_WRITTEN: &[&str] = &["auth", "account", "api_keys", "media", "two_factor"];
+const HAND_WRITTEN: &[&str] = &["auth", "account", "api_keys", "jobs", "media", "two_factor"];
 
 /// The files of a hand-written feature no framework shows through.
 const HAND_WRITTEN_FILES: &[&str] = &["dto.rs", "service.rs"];

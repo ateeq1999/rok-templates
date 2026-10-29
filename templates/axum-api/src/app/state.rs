@@ -15,6 +15,7 @@ use crate::features::api_keys::ApiKeyService;
 use crate::features::audit_log_entry::AuditLogEntryService;
 use crate::features::auth::AuthService;
 use crate::features::auth::service::AuditTrail;
+use crate::features::jobs::JobService;
 use crate::features::media::MediaService;
 use crate::features::two_factor::TwoFactorService;
 use crate::shared::jobs::Queue;
@@ -57,6 +58,8 @@ pub struct AppState {
     pub two_factor: Arc<TwoFactorService>,
     /// `account`'s service, its profile photos in `storage`.
     pub account: Arc<AccountService>,
+    /// `jobs`'s service: the queue, for admins.
+    pub jobs: Arc<JobService>,
     /// `api_keys`'s service.
     pub api_keys: Arc<ApiKeyService>,
     /// Where uploaded bytes are stored: the store `STORAGE_URL` names,
@@ -132,6 +135,11 @@ impl AppState {
             media,
             account,
             api_keys: Arc::new(ApiKeyService::new(pool.clone())),
+            jobs: Arc::new(JobService {
+                pool: pool.clone(),
+                queue: queue.clone(),
+                audit: Arc::new(AuditLog(AuditLogEntryService::new(pool.clone()))),
+            }),
             auth,
             two_factor,
             pool,

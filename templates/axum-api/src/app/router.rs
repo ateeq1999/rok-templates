@@ -19,7 +19,7 @@ use super::middleware::{
 };
 use crate::error::AppError;
 use crate::features;
-use crate::features::{account, api_keys, auth, media, two_factor};
+use crate::features::{account, api_keys, auth, jobs, media, two_factor};
 use crate::openapi::document;
 use crate::shared::health;
 
@@ -57,6 +57,7 @@ pub fn router(state: AppState) -> Router {
         .merge(account::routes(&state.rate_limit))
         .merge(auth::routes(&state.rate_limit))
         .merge(api_keys::routes())
+        .merge(jobs::routes())
         .merge(two_factor::routes(&state.rate_limit))
         .merge(media::routes(state.media.max_upload_bytes))
         .with_state(state);

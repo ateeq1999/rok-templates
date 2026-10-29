@@ -24,12 +24,12 @@ src/
 ├─ config.rs      reads env vars into one Config (the ONLY env reader)
 ├─ error.rs       AppError and its HTTP mapping, shared by all features
 ├─ db/            generated data layer: rows, typed ids, enums, all SQL, pool.rs
-├─ shared/        tools with no business meaning (auth.rs, security/, mail/
+├─ shared/        tools with no business meaning (auth.rs, security/, mail/, jobs/,
 │                 and rate_limit/ are yours; response, pagination, validation,
 │                 tenant, health are generated)
 └─ features/
    ├─ mod.rs        `mod generated; pub use generated::*;` plus hand-written features
-   │                (`account`, `auth`: the generated layout, without model/repo)
+   │                (`account`, `auth`, `jobs` …: the generated layout, without model/repo)
    ├─ generated.rs  generated: declares the features; `register_services` and `configure_all`
    └─ <feature>/
       ├─ mod.rs          generated: re-exports routes, the service and the trait

@@ -84,6 +84,18 @@ running at once. A pattern that doesn't parse stops the start-up. Tests
 call `Schedule::tick_at(pool, queue, now)` with the clock they want
 (`tests/schedule.rs`).
 
+### Failed jobs
+
+A `dead` job stays in `jobs` with its `last_error` until someone acts. The
+hand-written `jobs` feature is that someone, for admins (`AdminUser`):
+`GET /api/v1/jobs?status=dead&kind=mail.send` lists them (newest first,
+paginated; a job's payload is never answered, since a pending mail's holds
+its link), `POST /api/v1/jobs/{id}/retry` puts a dead job back in the
+queue with its attempts at zero, and `DELETE /api/v1/jobs/{id}` cancels a
+pending or dead one (`409` while a worker is running it). Each retry and
+cancellation is in the audit log (`job.retried`, `job.cancelled`, with the
+job and its kind in `details`). Alert on `jobs_queued{state="dead"}`.
+
 ### Processes: `APP_ROLE`
 
 One image runs any part: `APP_ROLE=all` (the default) serves the API and
@@ -428,7 +440,8 @@ and rate-limit tests need no database. The lints in `Cargo.toml` deny
   `src/shared/{mod,auth}.rs`, `src/shared/rate_limit/`,
   `src/shared/security/`, `src/shared/mail/`, `src/shared/storage/`,
   `src/shared/thumbnail.rs`,
-  `src/features/mod.rs`, the hand-written `src/features/{auth,account,media}/`,
+  `src/features/mod.rs`, the hand-written
+  `src/features/{account,api_keys,auth,jobs,media,two_factor}/`,
   each feature's `service.rs` (business rules go there), `tests/`, and this README.
 - **Generated**: `migrations/` is the history — `rok gen --migration` (the
   workspace CLI) stages its pairs and refreshes `.rok-schema.json`; never
