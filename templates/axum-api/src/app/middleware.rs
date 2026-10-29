@@ -7,6 +7,7 @@
 
 use std::any::Any;
 use std::sync::Arc;
+use std::time::Instant;
 
 use axum::extract::{MatchedPath, Request, State};
 use axum::http::{HeaderName, HeaderValue, Method};
@@ -21,7 +22,7 @@ use crate::error::AppError;
 use crate::shared::security::headers::{
     self, CORS_EXPOSED_HEADERS, CORS_HEADERS, CORS_MAX_AGE, CORS_METHODS, CorsOrigins,
 };
-use crate::shared::telemetry;
+use crate::shared::{metrics, telemetry};
 
 /// The security headers, ready to set: [`headers::security_headers`] for
 /// `https`.
@@ -121,6 +122,27 @@ pub fn request_span(request: &Request) -> Span {
         header("tracestate"),
     ));
     span
+}
+
+/// Counts and times every answered request by method, route and status
+/// (`from_fn(record_metrics)`); a no-op until `METRICS_ADDR` installs the
+/// recorder. A path no route matched counts as one `unmatched` route.
+pub async fn record_metrics(request: Request, next: Next) -> Response {
+    let method = request.method().to_string();
+    let route = request
+        .extensions()
+        .get::<MatchedPath>()
+        .map_or(metrics::UNMATCHED_ROUTE, MatchedPath::as_str)
+        .to_owned();
+    let started = Instant::now();
+    let response = next.run(request).await;
+    metrics::record_request(
+        &method,
+        &route,
+        response.status().as_u16(),
+        started.elapsed(),
+    );
+    response
 }
 
 /// A layer that answers a request whose handler panicked with the wire

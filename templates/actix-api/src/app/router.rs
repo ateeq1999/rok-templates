@@ -12,7 +12,7 @@ use utoipa_swagger_ui::SwaggerUi;
 
 use super::AppState;
 use super::middleware::{
-    GlobalRateLimit, RequestSpan, catch_panic, cors, global_rate_limit, request_id,
+    GlobalRateLimit, RequestSpan, catch_panic, cors, global_rate_limit, record_metrics, request_id,
     security_headers,
 };
 use crate::features::account::{self, AccountService};
@@ -47,6 +47,7 @@ pub fn app(
         .configure(|cfg| configure(cfg, &state))
         .wrap(from_fn(global_rate_limit))
         .wrap(from_fn(catch_panic))
+        .wrap(from_fn(record_metrics))
         .wrap(cors(&state.cors_allowed_origins))
         .wrap(security_headers(state.https))
         .wrap(from_fn(request_id))

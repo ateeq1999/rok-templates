@@ -54,6 +54,27 @@ variables:
   `tracing::info_span!`, nests under the request's span and is exported
   with it; no other wiring.
 
+## Metrics
+
+Set `METRICS_ADDR` (`0.0.0.0:9090` in a container, `127.0.0.1:9090` on
+your machine) and `/metrics` is served there in Prometheus's text format,
+on a listener of its own: the API's port never shows it, so keep the
+metrics port off the internet and let Prometheus scrape it. Unset, nothing
+is recorded or listens. `src/shared/metrics.rs` (the same in both
+templates) lists what is measured:
+
+- `http_requests_total` and `http_request_duration_seconds`, by method,
+  route (the matched pattern, so `/api/v1/users/{id}` is one series; a
+  path no route matched is `unmatched`) and status;
+- `db_pool_connections{state="idle"|"in_use"}` and
+  `db_pool_max_connections`, read every 15 seconds;
+- `auth_logins_total{outcome}` (`success`, `two_factor`,
+  `bad_credentials`, `locked`, `forbidden`) and `auth_lockouts_total`.
+
+Add your own with the `metrics` macros anywhere
+(`metrics::counter!("orders_placed_total").increment(1)`). Keep a label to
+a few known values: a label per user or per id is a series per user.
+
 ## Security
 
 Every answer passes through `src/app/middleware.rs`, over what
@@ -248,6 +269,8 @@ image = { version = "0.25", default-features = false, features = ["jpeg", "png",
 infer = { version = "0.22", default-features = false }
 jsonwebtoken = { version = "11", features = ["rust_crypto"] }
 lettre = { version = "0.11", default-features = false, features = ["builder", "hostname", "smtp-transport", "tokio1-rustls-tls"] }
+metrics = "0.24"
+metrics-exporter-prometheus = { version = "0.18", default-features = false, features = ["http-listener"] }
 object_store = { version = "0.13", features = ["aws"] }
 opentelemetry = { version = "0.32", default-features = false, features = ["trace"] }
 opentelemetry-otlp = { version = "0.32", default-features = false, features = ["trace", "http-proto", "reqwest-blocking-client", "reqwest-rustls"] }

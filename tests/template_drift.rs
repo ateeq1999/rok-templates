@@ -37,6 +37,11 @@ const SHARED: &[&str] = &[
     "src/app/ports.rs",
     // Logs and traces: the subscriber, `traceparent`, the caller on the span.
     "src/shared/telemetry.rs",
+    // The metrics: their names, the exporter, the pool sampler.
+    "src/shared/metrics.rs",
+    // The settings readers and their errors.
+    "src/shared/settings.rs",
+    "src/shared/mod.rs",
     // `cargo deny check`'s policy.
     "deny.toml",
 ];

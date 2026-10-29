@@ -14,6 +14,7 @@ use crate::config::Config;
 use crate::db::pool::init_pool;
 use crate::features::media::MediaService;
 use crate::shared::mail::{Mailer, Sender, transport};
+use crate::shared::metrics;
 
 /// Logs the settings (secrets left out), connects the pool, then serves the
 /// application on `config.bind_addr` (see [`serve`]) until Ctrl+C or
@@ -25,6 +26,14 @@ pub async fn run(config: Config) -> std::io::Result<()> {
         .map_err(std::io::Error::other)?;
     let mailer = transport::from_config(&config).map_err(std::io::Error::other)?;
     let state = AppState::new(pool, &config).map_err(std::io::Error::other)?;
+    if let Some(addr) = config.metrics_addr {
+        metrics::install(addr).map_err(std::io::Error::other)?;
+        tokio::spawn(metrics::sample_pool(
+            state.pool.clone(),
+            metrics::POOL_SAMPLE_EVERY,
+        ));
+        tracing::info!(%addr, "serving /metrics");
+    }
     if let Some(every) = config.media_upload_sweep {
         tokio::spawn(MediaService::clone(&state.media).sweep_every(every));
     }

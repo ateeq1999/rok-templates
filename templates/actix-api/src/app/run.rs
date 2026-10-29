@@ -8,6 +8,7 @@ use super::{AppState, app};
 use crate::config::Config;
 use crate::db::pool::init_pool;
 use crate::shared::mail::{Sender, transport};
+use crate::shared::metrics;
 
 /// Logs the settings (secrets left out), connects the pool, starts the mail
 /// sender, then serves the application on `config.bind_addr` until the
@@ -25,6 +26,14 @@ pub async fn run(config: Config) -> std::io::Result<()> {
         // A dropped `stop` stops the sender too.
         let _ = stopped.await;
     }));
+    if let Some(addr) = config.metrics_addr {
+        metrics::install(addr).map_err(std::io::Error::other)?;
+        actix_web::rt::spawn(metrics::sample_pool(
+            state.pool.clone(),
+            metrics::POOL_SAMPLE_EVERY,
+        ));
+        tracing::info!(%addr, "serving /metrics");
+    }
     if let Some(every) = state.media_upload_sweep {
         actix_web::rt::spawn(state.media_service().sweep_every(every));
     }

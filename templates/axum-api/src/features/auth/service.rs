@@ -27,6 +27,7 @@ use crate::db::types::{AuthTokenPurpose, Role};
 use crate::db::users::models::{User, UserId};
 use crate::error::AppError;
 use crate::shared::mail::{Outbox, Templates};
+use crate::shared::metrics::{self, LoginOutcome};
 use crate::shared::security::auth_token::{self, invalid_token};
 pub use crate::shared::security::auth_token::{
     EMAIL_CHANGE_TTL_HOURS, INVITATION_TTL_DAYS, PASSWORD_RESET_TTL_HOURS,
@@ -101,20 +102,30 @@ impl AuthService {
             .as_ref()
             .and_then(|account| account.password_hash.clone());
         let matches = password::verify(input.password, stored).await?;
-        let bad_credentials = || AppError::Unauthorized(BAD_CREDENTIALS.to_owned());
-        let account = account.ok_or_else(bad_credentials)?;
+        let refused = |outcome| {
+            metrics::record_login(outcome);
+            AppError::Unauthorized(BAD_CREDENTIALS.to_owned())
+        };
+        let Some(account) = account else {
+            return Err(refused(LoginOutcome::BadCredentials));
+        };
         if account.locked_until.is_some_and(|until| until > Utc::now()) {
-            return Err(bad_credentials());
+            return Err(refused(LoginOutcome::Locked));
         }
         if !matches {
             queries::record_failed_login(&self.pool, account.id, MAX_FAILED_LOGINS, LOCK_MINUTES)
                 .await?;
-            return Err(bad_credentials());
+            if account.failed_logins + 1 >= MAX_FAILED_LOGINS {
+                metrics::record_lockout();
+            }
+            return Err(refused(LoginOutcome::BadCredentials));
         }
         if !account.is_active {
+            metrics::record_login(LoginOutcome::Forbidden);
             return Err(AppError::Forbidden("the account is disabled".to_owned()));
         }
         if self.require_verified_email && !account.email_verified {
+            metrics::record_login(LoginOutcome::Forbidden);
             return Err(AppError::Forbidden(
                 "the email address is not verified yet".to_owned(),
             ));
@@ -131,6 +142,7 @@ impl AuthService {
             )
             .await?;
             tx.commit().await?;
+            metrics::record_login(LoginOutcome::TwoFactor);
             return Ok(LoginResponse::TotpRequired {
                 requires_totp: true,
                 pending_token: pending.raw,
@@ -138,6 +150,7 @@ impl AuthService {
         }
         queries::clear_failed_logins(&self.pool, account.id).await?;
         let session = self.session(account.id, account.role, account.token_version)?;
+        metrics::record_login(LoginOutcome::Success);
         Ok(LoginResponse::Session(session))
     }
 

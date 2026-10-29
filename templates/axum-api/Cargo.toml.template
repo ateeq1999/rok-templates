@@ -21,6 +21,8 @@ image = { version = "0.25", default-features = false, features = ["jpeg", "png",
 infer = { version = "0.22", default-features = false }
 jsonwebtoken = { version = "11", features = ["rust_crypto"] }
 lettre = { version = "0.11", default-features = false, features = ["builder", "hostname", "smtp-transport", "tokio1-rustls-tls"] }
+metrics = "0.24"
+metrics-exporter-prometheus = { version = "0.18", default-features = false, features = ["http-listener"] }
 object_store = { version = "0.13", features = ["aws"] }
 opentelemetry = { version = "0.32", default-features = false, features = ["trace"] }
 opentelemetry-otlp = { version = "0.32", default-features = false, features = ["trace", "http-proto", "reqwest-blocking-client", "reqwest-rustls"] }

@@ -8,6 +8,7 @@
 //! [`app`](super::app) wraps the application in them.
 
 use std::panic::AssertUnwindSafe;
+use std::time::Instant;
 
 use actix_cors::Cors;
 use actix_web::body::{BoxBody, MessageBody};
@@ -20,6 +21,7 @@ use tracing::Span;
 use tracing_actix_web::{DefaultRootSpanBuilder, RequestId, RootSpanBuilder};
 
 use crate::error::AppError;
+use crate::shared::metrics;
 use crate::shared::rate_limit::{FORWARDED_FOR, RateLimit};
 use crate::shared::security::headers::{
     self, CORS_EXPOSED_HEADERS, CORS_HEADERS, CORS_MAX_AGE, CORS_METHODS, CorsOrigins,
@@ -87,6 +89,30 @@ pub async fn request_id(
             .insert(HeaderName::from_static("x-request-id"), value);
     }
     Ok(response)
+}
+
+/// Counts and times every answered request by method, route and status
+/// (`.wrap(from_fn(record_metrics))`), a failed one by its error's status;
+/// a no-op until `METRICS_ADDR` installs the recorder. A path no route
+/// matched counts as one `unmatched` route.
+pub async fn record_metrics(
+    req: ServiceRequest,
+    next: Next<impl MessageBody + 'static>,
+) -> Result<ServiceResponse<impl MessageBody>, Error> {
+    let method = req.method().to_string();
+    let started = Instant::now();
+    let outcome = next.call(req).await;
+    let (route, status) = match &outcome {
+        Ok(response) => (response.request().match_pattern(), response.status()),
+        Err(error) => (None, error.as_response_error().status_code()),
+    };
+    metrics::record_request(
+        &method,
+        route.as_deref().unwrap_or(metrics::UNMATCHED_ROUTE),
+        status.as_u16(),
+        started.elapsed(),
+    );
+    outcome
 }
 
 /// Fails a request whose handler panicked with `AppError::Internal`, which
