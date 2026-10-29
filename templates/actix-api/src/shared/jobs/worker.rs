@@ -11,6 +11,7 @@ use std::time::{Duration, Instant};
 use sqlx::postgres::PgListener;
 use sqlx::{PgConnection, PgPool};
 use tokio::sync::{Notify, watch};
+use tokio::task::JoinSet;
 use tracing::Instrument;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 
@@ -118,18 +119,22 @@ impl Worker {
     pub async fn run(self, shutdown: impl Future<Output = ()>) {
         let worker = Arc::new(self);
         let (stop, stopped) = watch::channel(false);
-        let listening = tokio::spawn(listen(worker.pool.clone(), Arc::clone(&worker.wake)));
-        let slots: Vec<_> = (0..worker.concurrency)
-            .map(|_| tokio::spawn(Arc::clone(&worker).slot(stopped.clone())))
-            .collect();
+        // Both sets abort their tasks when dropped: abandoning this future
+        // (`Background::stop_within` past its grace) abandons the running
+        // jobs, whose transactions roll back and release their claims.
+        let mut listening = JoinSet::new();
+        listening.spawn(listen(worker.pool.clone(), Arc::clone(&worker.wake)));
+        let mut slots = JoinSet::new();
+        for _ in 0..worker.concurrency {
+            slots.spawn(Arc::clone(&worker).slot(stopped.clone()));
+        }
         shutdown.await;
         let _ = stop.send(true);
-        for slot in slots {
-            if let Err(err) = slot.await {
+        while let Some(slot) = slots.join_next().await {
+            if let Err(err) = slot {
                 tracing::error!(error = %err, "a job worker failed");
             }
         }
-        listening.abort();
     }
 
     /// One of [`run`](Self::run)'s slots: runs due jobs one after another,

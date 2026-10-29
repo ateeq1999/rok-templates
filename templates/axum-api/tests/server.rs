@@ -141,3 +141,34 @@ async fn the_web_role_serves_the_api_and_the_worker_role_runs_the_jobs() -> Test
     tokio::time::timeout(Duration::from_secs(5), server).await???;
     db.drop().await
 }
+
+/// On shutdown the server first drains: `/health/ready` answers `503`
+/// (the load balancer stops sending requests) while every request is still
+/// served, for `SHUTDOWN_DELAY_SECS`; then it stops.
+#[tokio::test]
+async fn on_shutdown_the_server_is_unready_but_serving_then_stops() -> TestResult {
+    let Some(db) = Database::fresh().await? else {
+        return Ok(());
+    };
+    let state = support::state_with(&db.pool, &[("SHUTDOWN_DELAY_SECS", "1")])?;
+    let mailer = Arc::new(MemoryMailer::default());
+    let listener = TcpListener::bind("127.0.0.1:0").await?;
+    let addr = listener.local_addr()?;
+    let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
+    let server = tokio::spawn(serve(listener, state, mailer, async {
+        let _ = stopped.await;
+    }));
+    assert!(status(addr, "/health/ready").await?.contains("200"));
+    let _ = stop.send(());
+    tokio::time::sleep(Duration::from_millis(200)).await;
+    assert!(status(addr, "/health/ready").await?.contains("503"));
+    assert!(status(addr, "/health/live").await?.contains("200"));
+    assert!(
+        status(addr, "/api-docs/openapi.json")
+            .await?
+            .contains("200")
+    );
+    tokio::time::timeout(Duration::from_secs(5), server).await???;
+    assert!(TcpStream::connect(addr).await.is_err(), "still listening");
+    db.drop().await
+}

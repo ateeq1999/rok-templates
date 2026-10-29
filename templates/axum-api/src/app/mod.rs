@@ -13,6 +13,6 @@ mod run;
 mod state;
 
 pub use ports::AuditLog;
-pub use router::{router, time_out};
+pub use router::{health_routes, router, time_out};
 pub use run::{run, schedule, serve, serve_as, worker};
 pub use state::AppState;

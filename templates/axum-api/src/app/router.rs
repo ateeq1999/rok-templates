@@ -9,6 +9,7 @@ use axum::Router;
 use axum::extract::{DefaultBodyLimit, Request, State};
 use axum::middleware::{self, Next};
 use axum::response::{IntoResponse, Response};
+use sqlx::PgPool;
 use tower_http::request_id::{MakeRequestUuid, PropagateRequestIdLayer, SetRequestIdLayer};
 use tower_http::trace::TraceLayer;
 use utoipa_swagger_ui::SwaggerUi;
@@ -16,12 +17,14 @@ use utoipa_swagger_ui::SwaggerUi;
 use super::AppState;
 use super::middleware::{
     catch_panic, cors, record_metrics, request_span, security_headers, set_security_headers,
+    unready_while_draining,
 };
 use crate::error::AppError;
 use crate::features;
 use crate::features::{account, api_keys, auth, jobs, media, two_factor};
 use crate::openapi::document;
 use crate::shared::health;
+use crate::shared::shutdown::Draining;
 
 /// The largest request body: 2 MiB. A JSON body over it is a `413`.
 const BODY_LIMIT: usize = 2 * 1024 * 1024;
@@ -53,6 +56,7 @@ pub fn router(state: AppState) -> Router {
     let global_rate_limit = state.global_rate_limit.clone();
     let cors_layer = cors(&state.cors_allowed_origins);
     let headers = security_headers(state.https);
+    let draining = state.draining.clone();
     let hand_written: Router = Router::new()
         .merge(account::routes(&state.rate_limit))
         .merge(auth::routes(&state.rate_limit))
@@ -70,7 +74,7 @@ pub fn router(state: AppState) -> Router {
         .layer(global_rate_limit);
     let extensions = pool.clone();
     Router::new()
-        .merge(health::routes(&pool))
+        .merge(health_routes(&pool, &draining))
         .merge(api)
         .layer(middleware::from_fn(
             move |mut request: Request, next: Next| {
@@ -103,4 +107,14 @@ pub async fn time_out(State(limit): State<Duration>, request: Request, next: Nex
         Err(_) => AppError::RequestTimeout(format!("the request took longer than {limit:?}"))
             .into_response(),
     }
+}
+
+/// `/health/live` and `/health/ready` over `pool`, `/health/ready` answering
+/// `503` once `draining` is set: the whole of what a `worker` serves, and
+/// the part of [`router`] a probe reaches.
+pub fn health_routes(pool: &PgPool, draining: &Draining) -> Router {
+    health::routes(pool).layer(middleware::from_fn_with_state(
+        draining.clone(),
+        unready_while_draining,
+    ))
 }

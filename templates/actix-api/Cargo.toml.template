@@ -42,7 +42,7 @@ sha2 = "0.11"
 sqlx = { version = "0.9", features = ["runtime-tokio", "postgres", "derive", "uuid", "chrono", "json"] }
 subtle = "2"
 thiserror = "2"
-tokio = { version = "1", features = ["macros", "rt", "sync", "time"] }
+tokio = { version = "1", features = ["macros", "rt", "signal", "sync", "time"] }
 totp-rs = { version = "5", features = ["otpauth"] }
 tracing = "0.1"
 tracing-actix-web = { version = "0.7", features = ["opentelemetry_0_32"] }

@@ -3,6 +3,8 @@
 //! [`Background`]: the worker and the scheduler, started together beside
 //! the server and stopped together with it.
 
+use std::time::Duration;
+
 use sqlx::PgPool;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
@@ -37,6 +39,27 @@ impl Background {
         for task in self.tasks {
             if let Err(err) = task.await {
                 tracing::error!(error = %err, "a background task failed");
+            }
+        }
+    }
+
+    /// [`stop`](Self::stop), but a job still running `grace` from now is
+    /// abandoned: its transaction rolls back, so its claim is released and
+    /// no attempt is counted, and it runs again on the next worker.
+    pub async fn stop_within(self, grace: Duration) {
+        let _ = self.stop.send(true);
+        let deadline = tokio::time::Instant::now() + grace;
+        for mut task in self.tasks {
+            match tokio::time::timeout_at(deadline, &mut task).await {
+                Ok(Ok(())) => {}
+                Ok(Err(err)) => tracing::error!(error = %err, "a background task failed"),
+                Err(_) => {
+                    tracing::warn!(
+                        "jobs still running after the shutdown grace: abandoned, they run again"
+                    );
+                    task.abort();
+                    let _ = task.await;
+                }
             }
         }
     }

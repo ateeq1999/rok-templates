@@ -15,17 +15,20 @@ use actix_web::body::{BoxBody, MessageBody};
 use actix_web::dev::{ServiceRequest, ServiceResponse};
 use actix_web::http::header::{HeaderName, HeaderValue};
 use actix_web::middleware::{DefaultHeaders, Next};
-use actix_web::{Error, HttpMessage, ResponseError, web};
+use actix_web::{Error, HttpMessage, HttpResponse, ResponseError, web};
 use futures_util::FutureExt;
 use tracing::Span;
 use tracing_actix_web::{DefaultRootSpanBuilder, RequestId, RootSpanBuilder};
 
 use crate::error::AppError;
+use crate::shared::health::SERVICE_UNAVAILABLE;
 use crate::shared::metrics;
 use crate::shared::rate_limit::{FORWARDED_FOR, RateLimit};
+use crate::shared::response::ErrorBody;
 use crate::shared::security::headers::{
     self, CORS_EXPOSED_HEADERS, CORS_HEADERS, CORS_MAX_AGE, CORS_METHODS, CorsOrigins,
 };
+use crate::shared::shutdown::{DRAINING_MESSAGE, Draining};
 
 /// The security headers for `https`, set on every answer that doesn't
 /// carry them already.
@@ -113,6 +116,28 @@ pub async fn record_metrics(
         started.elapsed(),
     );
     outcome
+}
+
+/// Answers `/health/ready` with `503 service_unavailable` once the
+/// [`Draining`] in the app data is set (`.wrap(from_fn(unready_while_draining))`),
+/// so the load balancer stops sending requests while the process finishes
+/// the ones it has. `/health/live` stays `200`: the process is alive, only
+/// leaving.
+pub async fn unready_while_draining(
+    req: ServiceRequest,
+    next: Next<impl MessageBody + 'static>,
+) -> Result<ServiceResponse<BoxBody>, Error> {
+    let draining = req
+        .app_data::<web::Data<Draining>>()
+        .is_some_and(|draining| draining.is_draining());
+    if draining && req.path() == "/health/ready" {
+        let answer = HttpResponse::ServiceUnavailable()
+            .json(ErrorBody::new(SERVICE_UNAVAILABLE, DRAINING_MESSAGE));
+        return Ok(req.into_response(answer));
+    }
+    next.call(req)
+        .await
+        .map(ServiceResponse::map_into_boxed_body)
 }
 
 /// Fails a request whose handler panicked with `AppError::Internal`, which

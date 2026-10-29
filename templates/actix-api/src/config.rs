@@ -24,6 +24,8 @@
 //! | `AUTH_RATE_LIMIT` | 20 | requests per minute per IP on `/auth` (`0`: off) |
 //! | `GLOBAL_RATE_LIMIT` | 0 | requests per minute per IP on every route but health (`0`: off) |
 //! | `JOBS_CONCURRENCY` | 4 | background jobs run at once; each holds a pool connection while it runs |
+//! | `SHUTDOWN_DELAY_SECS` | 5 | on `SIGTERM`, seconds it keeps serving while `/health/ready` answers `503`, so the load balancer stops sending it requests |
+//! | `SHUTDOWN_GRACE_SECS` | 25 | then, seconds requests in flight and running jobs have to finish |
 //! | `CORS_ALLOWED_ORIGINS` | unset | the other origins a browser may call the API from: `*`, or a list such as `https://app.example.com,http://localhost:5173`; unset, none |
 //! | `STORAGE_URL` | `file://./storage` | where uploads are stored: `file://<dir>`, `s3://<bucket>` (`AWS_*` settings) or `memory://` |
 //! | `MEDIA_MAX_UPLOAD_BYTES` | 10485760 (10 MiB) | the largest `POST /media` body |
@@ -55,6 +57,7 @@ use crate::shared::security::headers::CorsOrigins;
 use crate::shared::security::totp::KEY_BYTES as TOTP_KEY_BYTES;
 use crate::shared::settings::Vars;
 pub use crate::shared::settings::{ConfigError, ConfigErrors};
+use crate::shared::shutdown::ShutdownSettings;
 use crate::shared::storage::StorageUrl;
 use crate::shared::telemetry::{LogFormat, LogSettings};
 
@@ -83,6 +86,14 @@ const DEFAULT_AUTH_RATE_LIMIT: u32 = 20;
 
 /// Jobs one worker runs at once when `JOBS_CONCURRENCY` is not set.
 const DEFAULT_JOBS_CONCURRENCY: usize = 4;
+
+/// Seconds of serving, not ready, after `SIGTERM` when `SHUTDOWN_DELAY_SECS`
+/// is not set.
+const DEFAULT_SHUTDOWN_DELAY_SECS: u64 = 5;
+
+/// Seconds for requests and jobs to finish when `SHUTDOWN_GRACE_SECS` is not
+/// set.
+const DEFAULT_SHUTDOWN_GRACE_SECS: u64 = 25;
 
 /// The largest upload when `MEDIA_MAX_UPLOAD_BYTES` is not set: 10 MiB.
 const DEFAULT_MEDIA_MAX_UPLOAD_BYTES: usize = 10 * 1024 * 1024;
@@ -228,6 +239,9 @@ pub struct Config {
     /// `JOBS_CONCURRENCY`: jobs the worker runs at once, each holding a
     /// pool connection while it runs.
     pub jobs_concurrency: usize,
+    /// `SHUTDOWN_DELAY_SECS` and `SHUTDOWN_GRACE_SECS`: how the process
+    /// stops.
+    pub shutdown: ShutdownSettings,
     /// `CORS_ALLOWED_ORIGINS`: the other origins a browser may call the API
     /// from.
     pub cors_allowed_origins: CorsOrigins,
@@ -345,6 +359,16 @@ impl Config {
             jobs_concurrency: vars
                 .number("JOBS_CONCURRENCY")
                 .unwrap_or(DEFAULT_JOBS_CONCURRENCY),
+            shutdown: ShutdownSettings {
+                delay: Duration::from_secs(
+                    vars.number("SHUTDOWN_DELAY_SECS")
+                        .unwrap_or(DEFAULT_SHUTDOWN_DELAY_SECS),
+                ),
+                grace: Duration::from_secs(
+                    vars.number("SHUTDOWN_GRACE_SECS")
+                        .unwrap_or(DEFAULT_SHUTDOWN_GRACE_SECS),
+                ),
+            },
             cors_allowed_origins: match var("CORS_ALLOWED_ORIGINS") {
                 Some(value) => value.parse().unwrap_or_else(|_| {
                     vars.fail(ConfigError::NotOneOf {
@@ -451,6 +475,8 @@ impl Config {
             ("AUTH_RATE_LIMIT", self.auth_rate_limit.to_string()),
             ("GLOBAL_RATE_LIMIT", self.global_rate_limit.to_string()),
             ("JOBS_CONCURRENCY", self.jobs_concurrency.to_string()),
+            ("SHUTDOWN_DELAY_SECS", secs(self.shutdown.delay)),
+            ("SHUTDOWN_GRACE_SECS", secs(self.shutdown.grace)),
             (
                 "CORS_ALLOWED_ORIGINS",
                 self.cors_allowed_origins.to_string(),

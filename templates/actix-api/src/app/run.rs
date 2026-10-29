@@ -1,12 +1,15 @@
 // Scaffolded once by rok-data-sqlc; this file is yours. It is never regenerated. See docs/guide/architecture.md.
 
 //! [`run`]: the server and, beside it, the job [`worker`] and the
-//! [`schedule`], as `APP_ROLE` says.
+//! [`schedule`], as `APP_ROLE` says, and the shutdown that drains them.
 
 use std::sync::Arc;
 
+use actix_web::dev::Server;
+use actix_web::middleware::from_fn;
 use actix_web::{App, HttpServer, web};
 
+use super::middleware::unready_while_draining;
 use super::{AppState, app};
 use crate::config::Config;
 use crate::db::pool::init_pool;
@@ -15,12 +18,15 @@ use crate::shared::health;
 use crate::shared::jobs::{Background, Schedule, ScheduleError, Worker};
 use crate::shared::mail::{Mailer, SendMail, transport};
 use crate::shared::metrics;
+use crate::shared::shutdown;
 
 /// Logs the settings (secrets left out), connects the pool, then serves
-/// `APP_ROLE`'s part on `config.bind_addr` until the server stops: the API
-/// (or, for a `worker`, its `/health` only), and, unless it is `web`, the
-/// job [`worker`] and the [`schedule`] beside it, stopped once their running
-/// jobs settle.
+/// `APP_ROLE`'s part on `config.bind_addr` until Ctrl+C or `SIGTERM`: the
+/// API (or, for a `worker`, its `/health` only), and, unless it is `web`,
+/// the job [`worker`] and the [`schedule`] beside it. It then drains (see
+/// `shared/shutdown.rs`): not ready but serving for `SHUTDOWN_DELAY_SECS`,
+/// then the requests in flight and the running jobs finish within
+/// `SHUTDOWN_GRACE_SECS`.
 pub async fn run(config: Config) -> std::io::Result<()> {
     tracing::info!("settings:\n{}", config.summary());
     let pool = init_pool(&config.database_url, &config.pool)
@@ -28,7 +34,7 @@ pub async fn run(config: Config) -> std::io::Result<()> {
         .map_err(std::io::Error::other)?;
     let mailer = transport::from_config(&config).map_err(std::io::Error::other)?;
     let state = AppState::new(pool, &config).map_err(std::io::Error::other)?;
-    let role = config.app_role;
+    let (role, settings, draining) = (config.app_role, state.shutdown, state.draining.clone());
     let background = if role.runs_jobs() {
         let schedule = schedule().map_err(std::io::Error::other)?;
         Some(Background::start(
@@ -49,24 +55,42 @@ pub async fn run(config: Config) -> std::io::Result<()> {
         tracing::info!(%addr, "serving /metrics");
     }
     tracing::info!(addr = %config.bind_addr, role = role.name(), "listening");
-    let served = if role.serves_api() {
+    // actix-web's own signal handling would stop at once: the drain below
+    // handles the signal, and `shutdown_timeout` is the grace.
+    let grace = settings.grace.as_secs();
+    let server: Server = if role.serves_api() {
         HttpServer::new(move || app(state.clone()))
             .bind(&config.bind_addr)?
+            .disable_signals()
+            .shutdown_timeout(grace)
             .run()
-            .await
     } else {
         let pool = state.pool.clone();
         HttpServer::new(move || {
             App::new()
                 .app_data(web::Data::new(pool.clone()))
+                .app_data(web::Data::new(state.draining.clone()))
                 .configure(health::routes)
+                .wrap(from_fn(unready_while_draining))
         })
         .bind(&config.bind_addr)?
+        .disable_signals()
+        .shutdown_timeout(grace)
         .run()
-        .await
     };
+    let handle = server.handle();
+    let draining_task = actix_web::rt::spawn(async move {
+        shutdown::signal().await;
+        draining.start();
+        tracing::info!(delay = ?settings.delay, "draining: /health/ready answers 503");
+        tokio::time::sleep(settings.delay).await;
+        // Stops accepting, and gives the requests in flight the grace.
+        handle.stop(true).await;
+    });
+    let served = server.await;
+    draining_task.abort();
     if let Some(background) = background {
-        background.stop().await;
+        background.stop_within(settings.grace).await;
     }
     served
 }

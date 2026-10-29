@@ -9,8 +9,9 @@ use std::any::Any;
 use std::sync::Arc;
 use std::time::Instant;
 
+use axum::Json;
 use axum::extract::{MatchedPath, Request, State};
-use axum::http::{HeaderName, HeaderValue, Method};
+use axum::http::{HeaderName, HeaderValue, Method, StatusCode};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 use tower_http::catch_panic::CatchPanicLayer;
@@ -19,9 +20,12 @@ use tracing::Span;
 use tracing_opentelemetry::OpenTelemetrySpanExt;
 
 use crate::error::AppError;
+use crate::shared::health::SERVICE_UNAVAILABLE;
+use crate::shared::response::ErrorBody;
 use crate::shared::security::headers::{
     self, CORS_EXPOSED_HEADERS, CORS_HEADERS, CORS_MAX_AGE, CORS_METHODS, CorsOrigins,
 };
+use crate::shared::shutdown::{DRAINING_MESSAGE, Draining};
 use crate::shared::{metrics, telemetry};
 
 /// The security headers, ready to set: [`headers::security_headers`] for
@@ -143,6 +147,26 @@ pub async fn record_metrics(request: Request, next: Next) -> Response {
         started.elapsed(),
     );
     response
+}
+
+/// Answers `/health/ready` with `503 service_unavailable` once the process
+/// is draining (`from_fn_with_state(draining, unready_while_draining)` on
+/// the health routes), so the load balancer stops sending it requests while
+/// it finishes the ones it has. `/health/live` stays `200`: the process is
+/// alive, only leaving.
+pub async fn unready_while_draining(
+    State(draining): State<Draining>,
+    request: Request,
+    next: Next,
+) -> Response {
+    if draining.is_draining() && request.uri().path() == "/health/ready" {
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(ErrorBody::new(SERVICE_UNAVAILABLE, DRAINING_MESSAGE)),
+        )
+            .into_response();
+    }
+    next.run(request).await
 }
 
 /// A layer that answers a request whose handler panicked with the wire

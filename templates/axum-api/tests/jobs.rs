@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use async_trait::async_trait;
-use axum_api::shared::jobs::{Enqueue, Job, JobError, Queue, Worker};
+use axum_api::shared::jobs::{Background, Enqueue, Job, JobError, Queue, Schedule, Worker};
 use serde::{Deserialize, Serialize};
 use support::{Database, TestResult};
 
@@ -271,5 +271,55 @@ async fn the_running_worker_wakes_on_commit_and_stops_on_shutdown() -> TestResul
     assert_eq!(logged(&log), ["woken"]);
     let _ = stop.send(());
     tokio::time::timeout(Duration::from_secs(2), task).await??;
+    db.drop().await
+}
+
+/// A job that runs longer than the shutdown grace.
+#[derive(Debug, Serialize, Deserialize)]
+struct Slow;
+
+#[async_trait]
+impl Job for Slow {
+    const KIND: &'static str = "test.slow";
+    type Context = ();
+
+    async fn run(self, (): &()) -> Result<(), JobError> {
+        tokio::time::sleep(Duration::from_secs(30)).await;
+        Ok(())
+    }
+}
+
+/// On shutdown, a job still running past the grace is abandoned: its
+/// claim is released, no attempt counted, and it is due again.
+#[tokio::test]
+async fn a_job_running_past_the_shutdown_grace_is_released() -> TestResult {
+    let Some(db) = Database::fresh().await? else {
+        return Ok(());
+    };
+    let queue = Queue::new();
+    enqueue(&db.pool, &queue, &Slow, Enqueue::default()).await?;
+    let worker = Worker::new(db.pool.clone(), &queue).register::<Slow>(());
+    let background = Background::start(worker, Schedule::new(), db.pool.clone(), queue.clone());
+    // Let a slot claim it.
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    let started = std::time::Instant::now();
+    background.stop_within(Duration::from_millis(200)).await;
+    assert!(
+        started.elapsed() < Duration::from_secs(5),
+        "the stop waited for the job"
+    );
+    let rows = jobs(&db.pool).await?;
+    assert_eq!(rows.len(), 1);
+    let (kind, status, attempts, _) = &rows[0];
+    assert_eq!(
+        (kind.as_str(), status.as_str(), *attempts),
+        ("test.slow", "pending", 0)
+    );
+    // Released: another worker can claim it at once.
+    let claimed: Option<uuid::Uuid> =
+        sqlx::query_scalar("SELECT id FROM jobs FOR UPDATE SKIP LOCKED")
+            .fetch_optional(&db.pool)
+            .await?;
+    assert!(claimed.is_some(), "the abandoned job is still locked");
     db.drop().await
 }

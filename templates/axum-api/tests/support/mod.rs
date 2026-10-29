@@ -231,6 +231,8 @@ pub fn config(overrides: &[(&str, &str)]) -> Result<Config, Box<dyn std::error::
         ("JWT_TTL", "3600"),
         ("APP_URL", APP_URL),
         ("STORAGE_URL", "memory://"),
+        // Tests stop at once: no load balancer to wait for.
+        ("SHUTDOWN_DELAY_SECS", "0"),
     ]);
     vars.extend(overrides.iter().copied());
     Ok(Config::from_vars(|name| {

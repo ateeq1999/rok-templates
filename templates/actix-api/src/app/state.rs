@@ -19,6 +19,7 @@ use crate::shared::security::breach::{self, BreachCheck};
 use crate::shared::security::headers::CorsOrigins;
 use crate::shared::security::jwt::JwtKeys;
 use crate::shared::security::totp::TotpCipher;
+use crate::shared::shutdown::{Draining, ShutdownSettings};
 use crate::shared::storage::{self, Storage};
 
 /// What every worker shares, built once: by [`run`](super::run), or by a
@@ -71,6 +72,10 @@ pub struct AppState {
     pub https: bool,
     /// How many jobs the worker runs at once (`JOBS_CONCURRENCY`).
     pub jobs_concurrency: usize,
+    /// Set on `SIGTERM`: `/health/ready` answers `503` from then on.
+    pub draining: Draining,
+    /// How the process stops (`SHUTDOWN_DELAY_SECS`, `SHUTDOWN_GRACE_SECS`).
+    pub shutdown: ShutdownSettings,
 }
 
 impl AppState {
@@ -89,6 +94,8 @@ impl AppState {
             outbox: web::Data::new(Outbox::on(queue.clone())),
             queue,
             jobs_concurrency: config.jobs_concurrency,
+            draining: Draining::default(),
+            shutdown: config.shutdown,
             templates: web::Data::new(Templates::new(&config.app_url)),
             breach: breach::from_config(config),
             rate_limit: RateLimit::per_minute(config.auth_rate_limit, config.trust_proxy),

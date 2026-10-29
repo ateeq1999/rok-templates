@@ -5,7 +5,7 @@
 //!
 //! `rok sqlc g` regenerates `health`, `pagination`, `response`, `tenant`
 //! and `validation`; don't edit them. `auth`, `body`, `jobs`, `security`, `mail`,
-//! `metrics`, `rate_limit`, `settings`, `storage`, `telemetry` and
+//! `metrics`, `rate_limit`, `settings`, `shutdown`, `storage`, `telemetry` and
 //! `thumbnail` are yours, like any tool you add here (a queue); the ones
 //! with more than one implementation sit behind a trait.
 
@@ -20,6 +20,7 @@ pub mod rate_limit;
 pub mod response;
 pub mod security;
 pub mod settings;
+pub mod shutdown;
 pub mod storage;
 pub mod telemetry;
 pub mod tenant;

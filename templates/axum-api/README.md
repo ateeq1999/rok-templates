@@ -105,6 +105,25 @@ answers only `/health/live` and `/health/ready` on `BIND_ADDR`, for the
 platform's health check. Scale `web` with traffic and `worker` with the
 queue (`jobs_queued`).
 
+### Shutting down
+
+`SIGTERM` (or Ctrl+C) starts a drain (`src/shared/shutdown.rs`, the same
+in both templates), so a deploy drops no request and loses no job:
+
+1. `/health/ready` answers `503` at once, while every request is still
+   served, for `SHUTDOWN_DELAY_SECS` (5): the load balancer takes the
+   process out of rotation. `/health/live` stays `200`.
+2. The server stops accepting; the requests in flight finish within
+   `SHUTDOWN_GRACE_SECS` (25).
+3. The job worker and the schedule stop: a running job finishes within
+   what is left of the grace, or is abandoned, its transaction rolled back,
+   so its claim is released, no attempt counted, and another worker runs
+   it again.
+
+Set the platform's stop timeout (Kubernetes'
+`terminationGracePeriodSeconds`, ECS's `stopTimeout`) above the delay plus
+the grace, or it kills the process mid-drain.
+
 ## Logs and traces
 
 `src/shared/telemetry.rs` (the same in both templates) starts tracing

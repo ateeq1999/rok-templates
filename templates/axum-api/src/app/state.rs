@@ -25,6 +25,7 @@ use crate::shared::security::breach::{self, BreachCheck};
 use crate::shared::security::headers::CorsOrigins;
 use crate::shared::security::jwt::JwtKeys;
 use crate::shared::security::totp::TotpCipher;
+use crate::shared::shutdown::{Draining, ShutdownSettings};
 use crate::shared::storage::{self, Storage};
 
 /// What the hand-written handlers reach through `State`, built once: by
@@ -83,6 +84,12 @@ pub struct AppState {
     /// How many jobs the worker runs at once (`JOBS_CONCURRENCY`).
     #[from_ref(skip)]
     pub jobs_concurrency: usize,
+    /// Set on `SIGTERM`: `/health/ready` answers `503` from then on.
+    #[from_ref(skip)]
+    pub draining: Draining,
+    /// How the process stops (`SHUTDOWN_DELAY_SECS`, `SHUTDOWN_GRACE_SECS`).
+    #[from_ref(skip)]
+    pub shutdown: ShutdownSettings,
 }
 
 impl AppState {
@@ -147,6 +154,8 @@ impl AppState {
             outbox,
             queue,
             jobs_concurrency: config.jobs_concurrency,
+            draining: Draining::default(),
+            shutdown: config.shutdown,
             templates,
             rate_limit: RateLimit::per_minute(config.auth_rate_limit, config.trust_proxy),
             global_rate_limit: RateLimit::per_minute(config.global_rate_limit, config.trust_proxy),

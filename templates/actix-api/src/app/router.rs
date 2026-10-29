@@ -14,7 +14,7 @@ use utoipa_swagger_ui::SwaggerUi;
 
 use super::middleware::{
     GlobalRateLimit, RequestSpan, catch_panic, cors, global_rate_limit, record_metrics, request_id,
-    security_headers,
+    security_headers, unready_while_draining,
 };
 use super::{AppState, AuditLog};
 use crate::features::account::{self, AccountService};
@@ -48,7 +48,9 @@ pub fn app(
         .app_data(web::Data::new(GlobalRateLimit(
             state.global_rate_limit.clone(),
         )))
+        .app_data(web::Data::new(state.draining.clone()))
         .configure(|cfg| configure(cfg, &state))
+        .wrap(from_fn(unready_while_draining))
         .wrap(from_fn(global_rate_limit))
         .wrap(from_fn(catch_panic))
         .wrap(from_fn(record_metrics))
