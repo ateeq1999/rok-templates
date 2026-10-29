@@ -12,6 +12,7 @@ use crate::config::Config;
 use crate::features::audit_log_entry::AuditLogEntryService;
 use crate::features::auth::service::AuditTrail;
 use crate::features::media::MediaService;
+use crate::shared::jobs::Queue;
 use crate::shared::mail::{Outbox, Templates};
 use crate::shared::rate_limit::RateLimit;
 use crate::shared::security::breach::{self, BreachCheck};
@@ -28,7 +29,9 @@ pub struct AppState {
     pub pool: PgPool,
     /// Signs and verifies session tokens.
     pub keys: web::Data<JwtKeys>,
-    /// Where flows enqueue their mail; it wakes the sender.
+    /// Where flows enqueue jobs; it wakes the job worker.
+    pub queue: Queue,
+    /// Where flows enqueue their mail: `mail.send` jobs on `queue`.
     pub outbox: web::Data<Outbox>,
     /// The messages flows enqueue, with links under `APP_URL`.
     pub templates: web::Data<Templates>,
@@ -69,6 +72,8 @@ pub struct AppState {
     /// Whether answers carry `Strict-Transport-Security` (`APP_URL` is
     /// `https://…`).
     pub https: bool,
+    /// How many jobs the worker runs at once (`JOBS_CONCURRENCY`).
+    pub jobs_concurrency: usize,
 }
 
 impl AppState {
@@ -77,13 +82,16 @@ impl AppState {
     /// can't be opened, such as a `file://` directory that can't be
     /// created, is an error.
     pub fn new(pool: PgPool, config: &Config) -> Result<Self, object_store::Error> {
+        let queue = Queue::new();
         Ok(AppState {
             pool: pool.clone(),
             keys: web::Data::new(
                 JwtKeys::new(&config.jwt_secret, config.jwt_ttl)
                     .with_previous(config.jwt_secret_previous.as_deref()),
             ),
-            outbox: web::Data::new(Outbox::new()),
+            outbox: web::Data::new(Outbox::on(queue.clone())),
+            queue,
+            jobs_concurrency: config.jobs_concurrency,
             templates: web::Data::new(Templates::new(&config.app_url)),
             breach: breach::from_config(config),
             rate_limit: RateLimit::per_minute(config.auth_rate_limit, config.trust_proxy),

@@ -15,5 +15,5 @@ mod state;
 
 pub use ports::AuditLog;
 pub use router::{app, configure};
-pub use run::run;
+pub use run::{run, worker};
 pub use state::AppState;

@@ -128,27 +128,6 @@ CREATE TABLE auth_tokens (
 );
 
 CREATE INDEX auth_tokens_user_purpose ON auth_tokens (user_id, purpose);
-
--- The mail outbox: a row is written on the flow's transaction and deleted
--- once sent. A row that keeps failing becomes `dead`, keeping its error.
-CREATE TABLE outbound_mail (
-    id UUID PRIMARY KEY,
-    payload JSONB NOT NULL,
-    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'dead')),
-    attempts INTEGER NOT NULL DEFAULT 0,
-    next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    last_error TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE INDEX outbound_mail_due ON outbound_mail (next_attempt_at) WHERE status = 'pending';
-
-CREATE TRIGGER outbound_mail_touch_updated_at BEFORE UPDATE ON outbound_mail
-    FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
-
-           
-                                                             
 -- Two-factor sign-in (TOTP). `users.totp_secret` holds the authenticator
 -- secret encrypted with AES-256-GCM under `TOTP_ENCRYPTION_KEY` (base64 of
 -- the nonce, then the ciphertext); it is set while a setup waits for its
@@ -176,4 +155,35 @@ CREATE INDEX totp_recovery_codes_user ON totp_recovery_codes (user_id);
 CREATE UNIQUE INDEX api_keys_key_hash_key ON api_keys (key_hash);
 
 CREATE INDEX api_keys_user_id_active_idx ON api_keys (user_id) WHERE revoked_at IS NULL;
+-- The job queue (`shared/jobs/`): a job is written on the flow's
+-- transaction, claimed by one worker (`FOR UPDATE SKIP LOCKED`) and deleted
+-- once it ran. A job that keeps failing becomes `dead`, keeping its error.
+-- Mail is a job (`mail.send`).
+CREATE TABLE jobs (
+    id UUID PRIMARY KEY,
+    -- The job's type, such as `mail.send`: which handler runs it.
+    kind TEXT NOT NULL,
+    payload JSONB NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'dead')),
+    attempts INTEGER NOT NULL DEFAULT 0,
+    run_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    -- Set, no second job with the same key is enqueued while one exists.
+    unique_key TEXT,
+    last_error TEXT,
+    -- The W3C trace context of the request that enqueued it: its span
+    -- continues that trace.
+    traceparent TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX jobs_due ON jobs (run_at) WHERE status = 'pending';
+
+CREATE UNIQUE INDEX jobs_unique_key ON jobs (unique_key);
+
+CREATE TRIGGER jobs_touch_updated_at BEFORE UPDATE ON jobs
+    FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
+
+           
+                                           
 "#;

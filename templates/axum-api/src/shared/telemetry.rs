@@ -15,6 +15,7 @@
 //! Framework-free, so both templates share it; each template's
 //! `app/middleware.rs` opens the request span.
 
+use std::collections::HashMap;
 use std::fmt;
 
 use opentelemetry::propagation::{Extractor, TextMapPropagator};
@@ -22,6 +23,7 @@ use opentelemetry::trace::TracerProvider as _;
 use opentelemetry_sdk::Resource;
 use opentelemetry_sdk::propagation::TraceContextPropagator;
 use opentelemetry_sdk::trace::SdkTracerProvider;
+use tracing_opentelemetry::OpenTelemetrySpanExt;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::util::SubscriberInitExt;
 use tracing_subscriber::{EnvFilter, Layer};
@@ -141,6 +143,16 @@ pub fn remote_parent(
         traceparent,
         tracestate,
     })
+}
+
+/// The W3C `traceparent` of the current span, when spans are exported:
+/// what `shared/jobs/` stores with a job, so its run continues the trace
+/// of the request that enqueued it. `None` without an exporter.
+#[must_use]
+pub fn current_traceparent() -> Option<String> {
+    let mut carrier = HashMap::new();
+    TraceContextPropagator::new().inject_context(&tracing::Span::current().context(), &mut carrier);
+    carrier.remove("traceparent")
 }
 
 /// Records the caller on the current span, the request's: what

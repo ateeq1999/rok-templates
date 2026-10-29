@@ -63,7 +63,7 @@ rules below follow them.
 | Code two features need | `shared/` | one feature |
 | Call to an outside system | `shared/<name>.rs` behind a trait | service directly |
 | Env variable | `config.rs` | `std::env` anywhere else |
-| Background or slow work | an outbox row written by `service.rs`, handled by a worker | request path |
+| Background or slow work | a job (`shared/jobs/`) enqueued by `service.rs` on its transaction, registered in `app/run.rs` | request path |
 | Writing another feature's data | a port (trait) declared in your `service.rs`, implemented in `app/ports.rs` with the other service's `_in` method | that feature's files |
 | Register a hand-written feature | `features/mod.rs` and `app/router.rs` | — |
 
@@ -117,7 +117,7 @@ hand-written and follow the rules above. Keep to how they work:
 - **SQL.** `auth`'s goes in `queries/auth.sql`, `two_factor`'s in
   `queries/two_factor.sql`, `account`'s in `queries/account.sql`; SQL
   `shared/` runs goes in a file named after no feature
-  (`queries/session.sql`, `queries/mail.sql`). Run `rok sqlc g` after
+  (`queries/session.sql`, `queries/queue.sql`). Run `rok sqlc g` after
   editing one.
 - **Mailed links.** A token purpose (the `auth_tokens.purpose` check), its
   arm in `policy` (lifetime and message) in

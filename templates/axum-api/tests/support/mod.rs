@@ -20,7 +20,8 @@ use axum_api::config::Config;
 use axum_api::db::schema::SCHEMA_SQL;
 use axum_api::db::types::Role;
 use axum_api::db::users::models::{NewUser, User};
-use axum_api::shared::mail::{Mail, MemoryMailer, Outbox, Sender};
+use axum_api::shared::jobs::{Queue, Worker};
+use axum_api::shared::mail::{Mail, MemoryMailer, SendMail};
 use axum_api::shared::security::jwt::JwtKeys;
 use serde_json::Value;
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
@@ -251,12 +252,14 @@ pub fn state_with(
     Ok(AppState::new(pool.clone(), &config(overrides)?)?)
 }
 
-/// Delivers every due mail in `pool`'s outbox, as the sender would, and
+/// Sends every due mail in `pool`'s queue, as the job worker would, and
 /// returns what was sent, oldest first.
 pub async fn mailed(pool: &PgPool) -> Result<Vec<Mail>, Box<dyn std::error::Error>> {
     let mailer = Arc::new(MemoryMailer::default());
-    let sender = Sender::new(pool.clone(), mailer.clone(), &Outbox::new());
-    while sender.deliver_due().await?.sent > 0 {}
+    Worker::new(pool.clone(), &Queue::new())
+        .register::<SendMail>(mailer.clone())
+        .run_due()
+        .await?;
     Ok(mailer.sent())
 }
 

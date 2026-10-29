@@ -148,11 +148,11 @@ impl<'r> sqlx::Decode<'r, sqlx::Postgres> for AuthTokenPurpose {
 
 rok_data::impl_value!(AuthTokenPurpose);
 
-/// The values of the `outbound_mail.status` column.
+/// The values of the `jobs.status` column.
 #[derive(
     Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize, utoipa::ToSchema,
 )]
-pub enum OutboundMailStatus {
+pub enum JobStatus {
     /// `pending`
     #[serde(rename = "pending")]
     Pending,
@@ -161,9 +161,9 @@ pub enum OutboundMailStatus {
     Dead,
 }
 
-impl OutboundMailStatus {
+impl JobStatus {
     /// The column whose values this enum lists.
-    pub const COLUMN: &str = "outbound_mail.status";
+    pub const COLUMN: &str = "jobs.status";
 
     /// The exact database value.
     #[must_use]
@@ -175,7 +175,7 @@ impl OutboundMailStatus {
     }
 }
 
-impl std::str::FromStr for OutboundMailStatus {
+impl std::str::FromStr for JobStatus {
     type Err = String;
 
     fn from_str(value: &str) -> Result<Self, Self::Err> {
@@ -187,7 +187,7 @@ impl std::str::FromStr for OutboundMailStatus {
     }
 }
 
-impl sqlx::Type<sqlx::Postgres> for OutboundMailStatus {
+impl sqlx::Type<sqlx::Postgres> for JobStatus {
     fn type_info() -> sqlx::postgres::PgTypeInfo {
         <str as sqlx::Type<sqlx::Postgres>>::type_info()
     }
@@ -197,7 +197,7 @@ impl sqlx::Type<sqlx::Postgres> for OutboundMailStatus {
     }
 }
 
-impl sqlx::postgres::PgHasArrayType for OutboundMailStatus {
+impl sqlx::postgres::PgHasArrayType for JobStatus {
     fn array_type_info() -> sqlx::postgres::PgTypeInfo {
         <&str as sqlx::postgres::PgHasArrayType>::array_type_info()
     }
@@ -207,7 +207,7 @@ impl sqlx::postgres::PgHasArrayType for OutboundMailStatus {
     }
 }
 
-impl sqlx::Encode<'_, sqlx::Postgres> for OutboundMailStatus {
+impl sqlx::Encode<'_, sqlx::Postgres> for JobStatus {
     fn encode_by_ref(
         &self,
         buf: &mut sqlx::postgres::PgArgumentBuffer,
@@ -216,10 +216,10 @@ impl sqlx::Encode<'_, sqlx::Postgres> for OutboundMailStatus {
     }
 }
 
-impl<'r> sqlx::Decode<'r, sqlx::Postgres> for OutboundMailStatus {
+impl<'r> sqlx::Decode<'r, sqlx::Postgres> for JobStatus {
     fn decode(value: sqlx::postgres::PgValueRef<'r>) -> Result<Self, sqlx::error::BoxDynError> {
         Ok(<&str as sqlx::Decode<'r, sqlx::Postgres>>::decode(value)?.parse()?)
     }
 }
 
-rok_data::impl_value!(OutboundMailStatus);
+rok_data::impl_value!(JobStatus);

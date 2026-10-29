@@ -5,7 +5,7 @@
 pub mod account;
 pub mod api_keys;
 pub mod auth;
-pub mod mail;
 pub mod media;
+pub mod queue;
 pub mod session;
 pub mod two_factor;

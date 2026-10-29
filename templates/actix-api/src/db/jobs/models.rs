@@ -3,7 +3,7 @@
 use super::super::types;
 use rok_data::Model;
 
-/// The primary key of the `outbound_mail` table, as a distinct type so it
+/// The primary key of the `jobs` table, as a distinct type so it
 /// cannot be mixed up with another table's key.
 #[derive(
     Debug,
@@ -21,27 +21,27 @@ use rok_data::Model;
 )]
 #[sqlx(transparent)]
 #[serde(transparent)]
-pub struct OutboundMailId(pub uuid::Uuid);
+pub struct JobId(pub uuid::Uuid);
 
-impl From<uuid::Uuid> for OutboundMailId {
+impl From<uuid::Uuid> for JobId {
     fn from(value: uuid::Uuid) -> Self {
         Self(value)
     }
 }
 
-impl From<OutboundMailId> for uuid::Uuid {
-    fn from(id: OutboundMailId) -> Self {
+impl From<JobId> for uuid::Uuid {
+    fn from(id: JobId) -> Self {
         id.0
     }
 }
 
-impl std::fmt::Display for OutboundMailId {
+impl std::fmt::Display for JobId {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         std::fmt::Display::fmt(&self.0, formatter)
     }
 }
 
-impl OutboundMailId {
+impl JobId {
     /// A new id: a UUID version 7, ordered by creation time. `create` uses it when the input leaves the id out.
     #[must_use]
     pub fn generate() -> Self {
@@ -49,23 +49,28 @@ impl OutboundMailId {
     }
 }
 
-rok_data::impl_value!(OutboundMailId);
-/// A row of the `outbound_mail` table.
+rok_data::impl_value!(JobId);
+/// A row of the `jobs` table.
 #[derive(Debug, Clone, PartialEq, Model, serde::Serialize, serde::Deserialize)]
-#[rok(table = "outbound_mail")]
-pub struct OutboundMail {
+pub struct Job {
     /// The `id` column.
-    pub id: OutboundMailId,
+    pub id: JobId,
+    /// The `kind` column.
+    pub kind: String,
     /// The `payload` column.
     pub payload: serde_json::Value,
     /// The `status` column.
-    pub status: types::OutboundMailStatus,
+    pub status: types::JobStatus,
     /// The `attempts` column.
     pub attempts: i32,
-    /// The `next_attempt_at` column.
-    pub next_attempt_at: chrono::DateTime<chrono::Utc>,
+    /// The `run_at` column.
+    pub run_at: chrono::DateTime<chrono::Utc>,
+    /// The `unique_key` column.
+    pub unique_key: Option<String>,
     /// The `last_error` column.
     pub last_error: Option<String>,
+    /// The `traceparent` column.
+    pub traceparent: Option<String>,
     /// The `created_at` column.
     pub created_at: chrono::DateTime<chrono::Utc>,
     /// The `updated_at` column.
@@ -77,23 +82,29 @@ pub struct OutboundMail {
 /// `Option` fields are columns with a database default: `None` leaves the
 /// column out of the `INSERT` so the default applies.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, rok_data::Input)]
-pub struct NewOutboundMail {
+pub struct NewJob {
     /// The `id` column.
-    /// `None` inserts a new id from `OutboundMailId::generate`.
-    pub id: Option<OutboundMailId>,
+    /// `None` inserts a new id from `JobId::generate`.
+    pub id: Option<JobId>,
+    /// The `kind` column.
+    pub kind: String,
     /// The `payload` column.
     pub payload: serde_json::Value,
     /// The `status` column.
     /// `None` applies the column default.
-    pub status: Option<types::OutboundMailStatus>,
+    pub status: Option<types::JobStatus>,
     /// The `attempts` column.
     /// `None` applies the column default.
     pub attempts: Option<i32>,
-    /// The `next_attempt_at` column.
+    /// The `run_at` column.
     /// `None` applies the column default.
-    pub next_attempt_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub run_at: Option<chrono::DateTime<chrono::Utc>>,
+    /// The `unique_key` column.
+    pub unique_key: Option<String>,
     /// The `last_error` column.
     pub last_error: Option<String>,
+    /// The `traceparent` column.
+    pub traceparent: Option<String>,
 }
 
 /// Partial update for `patch`: `None` leaves a column unchanged.
@@ -104,19 +115,29 @@ pub struct NewOutboundMail {
     Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize, rok_data::Input,
 )]
 #[serde(default)]
-pub struct UpdateOutboundMail {
+pub struct UpdateJob {
+    /// The new value of the `kind` column.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
     /// The new value of the `payload` column.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub payload: Option<serde_json::Value>,
     /// The new value of the `status` column.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub status: Option<types::OutboundMailStatus>,
+    pub status: Option<types::JobStatus>,
     /// The new value of the `attempts` column.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub attempts: Option<i32>,
-    /// The new value of the `next_attempt_at` column.
+    /// The new value of the `run_at` column.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub next_attempt_at: Option<chrono::DateTime<chrono::Utc>>,
+    pub run_at: Option<chrono::DateTime<chrono::Utc>>,
+    /// The new value of the `unique_key` column.
+    /// `Some(None)` sets the column to `NULL`.
+    #[serde(
+        deserialize_with = "super::super::nullable::deserialize",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub unique_key: Option<Option<String>>,
     /// The new value of the `last_error` column.
     /// `Some(None)` sets the column to `NULL`.
     #[serde(
@@ -124,16 +145,26 @@ pub struct UpdateOutboundMail {
         skip_serializing_if = "Option::is_none"
     )]
     pub last_error: Option<Option<String>>,
+    /// The new value of the `traceparent` column.
+    /// `Some(None)` sets the column to `NULL`.
+    #[serde(
+        deserialize_with = "super::super::nullable::deserialize",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub traceparent: Option<Option<String>>,
 }
 
-impl UpdateOutboundMail {
+impl UpdateJob {
     /// Returns `true` when the patch changes no column.
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.payload.is_none()
+        self.kind.is_none()
+            && self.payload.is_none()
             && self.status.is_none()
             && self.attempts.is_none()
-            && self.next_attempt_at.is_none()
+            && self.run_at.is_none()
+            && self.unique_key.is_none()
             && self.last_error.is_none()
+            && self.traceparent.is_none()
     }
 }

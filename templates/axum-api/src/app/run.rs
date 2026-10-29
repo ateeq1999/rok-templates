@@ -1,6 +1,6 @@
 // Scaffolded once by rok-data-sqlc; this file is yours. It is never regenerated. See docs/guide/architecture.md.
 
-//! [`run`] and [`serve`]: the server, the mail sender and the upload sweep
+//! [`run`] and [`serve`]: the server, the job worker and the upload sweep
 //! beside it, and the shutdown that stops them.
 
 use std::future::Future;
@@ -13,7 +13,8 @@ use super::{AppState, router};
 use crate::config::Config;
 use crate::db::pool::init_pool;
 use crate::features::media::MediaService;
-use crate::shared::mail::{Mailer, Sender, transport};
+use crate::shared::jobs::Worker;
+use crate::shared::mail::{Mailer, SendMail, transport};
 use crate::shared::metrics;
 
 /// Logs the settings (secrets left out), connects the pool, then serves the
@@ -42,20 +43,20 @@ pub async fn run(config: Config) -> std::io::Result<()> {
     serve(listener, state, mailer, shutdown_signal()).await
 }
 
-/// Serves [`router`] over `state` on `listener`, with the mail sender
-/// delivering `state.outbox` through `mailer` beside it (`tokio::spawn`),
-/// until `shutdown` completes: then requests in flight finish, the server
-/// returns, and the sender stops after its pass in progress.
+/// Serves [`router`] over `state` on `listener`, with the job [`worker`]
+/// beside it (`tokio::spawn`), its mail sent through `mailer`, until
+/// `shutdown` completes: then requests in flight finish, the server
+/// returns, and the worker stops once its running jobs settle.
 pub async fn serve(
     listener: TcpListener,
     state: AppState,
     mailer: Arc<dyn Mailer>,
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> std::io::Result<()> {
-    let sender = Sender::new(state.pool.clone(), mailer, &state.outbox);
+    let worker = worker(&state, mailer);
     let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
-    let sending = tokio::spawn(sender.run(async {
-        // A dropped `stop` stops the sender too.
+    let working = tokio::spawn(worker.run(async {
+        // A dropped `stop` stops the worker too.
         let _ = stopped.await;
     }));
     let app = router(state).into_make_service_with_connect_info::<SocketAddr>();
@@ -63,10 +64,20 @@ pub async fn serve(
         .with_graceful_shutdown(shutdown)
         .await;
     let _ = stop.send(());
-    if let Err(err) = sending.await {
-        tracing::error!(error = %err, "the mail sender failed");
+    if let Err(err) = working.await {
+        tracing::error!(error = %err, "the job worker failed");
     }
     served
+}
+
+/// The job worker over `state`'s queue, `JOBS_CONCURRENCY` jobs at once,
+/// every job kind registered with what it runs with. Register a kind of
+/// your own here: `.register::<SendInvoice>(state.billing.clone())`.
+#[must_use]
+pub fn worker(state: &AppState, mailer: Arc<dyn Mailer>) -> Worker {
+    Worker::new(state.pool.clone(), &state.queue)
+        .with_concurrency(state.jobs_concurrency)
+        .register::<SendMail>(mailer)
 }
 
 /// Resolves on Ctrl+C or, on Unix, `SIGTERM`.

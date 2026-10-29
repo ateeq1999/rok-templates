@@ -42,9 +42,9 @@ prefix = "/api/v1"
 # handlers take axum's extractors.
 framework = "axum"
 # `media` and `api_keys` are hand-written features (uploads, API keys);
-# `auth_tokens`, `totp_recovery_codes` and `outbound_mail` belong to the
-# account flows, two-factor sign-in and the mail outbox.
-exclude = ["media", "api_keys", "auth_tokens", "outbound_mail", "totp_recovery_codes"]
+# `auth_tokens` and `totp_recovery_codes` belong to the account flows and
+# two-factor sign-in, `jobs` to the job queue.
+exclude = ["media", "api_keys", "auth_tokens", "jobs", "totp_recovery_codes"]
 
 [api.access]
 users = "admin"

@@ -17,6 +17,7 @@ use crate::features::auth::AuthService;
 use crate::features::auth::service::AuditTrail;
 use crate::features::media::MediaService;
 use crate::features::two_factor::TwoFactorService;
+use crate::shared::jobs::Queue;
 use crate::shared::mail::{Outbox, Templates};
 use crate::shared::rate_limit::RateLimit;
 use crate::shared::security::breach::{self, BreachCheck};
@@ -37,7 +38,9 @@ pub struct AppState {
     pub pool: PgPool,
     /// Signs and verifies session tokens.
     pub keys: Arc<JwtKeys>,
-    /// Where flows enqueue their mail; it wakes the sender.
+    /// Where flows enqueue jobs; it wakes the job worker.
+    pub queue: Queue,
+    /// Where flows enqueue their mail: `mail.send` jobs on `queue`.
     pub outbox: Outbox,
     /// The messages flows enqueue, with links under `APP_URL`.
     pub templates: Arc<Templates>,
@@ -74,6 +77,9 @@ pub struct AppState {
     /// `https://…`).
     #[from_ref(skip)]
     pub https: bool,
+    /// How many jobs the worker runs at once (`JOBS_CONCURRENCY`).
+    #[from_ref(skip)]
+    pub jobs_concurrency: usize,
 }
 
 impl AppState {
@@ -86,7 +92,8 @@ impl AppState {
             JwtKeys::new(&config.jwt_secret, config.jwt_ttl)
                 .with_previous(config.jwt_secret_previous.as_deref()),
         );
-        let outbox = Outbox::new();
+        let queue = Queue::new();
+        let outbox = Outbox::on(queue.clone());
         let templates = Arc::new(Templates::new(&config.app_url));
         let auth = Arc::new(AuthService {
             pool: pool.clone(),
@@ -130,6 +137,8 @@ impl AppState {
             pool,
             keys,
             outbox,
+            queue,
+            jobs_concurrency: config.jobs_concurrency,
             templates,
             rate_limit: RateLimit::per_minute(config.auth_rate_limit, config.trust_proxy),
             global_rate_limit: RateLimit::per_minute(config.global_rate_limit, config.trust_proxy),

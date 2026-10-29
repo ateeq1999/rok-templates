@@ -3,7 +3,7 @@
 //! Single-use tokens mailed as links (email verification, password reset,
 //! email change, invitation): 32 random bytes, base64url. Only the SHA-256
 //! of a token is stored, so a leaked `auth_tokens` table holds no usable
-//! link. The raw token does sit in the mail outbox (`outbound_mail`) while
+//! link. The raw token does sit in the mail outbox (a `mail.send` job) while
 //! its mail is pending, since that row is what gets sent; a sent row is
 //! deleted, and a `dead` one loses its bodies, so no link outlives its
 //! delivery.

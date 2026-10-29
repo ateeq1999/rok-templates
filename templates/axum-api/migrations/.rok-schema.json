@@ -455,70 +455,6 @@
       ]
     },
     {
-      "name": "outbound_mail",
-      "module": "types",
-      "doc": [
-        "The mail outbox: a row is written on the flow's transaction and deleted",
-        "once sent. A row that keeps failing becomes `dead`, keeping its error."
-      ],
-      "columns": [
-        {
-          "name": "id",
-          "sql_type": "UUID",
-          "nullable": false
-        },
-        {
-          "name": "payload",
-          "sql_type": "JSONB",
-          "nullable": false
-        },
-        {
-          "name": "status",
-          "sql_type": "TEXT",
-          "nullable": false,
-          "default": "'pending'"
-        },
-        {
-          "name": "attempts",
-          "sql_type": "INTEGER",
-          "nullable": false,
-          "default": "0"
-        },
-        {
-          "name": "next_attempt_at",
-          "sql_type": "TIMESTAMPTZ",
-          "nullable": false,
-          "default": "now()"
-        },
-        {
-          "name": "last_error",
-          "sql_type": "TEXT",
-          "nullable": true
-        },
-        {
-          "name": "created_at",
-          "sql_type": "TIMESTAMPTZ",
-          "nullable": false,
-          "default": "now()"
-        },
-        {
-          "name": "updated_at",
-          "sql_type": "TIMESTAMPTZ",
-          "nullable": false,
-          "default": "now()"
-        }
-      ],
-      "primary_key": [
-        "id"
-      ],
-      "checks": [
-        {
-          "name": "outbound_mail_status_check",
-          "expr": "status IN ('pending', 'dead')"
-        }
-      ]
-    },
-    {
       "name": "totp_recovery_codes",
       "module": "types",
       "doc": [
@@ -569,6 +505,97 @@
           "on_delete": "CASCADE"
         }
       ]
+    },
+    {
+      "name": "jobs",
+      "module": "types",
+      "doc": [
+        "The job queue (`shared/jobs/`): a job is written on the flow's",
+        "transaction, claimed by one worker (`FOR UPDATE SKIP LOCKED`) and deleted",
+        "once it ran. A job that keeps failing becomes `dead`, keeping its error.",
+        "Mail is a job (`mail.send`)."
+      ],
+      "columns": [
+        {
+          "name": "id",
+          "sql_type": "UUID",
+          "nullable": false
+        },
+        {
+          "name": "kind",
+          "sql_type": "TEXT",
+          "nullable": false,
+          "doc": [
+            "The job's type, such as `mail.send`: which handler runs it."
+          ]
+        },
+        {
+          "name": "payload",
+          "sql_type": "JSONB",
+          "nullable": false
+        },
+        {
+          "name": "status",
+          "sql_type": "TEXT",
+          "nullable": false,
+          "default": "'pending'"
+        },
+        {
+          "name": "attempts",
+          "sql_type": "INTEGER",
+          "nullable": false,
+          "default": "0"
+        },
+        {
+          "name": "run_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "unique_key",
+          "sql_type": "TEXT",
+          "nullable": true,
+          "doc": [
+            "Set, no second job with the same key is enqueued while one exists."
+          ]
+        },
+        {
+          "name": "last_error",
+          "sql_type": "TEXT",
+          "nullable": true
+        },
+        {
+          "name": "traceparent",
+          "sql_type": "TEXT",
+          "nullable": true,
+          "doc": [
+            "The W3C trace context of the request that enqueued it: its span",
+            "continues that trace."
+          ]
+        },
+        {
+          "name": "created_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "checks": [
+        {
+          "name": "jobs_status_check",
+          "expr": "status IN ('pending', 'dead')"
+        }
+      ]
     }
   ],
   "indexes": [
@@ -581,11 +608,6 @@
       "name": "auth_tokens_user_purpose",
       "table": "auth_tokens",
       "sql": "CREATE INDEX auth_tokens_user_purpose ON auth_tokens(user_id, purpose)"
-    },
-    {
-      "name": "outbound_mail_due",
-      "table": "outbound_mail",
-      "sql": "CREATE INDEX outbound_mail_due ON outbound_mail(next_attempt_at) WHERE status = 'pending'"
     },
     {
       "name": "totp_recovery_codes_user",
@@ -601,6 +623,16 @@
       "name": "api_keys_user_id_active_idx",
       "table": "api_keys",
       "sql": "CREATE INDEX api_keys_user_id_active_idx ON api_keys(user_id) WHERE revoked_at IS NULL"
+    },
+    {
+      "name": "jobs_due",
+      "table": "jobs",
+      "sql": "CREATE INDEX jobs_due ON jobs(run_at) WHERE status = 'pending'"
+    },
+    {
+      "name": "jobs_unique_key",
+      "table": "jobs",
+      "sql": "CREATE UNIQUE INDEX jobs_unique_key ON jobs(unique_key)"
     }
   ],
   "extras": [
@@ -613,8 +645,8 @@
       "down": "DROP TRIGGER users_touch_updated_at ON users"
     },
     {
-      "up": "CREATE TRIGGER outbound_mail_touch_updated_at BEFORE UPDATE ON outbound_mail\n    FOR EACH ROW EXECUTE FUNCTION touch_updated_at()",
-      "down": "DROP TRIGGER outbound_mail_touch_updated_at ON outbound_mail"
+      "up": "CREATE TRIGGER jobs_touch_updated_at BEFORE UPDATE ON jobs\n    FOR EACH ROW EXECUTE FUNCTION touch_updated_at()",
+      "down": "DROP TRIGGER jobs_touch_updated_at ON jobs"
     }
   ]
 }

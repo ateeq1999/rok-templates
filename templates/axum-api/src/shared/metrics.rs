@@ -15,6 +15,9 @@
 //! | `db_pool_max_connections` | gauge | — |
 //! | `auth_logins_total` | counter | `outcome`: `success`, `two_factor`, `bad_credentials`, `locked`, `forbidden` |
 //! | `auth_lockouts_total` | counter | — |
+//! | `jobs_total` | counter | `kind`, `outcome`: `done` or `failed` (an attempt) |
+//! | `job_duration_seconds` | histogram | `kind` |
+//! | `jobs_queued` | gauge | `state`: `due`, `scheduled` (not due yet) or `dead` |
 //!
 //! Add your own with the `metrics` macros anywhere
 //! (`metrics::counter!("orders_placed_total").increment(1)`); they are
@@ -29,6 +32,8 @@ use std::time::Duration;
 use metrics_exporter_prometheus::{BuildError, Matcher, PrometheusBuilder};
 use sqlx::PgPool;
 
+use crate::db::queries::queue;
+
 /// Requests answered.
 pub const HTTP_REQUESTS: &str = "http_requests_total";
 /// How long requests took.
@@ -41,6 +46,12 @@ pub const DB_POOL_MAX_CONNECTIONS: &str = "db_pool_max_connections";
 pub const AUTH_LOGINS: &str = "auth_logins_total";
 /// Accounts locked for too many wrong passwords.
 pub const AUTH_LOCKOUTS: &str = "auth_lockouts_total";
+/// Job attempts, by kind and outcome.
+pub const JOBS: &str = "jobs_total";
+/// How long job attempts took.
+pub const JOB_DURATION: &str = "job_duration_seconds";
+/// The jobs in the queue, by state.
+pub const JOBS_QUEUED: &str = "jobs_queued";
 
 /// The route label of a request no route matched: one series for them
 /// all, whatever paths are tried.
@@ -121,8 +132,15 @@ pub fn record_lockout() {
     metrics::counter!(AUTH_LOCKOUTS).increment(1);
 }
 
-/// Reads `pool`'s connections into the pool gauges every `every`, forever:
-/// spawn it beside the server when metrics are on.
+/// Counts and times one attempt at a job of `kind`.
+pub fn record_job(kind: &str, succeeded: bool, elapsed: Duration) {
+    let outcome = if succeeded { "done" } else { "failed" };
+    metrics::counter!(JOBS, "kind" => kind.to_owned(), "outcome" => outcome).increment(1);
+    metrics::histogram!(JOB_DURATION, "kind" => kind.to_owned()).record(elapsed.as_secs_f64());
+}
+
+/// Reads `pool`'s connections and the job queue's depth into their gauges
+/// every `every`, forever: spawn it beside the server when metrics are on.
 pub async fn sample_pool(pool: PgPool, every: Duration) {
     let mut ticks = tokio::time::interval(every);
     loop {
@@ -134,5 +152,19 @@ pub async fn sample_pool(pool: PgPool, every: Duration) {
             .set(f64::from(size.saturating_sub(idle)));
         metrics::gauge!(DB_POOL_MAX_CONNECTIONS)
             .set(f64::from(pool.options().get_max_connections()));
+        match queue::count_jobs(&pool).await {
+            Ok(counts) => {
+                // A state with no job left is no row: zero it.
+                for state in ["due", "scheduled", "dead"] {
+                    let jobs = counts
+                        .iter()
+                        .find(|row| row.state == state)
+                        .map_or(0, |row| row.jobs);
+                    #[allow(clippy::cast_precision_loss)]
+                    metrics::gauge!(JOBS_QUEUED, "state" => state).set(jobs as f64);
+                }
+            }
+            Err(err) => tracing::warn!(error = %err, "could not count the queued jobs"),
+        }
     }
 }

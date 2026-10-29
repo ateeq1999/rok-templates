@@ -22,6 +22,7 @@
 //! | `TRUST_PROXY` | `false` | take the client IP from `X-Forwarded-For` |
 //! | `AUTH_RATE_LIMIT` | 20 | requests per minute per IP on `/auth` (`0`: off) |
 //! | `GLOBAL_RATE_LIMIT` | 0 | requests per minute per IP on every route but health (`0`: off) |
+//! | `JOBS_CONCURRENCY` | 4 | background jobs run at once; each holds a pool connection while it runs |
 //! | `CORS_ALLOWED_ORIGINS` | unset | the other origins a browser may call the API from: `*`, or a list such as `https://app.example.com,http://localhost:5173`; unset, none |
 //! | `STORAGE_URL` | `file://./storage` | where uploads are stored: `file://<dir>`, `s3://<bucket>` (`AWS_*` settings) or `memory://` |
 //! | `MEDIA_MAX_UPLOAD_BYTES` | 10485760 (10 MiB) | the largest `POST /media` body |
@@ -79,6 +80,9 @@ const DEFAULT_MAIL_FROM: &str = "Axum API <no-reply@localhost>";
 
 /// Requests per minute per IP on `/auth` when `AUTH_RATE_LIMIT` is not set.
 const DEFAULT_AUTH_RATE_LIMIT: u32 = 20;
+
+/// Jobs one worker runs at once when `JOBS_CONCURRENCY` is not set.
+const DEFAULT_JOBS_CONCURRENCY: usize = 4;
 
 /// The largest upload when `MEDIA_MAX_UPLOAD_BYTES` is not set: 10 MiB.
 const DEFAULT_MEDIA_MAX_UPLOAD_BYTES: usize = 10 * 1024 * 1024;
@@ -186,6 +190,9 @@ pub struct Config {
     /// `GLOBAL_RATE_LIMIT`: requests per minute per IP on every route but
     /// health; `0` (the default) turns the limit off.
     pub global_rate_limit: u32,
+    /// `JOBS_CONCURRENCY`: jobs the worker runs at once, each holding a
+    /// pool connection while it runs.
+    pub jobs_concurrency: usize,
     /// `CORS_ALLOWED_ORIGINS`: the other origins a browser may call the API
     /// from.
     pub cors_allowed_origins: CorsOrigins,
@@ -290,6 +297,9 @@ impl Config {
                 .number("AUTH_RATE_LIMIT")
                 .unwrap_or(DEFAULT_AUTH_RATE_LIMIT),
             global_rate_limit: vars.number("GLOBAL_RATE_LIMIT").unwrap_or(0),
+            jobs_concurrency: vars
+                .number("JOBS_CONCURRENCY")
+                .unwrap_or(DEFAULT_JOBS_CONCURRENCY),
             cors_allowed_origins: match var("CORS_ALLOWED_ORIGINS") {
                 Some(value) => value.parse().unwrap_or_else(|_| {
                     vars.fail(ConfigError::NotOneOf {
@@ -401,6 +411,7 @@ impl Config {
             ("TRUST_PROXY", flag(self.trust_proxy)),
             ("AUTH_RATE_LIMIT", self.auth_rate_limit.to_string()),
             ("GLOBAL_RATE_LIMIT", self.global_rate_limit.to_string()),
+            ("JOBS_CONCURRENCY", self.jobs_concurrency.to_string()),
             (
                 "CORS_ALLOWED_ORIGINS",
                 self.cors_allowed_origins.to_string(),

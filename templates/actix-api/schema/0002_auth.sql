@@ -22,24 +22,3 @@ CREATE TABLE auth_tokens (
 );
 
 CREATE INDEX auth_tokens_user_purpose ON auth_tokens (user_id, purpose);
-
--- The mail outbox: a row is written on the flow's transaction and deleted
--- once sent. A row that keeps failing becomes `dead`, keeping its error.
-CREATE TABLE outbound_mail (
-    id UUID PRIMARY KEY,
-    payload JSONB NOT NULL,
-    status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'dead')),
-    attempts INTEGER NOT NULL DEFAULT 0,
-    next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    last_error TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
-CREATE INDEX outbound_mail_due ON outbound_mail (next_attempt_at) WHERE status = 'pending';
-
-CREATE TRIGGER outbound_mail_touch_updated_at BEFORE UPDATE ON outbound_mail
-    FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
-
--- rok:down
-DROP TRIGGER outbound_mail_touch_updated_at ON outbound_mail;

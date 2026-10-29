@@ -18,7 +18,8 @@ use actix_api::config::Config;
 use actix_api::db::schema::SCHEMA_SQL;
 use actix_api::db::types::Role;
 use actix_api::db::users::models::{NewUser, User};
-use actix_api::shared::mail::{Mail, MemoryMailer, Outbox, Sender};
+use actix_api::shared::jobs::{Queue, Worker};
+use actix_api::shared::mail::{Mail, MemoryMailer, SendMail};
 use actix_api::shared::security::jwt::JwtKeys;
 use actix_web::http::{Method, StatusCode, header};
 use actix_web::{test, web};
@@ -247,12 +248,14 @@ pub fn state_with(
     Ok(AppState::new(pool.clone(), &config(overrides)?)?)
 }
 
-/// Delivers every due mail in `pool`'s outbox, as the sender would, and
+/// Sends every due mail in `pool`'s queue, as the job worker would, and
 /// returns what was sent, oldest first.
 pub async fn mailed(pool: &PgPool) -> Result<Vec<Mail>, Box<dyn std::error::Error>> {
     let mailer = Arc::new(MemoryMailer::default());
-    let sender = Sender::new(pool.clone(), mailer.clone(), &Outbox::new());
-    while sender.deliver_due().await?.sent > 0 {}
+    Worker::new(pool.clone(), &Queue::new())
+        .register::<SendMail>(mailer.clone())
+        .run_due()
+        .await?;
     Ok(mailer.sent())
 }
 

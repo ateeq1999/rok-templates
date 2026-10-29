@@ -2,10 +2,10 @@
 
 use super::super::search::{Condition, Direction, Equality, Ordered, Sort, Text, push_null_check};
 use super::super::types;
-use super::models::OutboundMail;
-use super::models::OutboundMailId;
+use super::models::Job;
+use super::models::JobId;
 
-/// Conditions for `search` over `outbound_mail`.
+/// Conditions for `search` over `jobs`.
 ///
 /// Every condition in every field must hold (they are combined with `AND`);
 /// an empty filter matches every row. A nullable column's `*_is_null` field
@@ -14,32 +14,45 @@ use super::models::OutboundMailId;
 /// From JSON, an absent field keeps its default: no condition.
 #[derive(Debug, Clone, Default, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(default)]
-pub struct OutboundMailFilter {
+pub struct JobFilter {
     /// Conditions on the `id` column.
-    pub id: Vec<Equality<OutboundMailId>>,
+    pub id: Vec<Equality<JobId>>,
+    /// Conditions on the `kind` column.
+    pub kind: Vec<Text>,
     /// Conditions on the `status` column.
-    pub status: Vec<Equality<types::OutboundMailStatus>>,
+    pub status: Vec<Equality<types::JobStatus>>,
     /// Conditions on the `attempts` column.
     pub attempts: Vec<Ordered<i32>>,
-    /// Conditions on the `next_attempt_at` column.
-    pub next_attempt_at: Vec<Ordered<chrono::DateTime<chrono::Utc>>>,
+    /// Conditions on the `run_at` column.
+    pub run_at: Vec<Ordered<chrono::DateTime<chrono::Utc>>>,
+    /// Conditions on the `unique_key` column.
+    pub unique_key: Vec<Text>,
+    /// Whether the `unique_key` column is `NULL`.
+    pub unique_key_is_null: Option<bool>,
     /// Conditions on the `last_error` column.
     pub last_error: Vec<Text>,
     /// Whether the `last_error` column is `NULL`.
     pub last_error_is_null: Option<bool>,
+    /// Conditions on the `traceparent` column.
+    pub traceparent: Vec<Text>,
+    /// Whether the `traceparent` column is `NULL`.
+    pub traceparent_is_null: Option<bool>,
     /// Conditions on the `created_at` column.
     pub created_at: Vec<Ordered<chrono::DateTime<chrono::Utc>>>,
     /// Conditions on the `updated_at` column.
     pub updated_at: Vec<Ordered<chrono::DateTime<chrono::Utc>>>,
 }
 
-impl OutboundMailFilter {
+impl JobFilter {
     /// These conditions as one condition on the model's chain.
-    pub(crate) fn condition(self) -> rok_data::Expr<OutboundMail> {
+    pub(crate) fn condition(self) -> rok_data::Expr<Job> {
         let mut condition = Condition::default();
         let query = &mut condition;
         for condition in self.id {
             condition.push("id", query);
+        }
+        for condition in self.kind {
+            condition.push("kind", query);
         }
         for condition in self.status {
             condition.push("status", query);
@@ -47,13 +60,21 @@ impl OutboundMailFilter {
         for condition in self.attempts {
             condition.push("attempts", query);
         }
-        for condition in self.next_attempt_at {
-            condition.push("next_attempt_at", query);
+        for condition in self.run_at {
+            condition.push("run_at", query);
         }
+        for condition in self.unique_key {
+            condition.push("unique_key", query);
+        }
+        push_null_check("unique_key", self.unique_key_is_null, query);
         for condition in self.last_error {
             condition.push("last_error", query);
         }
         push_null_check("last_error", self.last_error_is_null, query);
+        for condition in self.traceparent {
+            condition.push("traceparent", query);
+        }
+        push_null_check("traceparent", self.traceparent_is_null, query);
         for condition in self.created_at {
             condition.push("created_at", query);
         }
@@ -67,35 +88,44 @@ impl OutboundMailFilter {
 /// Columns `search` may sort by.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum OutboundMailSortKey {
+pub enum JobSortKey {
     /// Sorts by the `id` column.
     Id,
+    /// Sorts by the `kind` column.
+    Kind,
     /// Sorts by the `status` column.
     Status,
     /// Sorts by the `attempts` column.
     Attempts,
-    /// Sorts by the `next_attempt_at` column.
-    NextAttemptAt,
+    /// Sorts by the `run_at` column.
+    RunAt,
+    /// Sorts by the `unique_key` column.
+    UniqueKey,
     /// Sorts by the `last_error` column.
     LastError,
+    /// Sorts by the `traceparent` column.
+    Traceparent,
     /// Sorts by the `created_at` column.
     CreatedAt,
     /// Sorts by the `updated_at` column.
     UpdatedAt,
 }
 
-impl OutboundMailSortKey {
+impl JobSortKey {
     /// How this key orders rows, in `direction`.
     #[must_use]
-    pub fn order(self, direction: Direction) -> rok_data::Order<OutboundMail> {
+    pub fn order(self, direction: Direction) -> rok_data::Order<Job> {
         let column = match self {
-            Self::Id => OutboundMail::ID,
-            Self::Status => OutboundMail::STATUS,
-            Self::Attempts => OutboundMail::ATTEMPTS,
-            Self::NextAttemptAt => OutboundMail::NEXT_ATTEMPT_AT,
-            Self::LastError => OutboundMail::LAST_ERROR,
-            Self::CreatedAt => OutboundMail::CREATED_AT,
-            Self::UpdatedAt => OutboundMail::UPDATED_AT,
+            Self::Id => Job::ID,
+            Self::Kind => Job::KIND,
+            Self::Status => Job::STATUS,
+            Self::Attempts => Job::ATTEMPTS,
+            Self::RunAt => Job::RUN_AT,
+            Self::UniqueKey => Job::UNIQUE_KEY,
+            Self::LastError => Job::LAST_ERROR,
+            Self::Traceparent => Job::TRACEPARENT,
+            Self::CreatedAt => Job::CREATED_AT,
+            Self::UpdatedAt => Job::UPDATED_AT,
         };
         match direction {
             Direction::Asc => column.asc(),
@@ -105,8 +135,8 @@ impl OutboundMailSortKey {
 }
 
 /// A sort as the chain's order: `.order_by(sort)`.
-impl From<Sort<OutboundMailSortKey>> for rok_data::Order<OutboundMail> {
-    fn from(sort: Sort<OutboundMailSortKey>) -> Self {
+impl From<Sort<JobSortKey>> for rok_data::Order<Job> {
+    fn from(sort: Sort<JobSortKey>) -> Self {
         sort.key.order(sort.direction)
     }
 }

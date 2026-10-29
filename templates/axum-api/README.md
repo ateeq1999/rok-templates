@@ -31,7 +31,43 @@ You need PostgreSQL and Rust 1.94 or newer.
 3. `cargo run`. The API is under `/api/v1`, health at `/health/live` and
    `/health/ready`, the OpenAPI document at `/api-docs/openapi.json` and
    Swagger UI at `/docs/`. Ctrl+C or `SIGTERM` stops it gracefully:
-   requests in flight finish, then the mail sender stops.
+   requests in flight finish, then the job worker stops.
+
+## Jobs
+
+Background work runs on PostgreSQL itself (`src/shared/jobs/`, the same in
+both templates): no other datastore. A flow writes a job on its own
+transaction, so a rolled-back flow enqueues nothing; the job worker that
+runs beside the server claims it (`FOR UPDATE SKIP LOCKED`: two workers,
+in this process or another, never run the same job), runs it and deletes
+it. A failure retries after 30s, 1m, 2m, 4m…; after its kind's last
+attempt (5 by default) the job is `dead`, kept in `jobs` with its
+`last_error`. Mail is one such job (`mail.send`).
+
+Adding one takes four steps:
+
+1. A payload: `#[derive(Serialize, Deserialize)] pub struct SendInvoice {
+   pub order: OrderId }`.
+2. `impl Job for SendInvoice` (`#[async_trait]`): its `KIND`
+   (`"billing.send_invoice"`), the `Context` it runs with (a service), and
+   `async fn run(self, billing: &BillingService)`. `MAX_ATTEMPTS`,
+   `TIMEOUT` (5 minutes) and `on_dead` (what a dead job's payload keeps)
+   have defaults.
+3. Register it in `app/run.rs`'s `worker`:
+   `.register::<SendInvoice>(state.billing.clone())`.
+4. Enqueue it on the flow's transaction, from the service:
+   `state.queue.enqueue(&mut tx, &SendInvoice { order })`, then
+   `queue.commit(tx)` (commits, and wakes the worker at once).
+   `enqueue_with` takes a `delay` and a `unique_key` (no second job with
+   that key while one exists).
+
+Delivery is at least once: a crash after a job ran but before it was
+deleted runs it again, so make each job safe to repeat. A running job
+holds one pool connection, so keep `JOBS_CONCURRENCY` (4) well under
+`DB_MAX_CONNECTIONS`. A job's span continues the trace of the request that
+enqueued it, and `/metrics` counts attempts (`jobs_total`) and the queue
+(`jobs_queued`). In tests, `Worker::run_due()` runs the due jobs inline,
+without sleeping (`tests/jobs.rs`).
 
 ## Logs and traces
 
@@ -245,7 +281,7 @@ and every feature's `routes()`, under tower-http's tracing, request ids
 (`x-request-id`), the security headers and CORS (see Security), a panic
 answered `500`, `GLOBAL_RATE_LIMIT`, a 30-second
 timeout (`408`) and a 2 MiB body limit (`413`). `serve` runs it with the
-mail sender beside it (`tokio::spawn`), both stopped by the same shutdown
+job worker beside it (`tokio::spawn`), both stopped by the same shutdown
 signal.
 
 Every other route but health needs `Authorization: Bearer <token>`: an HS256
@@ -262,9 +298,9 @@ change applies at once.
   two-factor's TOTP codes, secret encryption and recovery codes, and the
   single-use token lifecycle (`auth_token.rs`).
 - `src/shared/mail/` sends mail through an outbox: a flow writes its
-  message as an `outbound_mail` row on its own transaction, and the sender
+  message as a `mail.send` job on its own transaction, and the job worker
   delivers it (SMTP, or the log), retrying with backoff; after five
-  failures a row is `dead`, and loses its bodies and the link in them.
+  failures the job is `dead`, and loses its bodies and the link in them.
 - `src/shared/rate_limit/` is `RateLimit`, a tower `Layer` (`mod.rs`) over
   `governor` (`limiter.rs`, the same in both templates): `AUTH_RATE_LIMIT` requests a minute per client IP, then
   `429 too_many_requests` with `Retry-After`. The IP is the peer, or with
@@ -378,7 +414,7 @@ and rate-limit tests need no database. The lints in `Cargo.toml` deny
 Only the feature of that name calls it, whatever tables its queries touch;
 `check-arch` reports another feature that does. A file named after no
 feature is anyone's: `queries/session.sql` (the check `AuthUser` makes)
-and `queries/mail.sql` (the outbox) serve `src/shared/`.
+and `queries/queue.sql` (the job queue) serve `src/shared/`.
 
 Grow the truth in `schema/`, stage the change with `rok gen --migration
 <name>`, adjust `rok-data-sqlc.toml`, run `rok gen` (or `rok sqlc g`), and the
@@ -407,9 +443,8 @@ features follow.
 - `api_keys` is in the schema for a feature to come, `media` serves the
   hand-written `media` feature, and
   `auth_tokens` (single-use tokens), `totp_recovery_codes` (two-factor's
-  recovery codes) and `outbound_mail` (the mail outbox) for the account
-  flows; none has a generated API (`[api]
-  exclude`).
+  recovery codes) for the account flows, and `jobs` (the job queue);
+  none has a generated API (`[api] exclude`).
 - `token_version` is bumped to sign an account out everywhere: a token
   carrying an older one is rejected.
 

@@ -3,12 +3,12 @@
 //! Mail, with no business meaning: a [`Mail`] message, the [`Mailer`] port
 //! its transports implement ([`transport`]), the messages the account flows
 //! send ([`Templates`]), and the outbox that makes sending part of a flow's
-//! transaction ([`Outbox`], [`Sender`]).
+//! transaction ([`Outbox`], a `mail.send` job: [`SendMail`]).
 //!
 //! A flow never sends: it renders a message, enqueues it on its own
-//! transaction and commits through the outbox, which wakes the sender. The
-//! sender task (started by `app::run`) delivers it, retries a failure with
-//! backoff, and marks a row `dead` after [`outbox::MAX_ATTEMPTS`].
+//! transaction and commits through the outbox, which wakes the job workers.
+//! A worker (started by `app::run`) delivers it, retries a failure with
+//! backoff, and marks the job `dead` after [`outbox::MAX_ATTEMPTS`].
 
 pub mod outbox;
 pub mod templates;
@@ -17,12 +17,12 @@ pub mod transport;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-pub use outbox::{Delivered, Outbox, Sender};
+pub use outbox::{Outbox, SendMail};
 pub use templates::Templates;
 pub use transport::{LogMailer, MemoryMailer, SmtpMailer};
 
 /// A rendered mail: one recipient, a subject, and a text and an HTML body.
-/// The outbox stores it as JSON until it is sent.
+/// The job queue stores it as JSON until it is sent.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Mail {
     /// The recipient's address.
@@ -35,7 +35,7 @@ pub struct Mail {
     pub html: String,
 }
 
-/// Why a mail was not sent. It goes to the log and to the outbox row's
+/// Why a mail was not sent. It goes to the log and to the job's
 /// `last_error`, never to an API client.
 #[derive(Debug, thiserror::Error)]
 pub enum MailError {

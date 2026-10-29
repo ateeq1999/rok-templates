@@ -41,6 +41,8 @@ const SHARED: &[&str] = &[
     "src/shared/metrics.rs",
     // The settings readers and their errors.
     "src/shared/settings.rs",
+    // The job queue: `Job`, `Queue`, `Worker`.
+    "src/shared/jobs",
     "src/shared/mod.rs",
     // `cargo deny check`'s policy.
     "deny.toml",
