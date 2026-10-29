@@ -15,6 +15,7 @@ axum = { version = "0.8", features = ["json", "macros", "query"] }
 base64 = "0.22"
 bytes = "1"
 chrono = { version = "0.4", features = ["serde"] }
+croner = "4"
 governor = { version = "0.10", default-features = false, features = ["std"] }
 hmac = "0.13"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }

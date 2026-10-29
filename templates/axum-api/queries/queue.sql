@@ -58,3 +58,18 @@ SELECT
     count(*) AS jobs
 FROM jobs
 GROUP BY 1;
+
+-- name: StartSchedule :exec
+-- A schedule seen for the first time starts at the tick `$2`, so it waits
+-- for its next tick rather than running at once.
+INSERT INTO job_schedules (kind, last_tick)
+VALUES ($1, $2)
+ON CONFLICT (kind) DO NOTHING;
+
+-- name: ClaimTick :execrows
+-- Claims the tick `$2` of the schedule of `$1`: 1 row for the one
+-- transaction that moves it forward, 0 for any other (the row lock makes a
+-- concurrent claim wait, then see the tick taken).
+UPDATE job_schedules
+SET last_tick = $2
+WHERE kind = $1 AND last_tick < $2;

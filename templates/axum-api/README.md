@@ -69,6 +69,30 @@ enqueued it, and `/metrics` counts attempts (`jobs_total`) and the queue
 (`jobs_queued`). In tests, `Worker::run_due()` runs the due jobs inline,
 without sleeping (`tests/jobs.rs`).
 
+### Scheduled jobs
+
+A job on a clock is one line in `app/run.rs`'s `schedule`:
+`.cron::<NightlyReport>("0 3 * * *")?` enqueues `NightlyReport::default()`
+at every tick of the pattern (`minute hour day month weekday`, UTC; the
+kind must be registered in `worker` too). The upload sweep is the first:
+`media.sweep_uploads`, every 5 minutes. Every process running jobs runs
+the schedule, and each tick runs once however many there are: the one
+transaction that moves the kind's `last_tick` forward (`job_schedules`)
+enqueues it. A tick missed while nothing ran (a deploy) runs once when a
+process is back; a new schedule waits for its first tick rather than
+running at once. A pattern that doesn't parse stops the start-up. Tests
+call `Schedule::tick_at(pool, queue, now)` with the clock they want
+(`tests/schedule.rs`).
+
+### Processes: `APP_ROLE`
+
+One image runs any part: `APP_ROLE=all` (the default) serves the API and
+runs the job worker and the schedule; `web` serves the API only, so the
+jobs it enqueues run elsewhere; `worker` runs the jobs and the schedule and
+answers only `/health/live` and `/health/ready` on `BIND_ADDR`, for the
+platform's health check. Scale `web` with traffic and `worker` with the
+queue (`jobs_queued`).
+
 ## Logs and traces
 
 `src/shared/telemetry.rs` (the same in both templates) starts tracing
@@ -267,8 +291,8 @@ An `s3://` store signs these URLs itself (SigV4); set
 the API does (MinIO in Docker). A `file://` or `memory://` store can't
 sign, so the API signs them, under a key derived from `JWT_SECRET`, and
 serves them at `/api/v1/storage/{token}`. Uploads never completed are
-deleted every `MEDIA_UPLOAD_SWEEP_SECS` (5 minutes; `0` turns the sweep
-off).
+deleted every 5 minutes, by the scheduled `media.sweep_uploads` job (see
+Jobs).
 
 ## The server
 
@@ -321,6 +345,7 @@ axum = { version = "0.8", features = ["json", "macros", "query"] }
 base64 = "0.22"
 bytes = "1"
 chrono = { version = "0.4", features = ["serde"] }
+croner = "4"
 governor = { version = "0.10", default-features = false, features = ["std"] }
 hmac = "0.13"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }

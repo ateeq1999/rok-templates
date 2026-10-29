@@ -186,4 +186,20 @@ CREATE TRIGGER jobs_touch_updated_at BEFORE UPDATE ON jobs
 
            
                                            
+
+-- The job schedules (`shared/jobs/schedule.rs`): one row per scheduled
+-- kind, its last tick. The one process that moves `last_tick` forward
+-- enqueues that tick's job, so a tick runs once however many replicas run
+-- the scheduler.
+CREATE TABLE job_schedules (
+    kind TEXT PRIMARY KEY,
+    last_tick TIMESTAMPTZ NOT NULL,
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TRIGGER job_schedules_touch_updated_at BEFORE UPDATE ON job_schedules
+    FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
+
+           
+                                                             
 "#;

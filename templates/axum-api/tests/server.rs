@@ -6,7 +6,8 @@ mod support;
 use std::sync::Arc;
 use std::time::Duration;
 
-use axum_api::app::serve;
+use axum_api::app::{serve, serve_as};
+use axum_api::config::AppRole;
 use axum_api::shared::mail::{Mail, MemoryMailer};
 use support::{Database, TestResult, state};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -72,5 +73,71 @@ async fn the_server_runs_the_mail_sender_and_both_stop_on_shutdown() -> TestResu
     outbox.commit(tx).await?;
     tokio::time::sleep(Duration::from_millis(300)).await;
     assert_eq!(mailer.sent().len(), 1);
+    db.drop().await
+}
+
+/// The status line `GET path` is answered on `addr`.
+async fn status(addr: std::net::SocketAddr, path: &str) -> Result<String, std::io::Error> {
+    let mut stream = TcpStream::connect(addr).await?;
+    stream
+        .write_all(
+            format!("GET {path} HTTP/1.1\r\nHost: test\r\nConnection: close\r\n\r\n").as_bytes(),
+        )
+        .await?;
+    let mut answer = String::new();
+    stream.read_to_string(&mut answer).await?;
+    Ok(answer.lines().next().unwrap_or_default().to_owned())
+}
+
+/// `APP_ROLE=web` serves the API and runs no job: a mail it enqueues waits
+/// for a worker. `APP_ROLE=worker` serves only `/health` and runs the job.
+#[tokio::test]
+async fn the_web_role_serves_the_api_and_the_worker_role_runs_the_jobs() -> TestResult {
+    let Some(db) = Database::fresh().await? else {
+        return Ok(());
+    };
+    let mailer = Arc::new(MemoryMailer::default());
+    let start = |role: AppRole| {
+        let state = state(&db.pool);
+        let mailer = mailer.clone();
+        async move {
+            let listener = TcpListener::bind("127.0.0.1:0").await?;
+            let addr = listener.local_addr()?;
+            let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
+            let server = tokio::spawn(serve_as(role, listener, state?, mailer, async {
+                let _ = stopped.await;
+            }));
+            Ok::<_, Box<dyn std::error::Error>>((addr, stop, server))
+        }
+    };
+
+    let (addr, stop, server) = start(AppRole::Web).await?;
+    assert!(status(addr, "/health/live").await?.contains("200"));
+    assert!(
+        status(addr, "/api-docs/openapi.json")
+            .await?
+            .contains("200")
+    );
+    let outbox = state(&db.pool)?.outbox;
+    let mut tx = db.pool.begin().await?;
+    outbox
+        .enqueue(&mut tx, &mail("queued@test.invalid"))
+        .await?;
+    outbox.commit(tx).await?;
+    tokio::time::sleep(Duration::from_millis(300)).await;
+    assert!(mailer.sent().is_empty(), "the web role ran a job");
+    let _ = stop.send(());
+    tokio::time::timeout(Duration::from_secs(5), server).await???;
+
+    let (addr, stop, server) = start(AppRole::Worker).await?;
+    assert!(status(addr, "/health/live").await?.contains("200"));
+    assert!(
+        status(addr, "/api-docs/openapi.json")
+            .await?
+            .contains("404")
+    );
+    assert_eq!(sent(&mailer, 1).await, vec![mail("queued@test.invalid")]);
+    let _ = stop.send(());
+    tokio::time::timeout(Duration::from_secs(5), server).await???;
     db.drop().await
 }

@@ -596,6 +596,37 @@
           "expr": "status IN ('pending', 'dead')"
         }
       ]
+    },
+    {
+      "name": "job_schedules",
+      "module": "types",
+      "doc": [
+        "The job schedules (`shared/jobs/schedule.rs`): one row per scheduled",
+        "kind, its last tick. The one process that moves `last_tick` forward",
+        "enqueues that tick's job, so a tick runs once however many replicas run",
+        "the scheduler."
+      ],
+      "columns": [
+        {
+          "name": "kind",
+          "sql_type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "last_tick",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": false
+        },
+        {
+          "name": "updated_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "primary_key": [
+        "kind"
+      ]
     }
   ],
   "indexes": [
@@ -647,6 +678,10 @@
     {
       "up": "CREATE TRIGGER jobs_touch_updated_at BEFORE UPDATE ON jobs\n    FOR EACH ROW EXECUTE FUNCTION touch_updated_at()",
       "down": "DROP TRIGGER jobs_touch_updated_at ON jobs"
+    },
+    {
+      "up": "CREATE TRIGGER job_schedules_touch_updated_at BEFORE UPDATE ON job_schedules\n    FOR EACH ROW EXECUTE FUNCTION touch_updated_at()",
+      "down": "DROP TRIGGER job_schedules_touch_updated_at ON job_schedules"
     }
   ]
 }

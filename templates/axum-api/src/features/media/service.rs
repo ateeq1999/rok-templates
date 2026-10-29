@@ -15,7 +15,9 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
 
+use async_trait::async_trait;
 use bytes::Bytes;
+use serde::{Deserialize, Serialize};
 use sqlx::PgPool;
 
 use super::dto::{
@@ -25,6 +27,7 @@ use crate::db::media::models::{Media, MediaId};
 use crate::db::queries::media as queries;
 use crate::db::users::models::UserId;
 use crate::error::AppError;
+use crate::shared::jobs::{Job, JobError};
 use crate::shared::pagination::Pagination;
 use crate::shared::response::PaginatedResponse;
 use crate::shared::storage::{Access, Storage};
@@ -263,20 +266,6 @@ impl MediaService {
         Ok(keys.len())
     }
 
-    /// Runs [`sweep`](Self::sweep) every `every`, forever: `app/` spawns it
-    /// beside the server. A failed sweep is logged and tried again later.
-    pub async fn sweep_every(self, every: Duration) {
-        let mut ticks = tokio::time::interval(every);
-        loop {
-            ticks.tick().await;
-            match self.sweep().await {
-                Ok(0) => {}
-                Ok(removed) => tracing::info!(removed, "removed expired uploads"),
-                Err(error) => tracing::warn!(%error, "could not remove expired uploads"),
-            }
-        }
-    }
-
     /// The type detected from `bytes`, when it is allowed (else `415`).
     fn detected_type(&self, bytes: &[u8]) -> Result<&'static str, AppError> {
         let Some(detected) = infer::get(bytes) else {
@@ -344,4 +333,24 @@ fn checked_filename(filename: Option<String>) -> Result<Option<String>, AppError
 /// The `404` for a file the caller doesn't have.
 fn not_found() -> AppError {
     AppError::NotFound("no such file".to_owned())
+}
+
+/// The job removing every upload intent past its expiry, with any bytes it
+/// got (`media.sweep_uploads`): `app/run.rs`'s schedule enqueues it every
+/// five minutes.
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct SweepUploads;
+
+#[async_trait]
+impl Job for SweepUploads {
+    const KIND: &'static str = "media.sweep_uploads";
+    type Context = MediaService;
+
+    async fn run(self, media: &MediaService) -> Result<(), JobError> {
+        let removed = media.sweep().await?;
+        if removed > 0 {
+            tracing::info!(removed, "removed expired uploads");
+        }
+        Ok(())
+    }
 }

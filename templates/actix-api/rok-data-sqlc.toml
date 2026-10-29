@@ -40,8 +40,8 @@ output = "src/features"
 prefix = "/api/v1"
 # `media` and `api_keys` are hand-written features (uploads, API keys);
 # `auth_tokens` and `totp_recovery_codes` belong to the account flows and
-# two-factor sign-in, `jobs` to the job queue.
-exclude = ["media", "api_keys", "auth_tokens", "jobs", "totp_recovery_codes"]
+# two-factor sign-in, `jobs` and `job_schedules` to the job queue.
+exclude = ["media", "api_keys", "auth_tokens", "jobs", "job_schedules", "totp_recovery_codes"]
 
 [api.access]
 users = "admin"

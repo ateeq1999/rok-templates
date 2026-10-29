@@ -1,7 +1,7 @@
 // Scaffolded once by rok-data-sqlc; this file is yours. It is never regenerated. See docs/guide/architecture.md.
 
-//! [`run`] and [`serve`]: the server, the job worker and the upload sweep
-//! beside it, and the shutdown that stops them.
+//! [`run`] and [`serve`]: the server and, beside it, the job [`worker`] and
+//! the [`schedule`], as `APP_ROLE` says, and the shutdown that stops them.
 
 use std::future::Future;
 use std::net::SocketAddr;
@@ -10,16 +10,17 @@ use std::sync::Arc;
 use tokio::net::TcpListener;
 
 use super::{AppState, router};
-use crate::config::Config;
+use crate::config::{AppRole, Config};
 use crate::db::pool::init_pool;
-use crate::features::media::MediaService;
-use crate::shared::jobs::Worker;
+use crate::features::media::{MediaService, SweepUploads};
+use crate::shared::health;
+use crate::shared::jobs::{Background, Schedule, ScheduleError, Worker};
 use crate::shared::mail::{Mailer, SendMail, transport};
 use crate::shared::metrics;
 
-/// Logs the settings (secrets left out), connects the pool, then serves the
-/// application on `config.bind_addr` (see [`serve`]) until Ctrl+C or
-/// `SIGTERM`.
+/// Logs the settings (secrets left out), connects the pool, then serves
+/// what `APP_ROLE` says on `config.bind_addr` (see [`serve_as`]) until
+/// Ctrl+C or `SIGTERM`.
 pub async fn run(config: Config) -> std::io::Result<()> {
     tracing::info!("settings:\n{}", config.summary());
     let pool = init_pool(&config.database_url, &config.pool)
@@ -35,37 +36,59 @@ pub async fn run(config: Config) -> std::io::Result<()> {
         ));
         tracing::info!(%addr, "serving /metrics");
     }
-    if let Some(every) = config.media_upload_sweep {
-        tokio::spawn(MediaService::clone(&state.media).sweep_every(every));
-    }
     let listener = TcpListener::bind(&config.bind_addr).await?;
-    tracing::info!(addr = %config.bind_addr, "listening");
-    serve(listener, state, mailer, shutdown_signal()).await
+    tracing::info!(addr = %config.bind_addr, role = config.app_role.name(), "listening");
+    serve_as(config.app_role, listener, state, mailer, shutdown_signal()).await
 }
 
-/// Serves [`router`] over `state` on `listener`, with the job [`worker`]
-/// beside it (`tokio::spawn`), its mail sent through `mailer`, until
-/// `shutdown` completes: then requests in flight finish, the server
-/// returns, and the worker stops once its running jobs settle.
+/// [`serve_as`] for `APP_ROLE=all`: the API, the job worker and the
+/// schedule in one process.
 pub async fn serve(
     listener: TcpListener,
     state: AppState,
     mailer: Arc<dyn Mailer>,
     shutdown: impl Future<Output = ()> + Send + 'static,
 ) -> std::io::Result<()> {
-    let worker = worker(&state, mailer);
-    let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
-    let working = tokio::spawn(worker.run(async {
-        // A dropped `stop` stops the worker too.
-        let _ = stopped.await;
-    }));
-    let app = router(state).into_make_service_with_connect_info::<SocketAddr>();
-    let served = axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown)
-        .await;
-    let _ = stop.send(());
-    if let Err(err) = working.await {
-        tracing::error!(error = %err, "the job worker failed");
+    serve_as(AppRole::All, listener, state, mailer, shutdown).await
+}
+
+/// Serves `role`'s part on `listener` until `shutdown` completes: [`router`]
+/// over `state` (or, for a `worker`, its `/health` only), and, unless it is
+/// `web`, the job [`worker`] and the [`schedule`] beside it, its mail sent
+/// through `mailer`. On shutdown requests in flight finish, the server
+/// returns, and the worker stops once its running jobs settle.
+pub async fn serve_as(
+    role: AppRole,
+    listener: TcpListener,
+    state: AppState,
+    mailer: Arc<dyn Mailer>,
+    shutdown: impl Future<Output = ()> + Send + 'static,
+) -> std::io::Result<()> {
+    let background = if role.runs_jobs() {
+        let schedule = schedule().map_err(std::io::Error::other)?;
+        let worker = worker(&state, mailer);
+        Some(Background::start(
+            worker,
+            schedule,
+            state.pool.clone(),
+            state.queue.clone(),
+        ))
+    } else {
+        None
+    };
+    let app = if role.serves_api() {
+        router(state)
+    } else {
+        health::routes(&state.pool)
+    };
+    let served = axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown)
+    .await;
+    if let Some(background) = background {
+        background.stop().await;
     }
     served
 }
@@ -78,6 +101,14 @@ pub fn worker(state: &AppState, mailer: Arc<dyn Mailer>) -> Worker {
     Worker::new(state.pool.clone(), &state.queue)
         .with_concurrency(state.jobs_concurrency)
         .register::<SendMail>(mailer)
+        .register::<SweepUploads>(MediaService::clone(&state.media))
+}
+
+/// The jobs enqueued on a clock (UTC cron patterns), once per tick across
+/// every process. Add one: `.cron::<NightlyReport>("0 3 * * *")?`; its kind
+/// must be registered in [`worker`] too.
+pub fn schedule() -> Result<Schedule, ScheduleError> {
+    Schedule::new().cron::<SweepUploads>("*/5 * * * *")
 }
 
 /// Resolves on Ctrl+C or, on Unix, `SIGTERM`.

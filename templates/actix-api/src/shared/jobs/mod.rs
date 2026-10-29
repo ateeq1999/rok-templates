@@ -31,9 +31,14 @@
 //! }
 //! ```
 //!
+//! A job on a clock is a [`Schedule`] entry (`app/run.rs`'s `schedule`):
+//! its kind runs at every tick of a cron pattern, once across processes.
+//!
 //! Framework-free, so both templates share it.
 
+pub mod background;
 pub mod queue;
+pub mod schedule;
 pub mod worker;
 
 use std::fmt;
@@ -43,7 +48,9 @@ use async_trait::async_trait;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
+pub use background::Background;
 pub use queue::{Enqueue, Queue};
+pub use schedule::{Schedule, ScheduleError};
 pub use worker::{Ran, Worker};
 
 /// A kind of background work: its payload is `Self`, stored as JSON until

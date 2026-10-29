@@ -20,6 +20,7 @@ pub mod api_keys;
 pub mod audit_log_entry;
 pub mod auth_tokens;
 pub mod http;
+pub mod job_schedules;
 pub mod jobs;
 pub mod media;
 pub mod nullable;
@@ -47,6 +48,9 @@ pub mod prelude {
     pub use super::auth_tokens::filter::{AuthTokenFilter, AuthTokenSortKey};
     pub use super::auth_tokens::models::AuthToken;
     pub use super::auth_tokens::models::*;
+    pub use super::job_schedules::filter::{JobScheduleFilter, JobScheduleSortKey};
+    pub use super::job_schedules::models::JobSchedule;
+    pub use super::job_schedules::models::*;
     pub use super::jobs::filter::{JobFilter, JobSortKey};
     pub use super::jobs::models::Job;
     pub use super::jobs::models::*;

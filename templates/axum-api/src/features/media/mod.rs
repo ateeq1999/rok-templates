@@ -16,4 +16,4 @@ pub mod routes;
 pub mod service;
 
 pub use routes::routes;
-pub use service::MediaService;
+pub use service::{MediaService, SweepUploads};

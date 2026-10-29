@@ -55,11 +55,23 @@ impl Queue {
         options: Enqueue,
     ) -> Result<bool, AppError> {
         let payload = serde_json::to_value(job).map_err(|err| AppError::Internal(Box::new(err)))?;
+        self.enqueue_value(conn, J::KIND, payload, options).await
+    }
+
+    /// [`enqueue_with`](Self::enqueue_with) for a payload already JSON: what
+    /// the schedule enqueues its ticks with.
+    pub(super) async fn enqueue_value(
+        &self,
+        conn: &mut PgConnection,
+        kind: &str,
+        payload: serde_json::Value,
+        options: Enqueue,
+    ) -> Result<bool, AppError> {
         let written = queries::enqueue_job(
             &mut *conn,
             EnqueueJobParams {
                 id: JobId::generate(),
-                kind: J::KIND.to_owned(),
+                kind: kind.to_owned(),
                 payload,
                 delay_secs: options.delay.as_secs_f64(),
                 unique_key: options.unique_key,

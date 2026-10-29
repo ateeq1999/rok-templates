@@ -2,6 +2,7 @@
 
 //! Functions for the annotated queries in the query file.
 
+use super::super::job_schedules::models::JobScheduleId;
 use super::super::jobs::models::JobId;
 
 /// Parameters of `enqueue_job`.
@@ -209,5 +210,51 @@ where
         "#,
     )
     .fetch_all(executor)
+    .await
+}
+
+/// Runs the `StartSchedule` query (`:exec`).
+pub async fn start_schedule<'e, E>(
+    executor: E,
+    kind: &JobScheduleId,
+    last_tick: chrono::DateTime<chrono::Utc>,
+) -> Result<(), rok_data::Error>
+where
+    E: rok_data::Executor<'e>,
+{
+    rok_data::raw(
+        r#"
+        INSERT INTO job_schedules (kind, last_tick)
+        VALUES ($1, $2)
+        ON CONFLICT (kind) DO NOTHING
+        "#,
+    )
+    .bind(kind)
+    .bind(last_tick)
+    .execute(executor)
+    .await?;
+    Ok(())
+}
+
+/// Runs the `ClaimTick` query (`:execrows`).
+/// Returns the number of affected rows.
+pub async fn claim_tick<'e, E>(
+    executor: E,
+    kind: &JobScheduleId,
+    last_tick: chrono::DateTime<chrono::Utc>,
+) -> Result<u64, rok_data::Error>
+where
+    E: rok_data::Executor<'e>,
+{
+    rok_data::raw(
+        r#"
+        UPDATE job_schedules
+        SET last_tick = $2
+        WHERE kind = $1 AND last_tick < $2
+        "#,
+    )
+    .bind(kind)
+    .bind(last_tick)
+    .execute(executor)
     .await
 }

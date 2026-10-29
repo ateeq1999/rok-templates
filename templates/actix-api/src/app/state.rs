@@ -58,9 +58,6 @@ pub struct AppState {
     pub media_upload_url_ttl: std::time::Duration,
     /// `MEDIA_DOWNLOAD_URL_TTL_SECS`.
     pub media_download_url_ttl: std::time::Duration,
-    /// `MEDIA_UPLOAD_SWEEP_SECS`: how often [`run`](super::run) sweeps
-    /// expired uploads.
-    pub media_upload_sweep: Option<std::time::Duration>,
     /// Encrypts two-factor secrets at rest (`TOTP_ENCRYPTION_KEY`).
     pub totp: Arc<TotpCipher>,
     /// The per-IP limit on every route but health (`GLOBAL_RATE_LIMIT`,
@@ -102,7 +99,6 @@ impl AppState {
             media_allowed_types: config.media_allowed_types.clone(),
             media_upload_url_ttl: config.media_upload_url_ttl,
             media_download_url_ttl: config.media_download_url_ttl,
-            media_upload_sweep: config.media_upload_sweep,
             totp: Arc::new(TotpCipher::new(&config.totp_encryption_key)),
             global_rate_limit: RateLimit::per_minute(config.global_rate_limit, config.trust_proxy),
             cors_allowed_origins: config.cors_allowed_origins.clone(),

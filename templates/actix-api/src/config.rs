@@ -7,6 +7,7 @@
 //! | Variable | Default | Setting |
 //! |---|---|---|
 //! | `DATABASE_URL` | required | the PostgreSQL URL |
+//! | `APP_ROLE` | `all` | what this process runs: `all` (the API and the job worker), `web` (the API) or `worker` (the job worker and the schedule; `/health` only on `BIND_ADDR`) |
 //! | `BIND_ADDR` | `0.0.0.0:8080` | where the server listens |
 //! | `METRICS_ADDR` | unset | where `/metrics` (Prometheus) is served, apart from the API: `0.0.0.0:9090` in a container; unset, no metrics |
 //! | `JWT_SECRET` | required | the HS256 key tokens are signed with, at least 32 bytes |
@@ -29,7 +30,6 @@
 //! | `MEDIA_ALLOWED_TYPES` | `image/jpeg,image/png,image/webp,image/gif,application/pdf` | the detected types an upload may have |
 //! | `MEDIA_UPLOAD_URL_TTL_SECS` | 900 | seconds a direct-upload URL (`POST /media/uploads`) works |
 //! | `MEDIA_DOWNLOAD_URL_TTL_SECS` | 300 | seconds a download URL (`GET /media/{id}/url`) works |
-//! | `MEDIA_UPLOAD_SWEEP_SECS` | 300 | how often unfinished uploads past their expiry are removed (`0`: never) |
 //! | `STORAGE_PUBLIC_ENDPOINT` | unset | the endpoint S3 URLs are signed for, when clients reach the store elsewhere than the API (`http://localhost:9000` for `MinIO` in Docker) |
 //! | `DB_MAX_CONNECTIONS` | 20 | pool size |
 //! | `DB_MIN_CONNECTIONS` | 5 | idle connections kept open |
@@ -104,10 +104,6 @@ const DEFAULT_MEDIA_UPLOAD_URL_TTL_SECS: u64 = 900;
 /// Seconds a download URL works when `MEDIA_DOWNLOAD_URL_TTL_SECS` is not set.
 const DEFAULT_MEDIA_DOWNLOAD_URL_TTL_SECS: u64 = 300;
 
-/// How often unfinished uploads are swept when `MEDIA_UPLOAD_SWEEP_SECS` is
-/// not set.
-const DEFAULT_MEDIA_UPLOAD_SWEEP_SECS: u64 = 300;
-
 /// How the process logs and traces, read from the environment: `main.rs`
 /// starts tracing with it before [`Config::from_env`].
 pub fn log_settings() -> Result<LogSettings, ConfigErrors> {
@@ -140,6 +136,43 @@ pub fn log_settings_from(
     })
 }
 
+/// What this process runs (`APP_ROLE`). One image runs any of them: scale
+/// `web` and `worker` processes apart, or run `all` in one.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AppRole {
+    /// `all`: the API, the job worker and the scheduler. The default.
+    All,
+    /// `web`: the API only; jobs it enqueues run in a `worker`.
+    Web,
+    /// `worker`: the job worker and the scheduler, serving only `/health`
+    /// on `BIND_ADDR` (for the platform's health check).
+    Worker,
+}
+
+impl AppRole {
+    /// Whether this process serves the API.
+    #[must_use]
+    pub fn serves_api(self) -> bool {
+        matches!(self, AppRole::All | AppRole::Web)
+    }
+
+    /// Whether this process runs the job worker and the scheduler.
+    #[must_use]
+    pub fn runs_jobs(self) -> bool {
+        matches!(self, AppRole::All | AppRole::Worker)
+    }
+
+    /// Its `APP_ROLE` value.
+    #[must_use]
+    pub fn name(self) -> &'static str {
+        match self {
+            AppRole::All => "all",
+            AppRole::Web => "web",
+            AppRole::Worker => "worker",
+        }
+    }
+}
+
 /// How mail leaves the application (`MAIL_TRANSPORT`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MailTransport {
@@ -154,6 +187,8 @@ pub enum MailTransport {
 pub struct Config {
     /// `DATABASE_URL`.
     pub database_url: String,
+    /// `APP_ROLE`: what this process runs.
+    pub app_role: AppRole,
     /// `METRICS_ADDR`: where `/metrics` is served; `None`, nowhere.
     pub metrics_addr: Option<SocketAddr>,
     /// `BIND_ADDR`.
@@ -208,9 +243,6 @@ pub struct Config {
     pub media_upload_url_ttl: Duration,
     /// `MEDIA_DOWNLOAD_URL_TTL_SECS`: how long a download URL works.
     pub media_download_url_ttl: Duration,
-    /// `MEDIA_UPLOAD_SWEEP_SECS`: how often expired upload intents and their
-    /// bytes are removed; `None` (`0`) never.
-    pub media_upload_sweep: Option<Duration>,
     /// `STORAGE_PUBLIC_ENDPOINT`: the endpoint an S3-compatible store's URLs
     /// are signed for, when clients reach it elsewhere than the API does.
     pub storage_public_endpoint: Option<String>,
@@ -269,6 +301,19 @@ impl Config {
         let config = Config {
             database_url,
             bind_addr: var("BIND_ADDR").unwrap_or_else(|| DEFAULT_BIND_ADDR.to_owned()),
+            app_role: match var("APP_ROLE").as_deref().map(str::trim) {
+                None | Some("" | "all") => AppRole::All,
+                Some("web") => AppRole::Web,
+                Some("worker") => AppRole::Worker,
+                Some(other) => {
+                    vars.fail(ConfigError::NotOneOf {
+                        name: "APP_ROLE",
+                        value: other.to_owned(),
+                        expected: "all, web, worker",
+                    });
+                    AppRole::All
+                }
+            },
             metrics_addr: var("METRICS_ADDR")
                 .filter(|addr| !addr.trim().is_empty())
                 .and_then(|addr| {
@@ -345,13 +390,6 @@ impl Config {
                 vars.number("MEDIA_DOWNLOAD_URL_TTL_SECS")
                     .unwrap_or(DEFAULT_MEDIA_DOWNLOAD_URL_TTL_SECS),
             ),
-            media_upload_sweep: match vars
-                .number("MEDIA_UPLOAD_SWEEP_SECS")
-                .unwrap_or(DEFAULT_MEDIA_UPLOAD_SWEEP_SECS)
-            {
-                0 => None,
-                secs => Some(Duration::from_secs(secs)),
-            },
             storage_public_endpoint: var("STORAGE_PUBLIC_ENDPOINT").filter(|url| !url.is_empty()),
             pool,
         };
@@ -375,6 +413,7 @@ impl Config {
         let unset = || "<unset>".to_owned();
         let settings = [
             ("DATABASE_URL", redact_url(&self.database_url)),
+            ("APP_ROLE", self.app_role.name().to_owned()),
             ("BIND_ADDR", self.bind_addr.clone()),
             (
                 "METRICS_ADDR",
@@ -426,10 +465,6 @@ impl Config {
             (
                 "MEDIA_DOWNLOAD_URL_TTL_SECS",
                 secs(self.media_download_url_ttl),
-            ),
-            (
-                "MEDIA_UPLOAD_SWEEP_SECS",
-                self.media_upload_sweep.map_or_else(|| "0".to_owned(), secs),
             ),
             (
                 "STORAGE_PUBLIC_ENDPOINT",
