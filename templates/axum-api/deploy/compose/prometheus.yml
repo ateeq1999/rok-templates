@@ -1,0 +1,9 @@
+# Prometheus for `docker compose --profile observability`: it scrapes the
+# API's /metrics (METRICS_ADDR, port 9090 inside the compose network).
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: api
+    static_configs:
+      - targets: ["api:9090"]

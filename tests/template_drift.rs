@@ -43,6 +43,12 @@ const SHARED: &[&str] = &[
     "src/shared/settings.rs",
     // The drain on `SIGTERM`: the flag, its settings, the signal.
     "src/shared/shutdown.rs",
+    // Running and shipping it: the image, the compose stack, CI.
+    "Dockerfile",
+    ".dockerignore",
+    "compose.yaml",
+    "deploy",
+    ".github",
     // The job queue: `Job`, `Queue`, `Worker`.
     "src/shared/jobs",
     "src/shared/mod.rs",

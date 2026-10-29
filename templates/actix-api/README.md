@@ -29,6 +29,34 @@ You need PostgreSQL and Rust 1.94 or newer.
    `/health/ready`, the OpenAPI document at `/api-docs/openapi.json` and
    Swagger UI at `/docs/`.
 
+### With Docker
+
+`compose.yaml` runs everything the API talks to: PostgreSQL, Floci (the
+AWS emulator; S3 holds the uploads) and Mailpit (every mail sent, at
+http://localhost:8025).
+
+```console
+$ docker compose up --build
+$ DATABASE_URL=postgres://app:app@localhost:5432/app rok migrate up
+```
+
+The API is at http://localhost:8080, `/metrics` at :9090. Migrations are
+applied by `rok migrate up`, once, so its journal knows them. A Postgres
+of your own on 5432 (or anything on the other ports) collides: change the
+left side of that service's `ports`. With traces and metrics, Jaeger at
+http://localhost:16686, Prometheus at :9091 and Grafana at
+http://localhost:3000 (the *API* dashboard):
+
+```console
+$ OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318 docker compose --profile observability up --build
+```
+
+The `Dockerfile` builds the image production runs: dependencies cached in
+a layer of their own, the binary on distroless as a non-root user, JSON
+logs. `.github/workflows/ci.yml` checks every change: formatting, clippy,
+the tests against PostgreSQL, `rok sqlc g --check` and `check-arch`,
+`cargo deny`, and the image build.
+
 ## Jobs
 
 Background work runs on PostgreSQL itself (`src/shared/jobs/`, the same in
