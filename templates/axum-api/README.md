@@ -33,6 +33,31 @@ You need PostgreSQL and Rust 1.94 or newer.
    Swagger UI at `/docs/`. Ctrl+C or `SIGTERM` stops it gracefully:
    requests in flight finish, then the mail sender stops.
 
+## Logs and traces
+
+`src/shared/telemetry.rs` (the same in both templates) starts tracing
+before anything else, from `RUST_LOG`, `LOG_FORMAT` and the `OTEL_*`
+variables:
+
+- **Log lines.** `LOG_FORMAT=pretty` (the default) for a terminal,
+  `LOG_FORMAT=json` for a log collector: one JSON object per event.
+  `RUST_LOG` filters them (`info`, `debug,sqlx=warn`).
+- **The request span.** Every request runs in a span carrying its method,
+  its route (the matched pattern, `/api/v1/users/{id}`), its request id
+  (also answered as `x-request-id`) and, once `shared/auth.rs` knows it,
+  the caller's `user_id`. Everything logged while serving it carries them.
+- **Trace export.** Set `OTEL_EXPORTER_OTLP_ENDPOINT` (such as
+  `http://localhost:4318`) and every span is exported over OTLP/HTTP to
+  that collector; a request sending a W3C `traceparent` continues the
+  caller's trace. The exporter reads the other standard variables itself
+  (`OTEL_EXPORTER_OTLP_HEADERS` for an API key, `OTEL_TRACES_SAMPLER`,
+  `OTEL_RESOURCE_ATTRIBUTES`); `OTEL_SERVICE_NAME` names the service, by
+  default the crate. Unset, nothing is exported or connected to. The spans
+  still buffered are sent when the server stops.
+- **Your own spans.** `#[tracing::instrument]` on a service method, or
+  `tracing::info_span!`, nests under the request's span and is exported
+  with it; no other wiring.
+
 ## Security
 
 Every answer passes through `src/app/middleware.rs`, over what
@@ -246,6 +271,9 @@ infer = { version = "0.22", default-features = false }
 jsonwebtoken = { version = "11", features = ["rust_crypto"] }
 lettre = { version = "0.11", default-features = false, features = ["builder", "hostname", "smtp-transport", "tokio1-rustls-tls"] }
 object_store = { version = "0.13", features = ["aws"] }
+opentelemetry = { version = "0.32", default-features = false, features = ["trace"] }
+opentelemetry-otlp = { version = "0.32", default-features = false, features = ["trace", "http-proto", "reqwest-blocking-client", "reqwest-rustls"] }
+opentelemetry_sdk = { version = "0.32", default-features = false, features = ["trace"] }
 qrcode = { version = "0.14", default-features = false, features = ["svg"] }
 rand = "0.10"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
@@ -263,7 +291,8 @@ totp-rs = { version = "5", features = ["otpauth"] }
 tower = { version = "0.5", features = ["util"] }
 tower-http = { version = "0.6", features = ["catch-panic", "cors", "request-id", "timeout", "trace"] }
 tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+tracing-opentelemetry = { version = "0.33", default-features = false }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 utoipa = { version = "5", features = ["chrono", "uuid"] }
 utoipa-swagger-ui = { version = "9", features = ["axum", "vendored"] }
 uuid = { version = "1", features = ["v7", "serde"] }

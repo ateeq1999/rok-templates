@@ -7,10 +7,14 @@ use actix_web::body::MessageBody;
 use actix_web::dev::{ServiceFactory, ServiceRequest, ServiceResponse};
 use actix_web::middleware::from_fn;
 use actix_web::{App, web};
+use tracing_actix_web::TracingLogger;
 use utoipa_swagger_ui::SwaggerUi;
 
 use super::AppState;
-use super::middleware::{GlobalRateLimit, catch_panic, cors, global_rate_limit, security_headers};
+use super::middleware::{
+    GlobalRateLimit, RequestSpan, catch_panic, cors, global_rate_limit, request_id,
+    security_headers,
+};
 use crate::features::account::{self, AccountService};
 use crate::features::api_keys::{self, ApiKeyService};
 use crate::features::auth::{self, AuthService};
@@ -20,7 +24,8 @@ use crate::openapi::document;
 use crate::shared::health;
 
 /// The whole application over `state`: [`configure`]'s services and
-/// routes, wrapped (outermost first) in the security headers, CORS, a
+/// routes, wrapped (outermost first) in the request's span and its
+/// `x-request-id`, the security headers, CORS, a
 /// panic answered `500`, and everything but health under
 /// `state.global_rate_limit`. The server runs it in every worker; tests
 /// build it with `actix_web::test::init_service(app(state))`.
@@ -44,6 +49,8 @@ pub fn app(
         .wrap(from_fn(catch_panic))
         .wrap(cors(&state.cors_allowed_origins))
         .wrap(security_headers(state.https))
+        .wrap(from_fn(request_id))
+        .wrap(TracingLogger::<RequestSpan>::new())
 }
 
 /// Mounts the whole application on `cfg`: the pool, the JWT keys, the mail

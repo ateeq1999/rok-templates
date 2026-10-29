@@ -37,6 +37,7 @@ use crate::error::AppError;
 pub use crate::shared::security::api_key::Credential;
 use crate::shared::security::api_key::{self, Presented};
 pub use crate::shared::security::jwt::{Claims, JwtKeys};
+use crate::shared::telemetry;
 
 /// A signed-in caller with a live, active account. Take it in a handler to
 /// require one.
@@ -66,7 +67,7 @@ impl<S: Send + Sync> FromRequestParts<S> for AuthUser {
             .get::<PgPool>()
             .ok_or_else(|| wiring("the `PgPool`"))?
             .clone();
-        match credentials(&parts.headers)? {
+        let user = match credentials(&parts.headers)? {
             Presented::Session(token) => {
                 let keys = parts
                     .extensions
@@ -74,7 +75,7 @@ impl<S: Send + Sync> FromRequestParts<S> for AuthUser {
                     .ok_or_else(|| wiring("`JwtKeys`"))?;
                 let claims = keys.decode(token)?;
                 let account = session_state(&pool, claims.sub.into()).await?;
-                admit(&claims, account)
+                admit(&claims, account)?
             }
             Presented::ApiKey(key) => {
                 // A nested router sees its own part of the path; the rules
@@ -84,13 +85,16 @@ impl<S: Send + Sync> FromRequestParts<S> for AuthUser {
                     .get::<OriginalUri>()
                     .map_or_else(|| parts.uri.path(), |original| original.path());
                 let owner = api_key::authenticate(&pool, key, parts.method.as_str(), path).await?;
-                Ok(AuthUser {
+                AuthUser {
                     id: owner.id,
                     role: owner.role,
                     credential: Credential::ApiKey(owner.scope),
-                })
+                }
             }
-        }
+        };
+        // The request's span names its caller from here on.
+        telemetry::record_user(user.id);
+        Ok(user)
     }
 }
 

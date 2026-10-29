@@ -14,7 +14,7 @@ use tower_http::trace::TraceLayer;
 use utoipa_swagger_ui::SwaggerUi;
 
 use super::AppState;
-use super::middleware::{catch_panic, cors, security_headers, set_security_headers};
+use super::middleware::{catch_panic, cors, request_span, security_headers, set_security_headers};
 use crate::error::AppError;
 use crate::features;
 use crate::features::{account, api_keys, auth, media, two_factor};
@@ -86,7 +86,7 @@ pub fn router(state: AppState) -> Router {
             set_security_headers,
         ))
         .layer(PropagateRequestIdLayer::x_request_id())
-        .layer(TraceLayer::new_for_http())
+        .layer(TraceLayer::new_for_http().make_span_with(request_span))
         .layer(SetRequestIdLayer::x_request_id(MakeRequestUuid))
 }
 

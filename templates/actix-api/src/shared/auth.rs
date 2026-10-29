@@ -34,6 +34,7 @@ use crate::error::AppError;
 pub use crate::shared::security::api_key::Credential;
 use crate::shared::security::api_key::{self, Presented};
 pub use crate::shared::security::jwt::{Claims, JwtKeys};
+use crate::shared::telemetry;
 
 /// A signed-in caller with a live, active account. Take it in a handler to
 /// require one.
@@ -62,20 +63,23 @@ impl FromRequest for AuthUser {
         // `/api/v1/api%2Dkeys` routes to `/api/v1/api-keys`.
         let path = req.match_info().as_str().to_owned();
         Box::pin(async move {
-            match checked? {
+            let user = match checked? {
                 Checked::Session(claims, pool) => {
                     let state = session_state(pool.get_ref(), claims.sub.into()).await?;
-                    admit(&claims, state)
+                    admit(&claims, state)?
                 }
                 Checked::ApiKey(key, pool) => {
                     let owner = api_key::authenticate(&pool, &key, &method, &path).await?;
-                    Ok(AuthUser {
+                    AuthUser {
                         id: owner.id,
                         role: owner.role,
                         credential: Credential::ApiKey(owner.scope),
-                    })
+                    }
                 }
-            }
+            };
+            // The request's span names its caller from here on.
+            telemetry::record_user(user.id);
+            Ok(user)
         })
     }
 }

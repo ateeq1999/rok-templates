@@ -1,6 +1,7 @@
 // Scaffolded once by rok-data-sqlc; this file is yours. It is never regenerated. See docs/guide/architecture.md.
 
-//! The middleware every answer passes through: the security headers, CORS,
+//! The middleware every answer passes through: the request's span and id,
+//! the security headers, CORS,
 //! a panic turned into the wire standard's `500`, and `GLOBAL_RATE_LIMIT`
 //! on every route but health. What they send is
 //! `shared/security/headers.rs`'s; this file is actix-web's glue around it.
@@ -11,9 +12,12 @@ use std::panic::AssertUnwindSafe;
 use actix_cors::Cors;
 use actix_web::body::{BoxBody, MessageBody};
 use actix_web::dev::{ServiceRequest, ServiceResponse};
+use actix_web::http::header::{HeaderName, HeaderValue};
 use actix_web::middleware::{DefaultHeaders, Next};
-use actix_web::{Error, ResponseError, web};
+use actix_web::{Error, HttpMessage, ResponseError, web};
 use futures_util::FutureExt;
+use tracing::Span;
+use tracing_actix_web::{DefaultRootSpanBuilder, RequestId, RootSpanBuilder};
 
 use crate::error::AppError;
 use crate::shared::rate_limit::{FORWARDED_FOR, RateLimit};
@@ -49,6 +53,40 @@ pub fn cors(origins: &CorsOrigins) -> Cors {
         .allowed_headers(CORS_HEADERS.iter().copied())
         .expose_headers(CORS_EXPOSED_HEADERS.iter().copied())
         .max_age(usize::try_from(CORS_MAX_AGE.as_secs()).ok())
+}
+
+/// The span every request runs in (`TracingLogger::<RequestSpan>`):
+/// tracing-actix-web's root span (method, route, status, a `request_id`,
+/// and the trace the request's `traceparent` names, when spans are
+/// exported) with the caller's `user_id`, which `shared/auth.rs` records
+/// once known.
+pub struct RequestSpan;
+
+impl RootSpanBuilder for RequestSpan {
+    fn on_request_start(request: &ServiceRequest) -> Span {
+        tracing_actix_web::root_span!(request, user_id = tracing::field::Empty)
+    }
+
+    fn on_request_end<B: MessageBody>(span: Span, outcome: &Result<ServiceResponse<B>, Error>) {
+        DefaultRootSpanBuilder::on_request_end(span, outcome);
+    }
+}
+
+/// Answers the request's id as `x-request-id`, the id its span carries, so
+/// a caller can quote it (`.wrap(from_fn(request_id))`, inside the
+/// `TracingLogger` that assigns it).
+pub async fn request_id(
+    req: ServiceRequest,
+    next: Next<impl MessageBody + 'static>,
+) -> Result<ServiceResponse<impl MessageBody>, Error> {
+    let id = req.extensions().get::<RequestId>().copied();
+    let mut response = next.call(req).await?;
+    if let Some(value) = id.and_then(|id| HeaderValue::from_str(&id.to_string()).ok()) {
+        response
+            .headers_mut()
+            .insert(HeaderName::from_static("x-request-id"), value);
+    }
+    Ok(response)
 }
 
 /// Fails a request whose handler panicked with `AppError::Internal`, which

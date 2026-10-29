@@ -4,8 +4,9 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use axum_api::config::{Config, ConfigErrors, MailTransport};
+use axum_api::config::{Config, ConfigErrors, MailTransport, log_settings_from};
 use axum_api::shared::storage::StorageUrl;
+use axum_api::shared::telemetry::LogFormat;
 
 /// The settings read from `vars` alone.
 fn read(vars: &[(&str, &str)]) -> Result<Config, ConfigErrors> {
@@ -245,6 +246,45 @@ fn the_summary_leaves_the_secrets_out() -> Result<(), ConfigErrors> {
             .summary()
             .lines()
             .any(|l| l == "DATABASE_URL=postgres://db")
+    );
+    Ok(())
+}
+
+/// Logs are pretty and spans stay in the process by default; `LOG_FORMAT`
+/// and `OTEL_EXPORTER_OTLP_ENDPOINT` switch them, and a wrong format is
+/// refused.
+#[test]
+fn the_log_settings_default_to_pretty_lines_and_no_export() -> Result<(), ConfigErrors> {
+    let read = |vars: &'static [(&'static str, &'static str)]| {
+        log_settings_from(|name| {
+            vars.iter()
+                .find(|(key, _)| *key == name)
+                .map(|(_, value)| (*value).to_owned())
+        })
+    };
+    let settings = read(&[])?;
+    assert_eq!(settings.format, LogFormat::Pretty);
+    assert_eq!(settings.filter, "info");
+    assert!(!settings.export_traces);
+    assert_eq!(settings.service_name, None);
+    let settings = read(&[
+        ("LOG_FORMAT", "json"),
+        ("RUST_LOG", "debug,sqlx=warn"),
+        ("OTEL_EXPORTER_OTLP_ENDPOINT", "http://collector:4318"),
+        ("OTEL_SERVICE_NAME", "shop-api"),
+    ])?;
+    assert_eq!(settings.format, LogFormat::Json);
+    assert_eq!(settings.filter, "debug,sqlx=warn");
+    assert!(settings.export_traces);
+    assert_eq!(settings.service_name.as_deref(), Some("shop-api"));
+    // An empty endpoint is no endpoint.
+    assert!(!read(&[("OTEL_EXPORTER_OTLP_ENDPOINT", " ")])?.export_traces);
+    assert_eq!(
+        read(&[("LOG_FORMAT", "xml")])
+            .err()
+            .map(|err| err.to_string())
+            .as_deref(),
+        Some("environment variable `LOG_FORMAT` is `xml`, which is not one of pretty, json")
     );
     Ok(())
 }

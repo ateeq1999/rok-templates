@@ -35,6 +35,8 @@ const SHARED: &[&str] = &[
     // The ports features declare for each other, implemented: the wiring's
     // one framework-free part.
     "src/app/ports.rs",
+    // Logs and traces: the subscriber, `traceparent`, the caller on the span.
+    "src/shared/telemetry.rs",
     // `cargo deny check`'s policy.
     "deny.toml",
 ];
