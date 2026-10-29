@@ -1,0 +1,463 @@
+{
+  "enums": [
+    {
+      "name": "role",
+      "values": [
+        "user",
+        "admin"
+      ],
+      "module": ""
+    },
+    {
+      "name": "api_key_scope",
+      "values": [
+        "read",
+        "write"
+      ],
+      "module": ""
+    },
+    {
+      "name": "purpose",
+      "values": [
+        "email_verification",
+        "password_reset",
+        "email_change",
+        "invitation"
+      ],
+      "module": ""
+    },
+    {
+      "name": "status",
+      "values": [
+        "pending",
+        "dead"
+      ],
+      "module": ""
+    }
+  ],
+  "tables": [
+    {
+      "name": "users",
+      "module": "users",
+      "columns": [
+        {
+          "name": "id",
+          "sql_type": "UUID",
+          "nullable": false
+        },
+        {
+          "name": "email",
+          "sql_type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "display_name",
+          "sql_type": "TEXT",
+          "nullable": true
+        },
+        {
+          "name": "password_hash",
+          "sql_type": "TEXT",
+          "nullable": true
+        },
+        {
+          "name": "has_password",
+          "sql_type": "BOOLEAN",
+          "nullable": false,
+          "generated": "password_hash IS NOT NULL"
+        },
+        {
+          "name": "role",
+          "sql_type": "role",
+          "nullable": false,
+          "default": "'user'"
+        },
+        {
+          "name": "is_active",
+          "sql_type": "BOOLEAN",
+          "nullable": false,
+          "default": "true"
+        },
+        {
+          "name": "email_verified",
+          "sql_type": "BOOLEAN",
+          "nullable": false,
+          "default": "false"
+        },
+        {
+          "name": "totp_secret",
+          "sql_type": "TEXT",
+          "nullable": true
+        },
+        {
+          "name": "totp_enabled",
+          "sql_type": "BOOLEAN",
+          "nullable": false,
+          "default": "false"
+        },
+        {
+          "name": "avatar_key",
+          "sql_type": "TEXT",
+          "nullable": true
+        },
+        {
+          "name": "failed_logins",
+          "sql_type": "INTEGER",
+          "nullable": false,
+          "default": "0"
+        },
+        {
+          "name": "locked_until",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "deleted_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": true
+        },
+        {
+          "name": "token_version",
+          "sql_type": "INTEGER",
+          "nullable": false,
+          "default": "1"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ]
+    },
+    {
+      "name": "audit_log",
+      "module": "audit_log_entry",
+      "columns": [
+        {
+          "name": "id",
+          "sql_type": "UUID",
+          "nullable": false
+        },
+        {
+          "name": "actor_user_id",
+          "sql_type": "UUID",
+          "nullable": false
+        },
+        {
+          "name": "target_user_id",
+          "sql_type": "UUID",
+          "nullable": true
+        },
+        {
+          "name": "action",
+          "sql_type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "details",
+          "sql_type": "JSONB",
+          "nullable": false,
+          "default": "'{}'"
+        },
+        {
+          "name": "created_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "name": "audit_log_actor_user_id_fkey",
+          "columns": [
+            "actor_user_id"
+          ],
+          "ref_table": "users",
+          "ref_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "audit_log_target_user_id_fkey",
+          "columns": [
+            "target_user_id"
+          ],
+          "ref_table": "users",
+          "ref_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "media",
+      "module": "media",
+      "columns": [
+        {
+          "name": "id",
+          "sql_type": "UUID",
+          "nullable": false
+        },
+        {
+          "name": "owner_id",
+          "sql_type": "UUID",
+          "nullable": false
+        },
+        {
+          "name": "content_type",
+          "sql_type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "size_bytes",
+          "sql_type": "BIGINT",
+          "nullable": false
+        },
+        {
+          "name": "original_filename",
+          "sql_type": "TEXT",
+          "nullable": true
+        },
+        {
+          "name": "storage_key",
+          "sql_type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "name": "media_owner_id_fkey",
+          "columns": [
+            "owner_id"
+          ],
+          "ref_table": "users",
+          "ref_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "api_keys",
+      "module": "api_keys",
+      "columns": [
+        {
+          "name": "id",
+          "sql_type": "UUID",
+          "nullable": false
+        },
+        {
+          "name": "user_id",
+          "sql_type": "UUID",
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "sql_type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "key_prefix",
+          "sql_type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "key_hash",
+          "sql_type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "scope",
+          "sql_type": "api_key_scope",
+          "nullable": false,
+          "default": "'read'"
+        },
+        {
+          "name": "expires_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": true
+        },
+        {
+          "name": "last_used_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": true
+        },
+        {
+          "name": "revoked_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "name": "api_keys_user_id_fkey",
+          "columns": [
+            "user_id"
+          ],
+          "ref_table": "users",
+          "ref_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "auth_tokens",
+      "module": "auth_tokens",
+      "columns": [
+        {
+          "name": "id",
+          "sql_type": "UUID",
+          "nullable": false
+        },
+        {
+          "name": "user_id",
+          "sql_type": "UUID",
+          "nullable": false
+        },
+        {
+          "name": "purpose",
+          "sql_type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "token_hash",
+          "sql_type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "new_email",
+          "sql_type": "TEXT",
+          "nullable": true
+        },
+        {
+          "name": "expires_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": false
+        },
+        {
+          "name": "used_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "uniques": [
+        {
+          "name": "auth_tokens_token_hash_key",
+          "columns": [
+            "token_hash"
+          ]
+        }
+      ],
+      "foreign_keys": [
+        {
+          "name": "auth_tokens_user_id_fkey",
+          "columns": [
+            "user_id"
+          ],
+          "ref_table": "users",
+          "ref_columns": [
+            "id"
+          ],
+          "on_delete": "CASCADE"
+        }
+      ]
+    },
+    {
+      "name": "outbound_mail",
+      "module": "outbound_mail",
+      "columns": [
+        {
+          "name": "id",
+          "sql_type": "UUID",
+          "nullable": false
+        },
+        {
+          "name": "payload",
+          "sql_type": "JSONB",
+          "nullable": false
+        },
+        {
+          "name": "status",
+          "sql_type": "TEXT",
+          "nullable": false,
+          "default": "'pending'"
+        },
+        {
+          "name": "attempts",
+          "sql_type": "INTEGER",
+          "nullable": false,
+          "default": "0"
+        },
+        {
+          "name": "next_attempt_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "last_error",
+          "sql_type": "TEXT",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ]
+    }
+  ],
+  "indexes": [],
+  "extras": []
+}
