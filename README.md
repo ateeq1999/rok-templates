@@ -14,8 +14,12 @@ $ rok sqlc init --template axum
 ```
 
 Each template's own `README.md` describes what it ships and which files
-are yours. The two templates share their framework-independent files byte
-for byte; `tests/template_drift.rs` checks that they stay so.
+are yours. [The
+guide](https://github.com/ateeq1999/rok-data/blob/main/crates/rok-templates/docs/guide/index.md)
+explains the parts (accounts, files, jobs, observability, security,
+deploying to AWS) and has recipes for growing them. The two templates
+share their framework-independent files byte for byte;
+`tests/template_drift.rs` checks that they stay so.
 
 The crate is data only: `build.rs` embeds `templates/`, and
 [`EMBEDDED`](https://docs.rs/rok-templates/latest/rok_templates/constant.EMBEDDED.html)

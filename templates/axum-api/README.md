@@ -17,6 +17,12 @@ cd my-api
 rok sqlc g
 ```
 
+This README is the reference for every setting and every file. The
+[templates' guide](https://github.com/ateeq1999/rok-data/blob/main/crates/rok-templates/docs/guide/index.md)
+explains the parts and how to grow them: jobs, observability, security and
+deploying to AWS. It also has recipes for Sentry, OTLP metrics, a Redis
+rate limit, webhooks and OIDC sign-in.
+
 ## Running it
 
 You need PostgreSQL and Rust 1.94 or newer.
@@ -258,9 +264,9 @@ Every answer passes through `src/app/middleware.rs`, over what
 
 The account flows are hand-written features, yours to change:
 `src/features/auth/`, `src/features/two_factor/` and
-`src/features/account/`. The engine's guide
+`src/features/account/`. The templates' guide
 documents each one, the settings, sending real mail and adding a flow
-([Accounts and sign-in](https://github.com/ateeq1999/rok-data/blob/main/crates/rok-data-sqlc/docs/guide/auth.md)).
+([Accounts and sign-in](https://github.com/ateeq1999/rok-data/blob/main/crates/rok-templates/docs/guide/auth.md)).
 
 - **Sign-up.** `POST /api/v1/auth/register` (`{"email", "password"}`, 8 to
   128 characters) creates the account and mails a verification link. Its
