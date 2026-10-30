@@ -35,10 +35,16 @@ pub struct Template {
 
 /// The Apps of the monorepo template. The web and mobile Apps join as
 /// their files arrive.
-const MONOREPO_APPS: &[App] = &[App {
-    name: "api",
-    dir: "apps/api",
-}];
+const MONOREPO_APPS: &[App] = &[
+    App {
+        name: "api",
+        dir: "apps/api",
+    },
+    App {
+        name: "web",
+        dir: "apps/web",
+    },
+];
 
 /// The templates, each its [`Template`] entry. A template's manifest and
 /// every file a project gets is one of [`files`]'s, laid into the project
