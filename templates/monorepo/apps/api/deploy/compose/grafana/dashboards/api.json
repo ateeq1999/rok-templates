@@ -1,0 +1,75 @@
+{
+  "title": "API",
+  "uid": "api",
+  "schemaVersion": 39,
+  "time": { "from": "now-30m", "to": "now" },
+  "refresh": "10s",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Requests per second, by route",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "sum by (route) (rate(http_requests_total[1m]))", "legendFormat": "{{route}}" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Latency p95, by route (seconds)",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (route, le) (rate(http_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{route}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Server errors per second (5xx)",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "sum by (route) (rate(http_requests_total{status=~\"5..\"}[1m]))", "legendFormat": "{{route}}" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Jobs queued, by state",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [{ "expr": "jobs_queued", "legendFormat": "{{state}}" }]
+    },
+    {
+      "type": "timeseries",
+      "title": "Job attempts per second, by kind and outcome",
+      "gridPos": { "x": 0, "y": 16, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "sum by (kind, outcome) (rate(jobs_total[5m]))", "legendFormat": "{{kind}} {{outcome}}" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Database pool connections",
+      "gridPos": { "x": 12, "y": 16, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "db_pool_connections", "legendFormat": "{{state}}" },
+        { "expr": "db_pool_max_connections", "legendFormat": "max" }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Sign-ins per minute, by outcome",
+      "gridPos": { "x": 0, "y": 24, "w": 24, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "targets": [
+        { "expr": "sum by (outcome) (rate(auth_logins_total[5m])) * 60", "legendFormat": "{{outcome}}" },
+        { "expr": "rate(auth_lockouts_total[5m]) * 60", "legendFormat": "lockouts" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+# The monorepo's workspace: the Apps are its members. Non-Rust Apps (the
+# web and the mobile app) have no root here; their files live under their
+# Apps' directories and their toolchains mind them.
+[workspace]
+resolver = "3"
+members = ["apps/api"]

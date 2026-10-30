@@ -1,0 +1,69 @@
+// Scaffolded once by rok-data-sqlc; this file is yours. It is never regenerated. See docs/guide/architecture.md.
+
+//! The `OpenAPI` document `app/` serves at `/api-docs/openapi.json`, with
+//! Swagger UI at `/docs/`: the generated features' `GeneratedApiDoc`,
+//! merged into [`ApiDoc`], which lists your hand-written paths and schemas.
+
+use utoipa::OpenApi;
+
+use crate::features::GeneratedApiDoc;
+
+/// Your hand-written paths and schemas: list a handler carrying
+/// `#[utoipa::path]` in `paths(...)`, and a type deriving `ToSchema` that
+/// no path refers to in `components(schemas(...))`. Where yours and the
+/// generated document name the same path or schema, yours wins.
+#[derive(OpenApi)]
+#[openapi(
+    paths(
+        crate::features::auth::handlers::register,
+        crate::features::auth::handlers::login,
+        crate::features::auth::handlers::verify,
+        crate::features::auth::handlers::resend,
+        crate::features::auth::handlers::forgot,
+        crate::features::auth::handlers::reset,
+        crate::features::auth::handlers::change,
+        crate::features::account::handlers::auth_me,
+        crate::features::account::handlers::get_me,
+        crate::features::account::handlers::update_me,
+        crate::features::account::handlers::upload_avatar,
+        crate::features::account::handlers::remove_avatar,
+        crate::features::account::handlers::avatar,
+        crate::features::auth::handlers::request_change,
+        crate::features::auth::handlers::confirm_change,
+        crate::features::auth::handlers::invite,
+        crate::features::two_factor::handlers::setup_totp,
+        crate::features::two_factor::handlers::enable_totp,
+        crate::features::two_factor::handlers::disable_totp,
+        crate::features::two_factor::handlers::verify_totp,
+        crate::features::api_keys::handlers::list,
+        crate::features::api_keys::handlers::create,
+        crate::features::api_keys::handlers::revoke,
+        crate::features::jobs::handlers::list,
+        crate::features::jobs::handlers::retry,
+        crate::features::jobs::handlers::cancel,
+        crate::features::media::handlers::list,
+        crate::features::media::handlers::upload,
+        crate::features::media::handlers::metadata,
+        crate::features::media::handlers::remove,
+        crate::features::media::handlers::content,
+        crate::features::media::handlers::start_upload,
+        crate::features::media::handlers::complete_upload,
+        crate::features::media::handlers::download_url,
+        crate::features::media::handlers::put_object,
+        crate::features::media::handlers::get_object,
+    ),
+    components(schemas()),
+    tags((name = "auth"), (name = "api-keys"), (name = "jobs")),
+)]
+pub struct ApiDoc;
+
+/// The whole document: [`ApiDoc`] with every generated path and schema
+/// merged in, titled and versioned after the crate.
+#[must_use]
+pub fn document() -> utoipa::openapi::OpenApi {
+    let mut doc = ApiDoc::openapi();
+    doc.merge(GeneratedApiDoc::openapi());
+    doc.info.title = env!("CARGO_PKG_NAME").to_owned();
+    doc.info.version = env!("CARGO_PKG_VERSION").to_owned();
+    doc
+}
