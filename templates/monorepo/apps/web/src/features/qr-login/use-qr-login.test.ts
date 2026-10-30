@@ -3,15 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { useQrLogin } from "./use-qr-login"
 import { ApiError } from "@/lib/http"
 
-const { mockedCreate, mockedPoll } = vi.hoisted(() => ({
-  mockedCreate: vi.fn(),
-  mockedPoll: vi.fn(),
-}))
+import { qrLoginApi } from "./api"
 
 vi.mock("./api", () => ({
   qrLoginApi: {
-    create: mockedCreate,
-    poll: mockedPoll,
+    create: vi.fn(),
+    poll: vi.fn(),
     scan: vi.fn(),
     approve: vi.fn(),
     reject: vi.fn(),
@@ -30,8 +27,8 @@ const session = {
 
 beforeEach(() => {
   vi.useFakeTimers()
-  mockedCreate.mockReset()
-  mockedPoll.mockReset()
+  vi.mocked(qrLoginApi.create).mockReset()
+  vi.mocked(qrLoginApi.poll).mockReset()
 })
 
 afterEach(() => {
@@ -40,8 +37,8 @@ afterEach(() => {
 
 describe("useQrLogin", () => {
   it("goes pending -> scanned -> approved and delivers the token once", async () => {
-    mockedCreate.mockResolvedValue(session)
-    mockedPoll
+    vi.mocked(qrLoginApi.create).mockResolvedValue(session)
+    vi.mocked(qrLoginApi.poll)
       .mockResolvedValueOnce({ status: "pending" })
       .mockResolvedValueOnce({ status: "scanned" })
       .mockResolvedValueOnce({
@@ -80,16 +77,16 @@ describe("useQrLogin", () => {
     expect(onApproved).toHaveBeenCalledWith("tok-1")
 
     // no further polling after a terminal state
-    mockedPoll.mockClear()
+    vi.mocked(qrLoginApi.poll).mockClear()
     await act(async () => {
       await vi.advanceTimersByTimeAsync(10_000)
     })
-    expect(mockedPoll).not.toHaveBeenCalled()
+    expect(qrLoginApi.poll).not.toHaveBeenCalled()
   })
 
   it("stops on rejected", async () => {
-    mockedCreate.mockResolvedValue(session)
-    mockedPoll.mockResolvedValue({ status: "rejected" })
+    vi.mocked(qrLoginApi.create).mockResolvedValue(session)
+    vi.mocked(qrLoginApi.poll).mockResolvedValue({ status: "rejected" })
     const { result } = renderHook(() => useQrLogin(vi.fn()))
 
     await act(async () => {
@@ -100,8 +97,8 @@ describe("useQrLogin", () => {
   })
 
   it("stops on expired without auto-refresh polling", async () => {
-    mockedCreate.mockResolvedValue(session)
-    mockedPoll.mockResolvedValue({ status: "expired" })
+    vi.mocked(qrLoginApi.create).mockResolvedValue(session)
+    vi.mocked(qrLoginApi.poll).mockResolvedValue({ status: "expired" })
     const { result } = renderHook(() => useQrLogin(vi.fn()))
 
     await act(async () => {
@@ -110,32 +107,32 @@ describe("useQrLogin", () => {
     })
     expect(result.current.state.phase).toBe("expired")
 
-    mockedPoll.mockClear()
+    vi.mocked(qrLoginApi.poll).mockClear()
     await act(async () => {
       await vi.advanceTimersByTimeAsync(30_000)
     })
-    expect(mockedPoll).not.toHaveBeenCalled()
+    expect(qrLoginApi.poll).not.toHaveBeenCalled()
   })
 
   it("stops polling on unmount", async () => {
-    mockedCreate.mockResolvedValue(session)
-    mockedPoll.mockResolvedValue({ status: "pending" })
+    vi.mocked(qrLoginApi.create).mockResolvedValue(session)
+    vi.mocked(qrLoginApi.poll).mockResolvedValue({ status: "pending" })
     const { result, unmount } = renderHook(() => useQrLogin(vi.fn()))
 
     await act(async () => {
       await result.current.start()
     })
     unmount()
-    mockedPoll.mockClear()
+    vi.mocked(qrLoginApi.poll).mockClear()
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(10_000)
     })
-    expect(mockedPoll).not.toHaveBeenCalled()
+    expect(qrLoginApi.poll).not.toHaveBeenCalled()
   })
 
   it("shows a cooldown message on 429 and does not retry automatically", async () => {
-    mockedCreate.mockRejectedValue(
+    vi.mocked(qrLoginApi.create).mockRejectedValue(
       new ApiError(429, "too_many_requests", "slow down")
     )
     const { result } = renderHook(() => useQrLogin(vi.fn()))
@@ -146,10 +143,10 @@ describe("useQrLogin", () => {
     expect(result.current.state.phase).toBe("error")
     expect(result.current.state.errorMessage).toMatch(/minute/)
 
-    const callsAfterFailure = mockedCreate.mock.calls.length
+    const callsAfterFailure = vi.mocked(qrLoginApi.create).mock.calls.length
     await act(async () => {
       await vi.advanceTimersByTimeAsync(10_000)
     })
-    expect(mockedCreate).toHaveBeenCalledTimes(callsAfterFailure)
+    expect(qrLoginApi.create).toHaveBeenCalledTimes(callsAfterFailure)
   })
 })

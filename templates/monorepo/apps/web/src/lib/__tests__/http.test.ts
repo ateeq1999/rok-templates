@@ -1,12 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { ApiError, apiUrl, http } from "../http"
 import { toServerErrors } from "../forms"
 import { session } from "../session"
 
-let fetchMock: ReturnType<typeof vi.fn>
-
 function mockFetch(status: number, body?: unknown) {
-  fetchMock = vi.fn(async () =>
+  const fn = vi.fn(async () =>
     status === 204
       ? new Response(null, { status })
       : new Response(JSON.stringify(body), {
@@ -14,8 +12,8 @@ function mockFetch(status: number, body?: unknown) {
           headers: { "content-type": "application/json" },
         })
   )
-  vi.spyOn(globalThis, "fetch").mockImplementation(fetchMock)
-  return fetchMock
+  vi.stubGlobal("fetch", fn)
+  return fn
 }
 
 const validation = {
@@ -29,15 +27,13 @@ const validation = {
   },
 }
 
-beforeEach(() => {
-  session.clear()
-  vi.restoreAllMocks()
-})
+beforeEach(() => session.clear())
+afterEach(() => vi.unstubAllGlobals())
 
 describe("http", () => {
   it("sends the bearer token and JSON content type", async () => {
     session.login("abc")
-    mockFetch(200, { ok: true })
+    const fetchMock = mockFetch(200, { ok: true })
     await http("/api/v1/x", { method: "POST", body: { a: 1 } })
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     const headers = init.headers as Record<string, string>
@@ -47,7 +43,7 @@ describe("http", () => {
   })
 
   it("sends a rawBody blob as-is, with its content type", async () => {
-    mockFetch(200, { ok: true })
+    const fetchMock = mockFetch(200, { ok: true })
     const blob = new Blob(["fake-bytes"], { type: "image/png" })
     await http("/api/v1/users/me/avatar", { method: "PUT", rawBody: blob })
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
@@ -57,7 +53,7 @@ describe("http", () => {
   })
 
   it("merges custom headers, e.g. X-QR-Secret", async () => {
-    mockFetch(200, { status: "pending" })
+    const fetchMock = mockFetch(200, { status: "pending" })
     await http("/api/v1/auth/qr/sessions/x", {
       headers: { "X-QR-Secret": "shh" },
       skipExpire: true,
@@ -90,7 +86,10 @@ describe("http", () => {
   })
 
   it("maps network failures to status 0", async () => {
-    vi.spyOn(globalThis, "fetch").mockRejectedValue(new TypeError("boom"))
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => Promise.reject(new TypeError("boom")))
+    )
     const err = await http("/x").catch((e: unknown) => e)
     expect((err as ApiError).status).toBe(0)
   })
@@ -121,8 +120,19 @@ describe("toServerErrors", () => {
     })
   })
 
-  it("ignores fields without details", () => {
-    const err = new ApiError(422, "validation_failed", "x", undefined)
-    expect(toServerErrors(err).fields).toEqual({})
+  it("maps 409 onto the conflict field", () => {
+    const err = new ApiError(409, "conflict", "email is already registered")
+    expect(toServerErrors(err, { conflictField: "email" }).fields).toEqual({
+      email: "email is already registered",
+    })
+  })
+
+  it("turns other errors into a form message", () => {
+    expect(
+      toServerErrors(new ApiError(400, "bad_request", "wrong password")).form
+    ).toBe("wrong password")
+    expect(
+      toServerErrors(new ApiError(429, "too_many_requests", "x")).form
+    ).toMatch(/minute/)
   })
 })

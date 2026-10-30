@@ -69,4 +69,30 @@ mod tests {
             );
         }
     }
+
+    /// A JS App installed in place (`node_modules/`) or a developer's own
+    /// `.env` never reaches the embedding; the template's `.env.example`
+    /// does.
+    #[test]
+    fn no_install_or_local_environment_is_embedded() {
+        for embedded in EMBEDDED {
+            for file in embedded.files {
+                let mut parts = file.path.split('/');
+                assert!(
+                    !parts.any(|part| part == "node_modules" || part == ".env"),
+                    "`{}` embeds `{}`",
+                    embedded.dir,
+                    file.path
+                );
+            }
+        }
+        let monorepo = find("monorepo").unwrap_or_else(|| panic!("`monorepo` is not embedded"));
+        assert!(
+            monorepo
+                .files
+                .iter()
+                .any(|file| file.path == "apps/web/.env.example"),
+            "the web App's `.env.example` is not embedded"
+        );
+    }
 }

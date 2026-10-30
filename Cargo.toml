@@ -12,12 +12,25 @@ readme = "README.md"
 documentation = "https://docs.rs/rok-templates"
 keywords = ["template", "actix-web", "axum", "postgres", "starter"]
 categories = ["development-tools", "web-programming"]
-# Ship what `build.rs` embeds, not a build of a template made in place.
+# Ship what `build.rs` embeds, not a build or an install of a template
+# made in place: the same paths `build.rs` leaves out (`tests/package.rs`
+# checks the two agree).
 include = [
     "/src/**/*.rs",
     "/build.rs",
     "/templates/**",
     "!/templates/*/target/**",
+    "!/templates/**/node_modules/**",
+    "!/templates/**/dist/**",
+    "!/templates/**/dist-ssr/**",
+    "!/templates/**/.output/**",
+    "!/templates/**/.tanstack/**",
+    "!/templates/**/.vinxi/**",
+    "!/templates/**/.wrangler/**",
+    "!/templates/**/.DS_Store",
+    "!/templates/**/Thumbs.db",
+    "!/templates/**/desktop.ini",
+    "!/templates/**/.env",
     "/Cargo.toml",
     "/README.md",
     "/LICENSE-MIT",

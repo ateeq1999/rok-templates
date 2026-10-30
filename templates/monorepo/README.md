@@ -6,6 +6,9 @@ scaffolds:
 
 - `apps/api/` — the axum API, the `axum` template file for file. Its own
   README is its reference; see it there.
+- `apps/web/` — the web app: TanStack Start (React, TypeScript), run with
+  plain bun (no JS monorepo tool). It talks to `apps/api` through its own
+  HTTP layer today.
 - `clients/` — the typed Clients for the API's contract, generated from
   the API's `openapi.json` (added as the template grows them).
 
@@ -33,3 +36,17 @@ each step. From the root:
 ```sh
 cargo run -p axum-api
 ```
+
+## Running the web app
+
+You need bun. With the API running (it listens on `127.0.0.1:8080`, its
+`BIND_ADDR`), from `apps/web`:
+
+```sh
+bun install --frozen-lockfile
+bun run dev
+```
+
+The dev server (port 3001) forwards `/api` and `/health` to the API;
+`API_PROXY_TARGET` points it elsewhere (see `apps/web/.env.example`).
+`bun run typecheck` and `bun run test` are its checks.

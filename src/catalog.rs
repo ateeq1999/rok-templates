@@ -13,7 +13,10 @@ use crate::File;
 /// under the template's directory.
 #[derive(Debug, Clone, Copy)]
 pub struct App {
-    /// The App's name, as the scaffold's `rok.toml` names it in `[apps]`.
+    /// The App's name. An App `rok gen` regenerates (one with generation
+    /// settings of its own, such as `api`) goes by it in the scaffold's
+    /// `rok.toml` `[apps]`; the web App has nothing generated yet and is
+    /// not listed there.
     pub name: &'static str,
     /// The directory of `templates/`, under the template's, the App's
     /// files sit in.
@@ -33,8 +36,8 @@ pub struct Template {
     pub apps: &'static [App],
 }
 
-/// The Apps of the monorepo template. The web and mobile Apps join as
-/// their files arrive.
+/// The Apps of the monorepo template. The mobile App joins as its files
+/// arrive.
 const MONOREPO_APPS: &[App] = &[
     App {
         name: "api",
@@ -196,16 +199,36 @@ mod tests {
                 app.dir
             );
             assert!(
-                files.contains(&"Cargo.toml.template"),
-                "App `{}` has no manifest: {:?}",
-                app.name,
-                files.iter().find(|path| path.ends_with("Cargo"))
+                files.contains(&"Cargo.toml.template") || files.contains(&"package.json"),
+                "App `{}` has no manifest (`Cargo.toml.template` or `package.json`)",
+                app.name
             );
         }
         assert!(
             apps("actix").is_empty(),
             "a single-app template is not a monorepo"
         );
+    }
+
+    /// A JS App's package is named after the App the catalog names: its
+    /// `package.json` declares `"name": "<app>"`, until init names the Apps
+    /// after the project (workspace ADR 0027).
+    #[test]
+    fn a_js_apps_package_is_named_after_its_app() {
+        let files =
+            files("monorepo").unwrap_or_else(|| panic!("the monorepo template has no files"));
+        for app in apps("monorepo") {
+            let manifest = format!("{}/package.json", app.dir);
+            let Some(file) = files.iter().find(|file| file.path == manifest) else {
+                continue;
+            };
+            let text = String::from_utf8_lossy(file.bytes);
+            assert!(
+                text.contains(&format!("\"name\": \"{}\",", app.name)),
+                "`{manifest}` does not name its package `{}`",
+                app.name
+            );
+        }
     }
 
     #[test]

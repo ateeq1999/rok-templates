@@ -7,6 +7,8 @@ contract (workspace ADR 0027).
 - `apps/api/` — the axum API, the `axum` template file for file. Its
   `AGENTS.md` states the six architecture rules its code follows; its
   README is the reference for its settings and files.
+- `apps/web/` — the web app (TanStack Start, plain bun); its checks are
+  `bun install --frozen-lockfile`, `bun run typecheck`, `bun run test`.
 - `clients/` — generated Clients for the API's contract; do not edit a
   generated Client by hand.
 - `rok.toml` names the Apps; `rok gen` from the root regenerates the

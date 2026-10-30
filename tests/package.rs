@@ -2,8 +2,8 @@
 //! `init --template` from `cargo install` copies what it does from the
 //! repository, and no template's build output.
 
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::collections::BTreeSet;
+use std::path::PathBuf;
 use std::process::Command;
 
 use anyhow::{Context, Result, ensure};
@@ -61,40 +61,37 @@ fn package_ships_the_embedding_and_licenses_but_no_build_output() -> Result<()> 
     Ok(())
 }
 
-/// Every file of every template is packaged. (Cargo leaves out a directory
-/// holding a `Cargo.toml`: a template's manifest is `Cargo.toml.template`.)
+/// The package ships exactly what `build.rs` embeds: every embedded
+/// template file is packaged, and no packaged template file is left out of
+/// the embedding — so neither a JS App's `node_modules` nor its build
+/// output, installed or built in place, reaches the package. (Cargo leaves
+/// out a directory holding a `Cargo.toml`: a template's manifest is
+/// `Cargo.toml.template`.)
 #[test]
-fn package_ships_every_template_file() -> Result<()> {
-    fn walk(dir: &Path, root: &Path, out: &mut Vec<String>) -> Result<()> {
-        for entry in fs::read_dir(dir)? {
-            let path = entry?.path();
-            let relative = path
-                .strip_prefix(root)?
-                .to_string_lossy()
-                .replace('\\', "/");
-            if path.is_dir() {
-                // A template's build in place.
-                if relative.split('/').nth(2) == Some("target") {
-                    continue;
-                }
-                walk(&path, root, out)?;
-            } else {
-                out.push(relative);
-            }
-        }
-        Ok(())
-    }
-    let mut templates = Vec::new();
-    walk(&root().join("templates"), &root(), &mut templates)?;
-    ensure!(!templates.is_empty(), "templates/ holds no files");
-    let files = packaged_files()?;
-    let missing: Vec<_> = templates
+fn package_ships_exactly_the_embedded_template_files() -> Result<()> {
+    let embedded: BTreeSet<String> = rok_templates::EMBEDDED
         .iter()
-        .filter(|file| !files.contains(file))
+        .flat_map(|template| {
+            template
+                .files
+                .iter()
+                .map(move |file| format!("templates/{}/{}", template.dir, file.path))
+        })
         .collect();
+    ensure!(!embedded.is_empty(), "templates/ holds no files");
+    let packaged: BTreeSet<String> = packaged_files()?
+        .into_iter()
+        .filter(|file| file.starts_with("templates/"))
+        .collect();
+    let missing: Vec<_> = embedded.difference(&packaged).collect();
     ensure!(
         missing.is_empty(),
-        "template files not packaged: {missing:?}"
+        "embedded template files not packaged: {missing:?}"
+    );
+    let stray: Vec<_> = packaged.difference(&embedded).collect();
+    ensure!(
+        stray.is_empty(),
+        "packaged template files the embedding leaves out: {stray:?}"
     );
     Ok(())
 }

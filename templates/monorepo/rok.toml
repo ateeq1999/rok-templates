@@ -1,6 +1,7 @@
 # The monorepo's project file (workspace ADR 0027): the Apps `rok gen`
 # regenerates from the root. Each App keeps its own configuration file --
 # `apps/api`'s is `apps/api/rok-data-sqlc.toml` -- so root generation reads
-# the App's settings from inside the App.
+# the App's settings from inside the App. `apps/web` has nothing generated
+# yet, so it is not named here.
 [apps]
 api = "apps/api"

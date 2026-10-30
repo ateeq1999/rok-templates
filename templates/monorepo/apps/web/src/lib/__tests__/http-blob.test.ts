@@ -1,14 +1,12 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { ApiError, http, httpBlob } from "../http"
 import { toServerErrors } from "../forms"
 import { session } from "../session"
 
-let fetchMock: ReturnType<typeof vi.fn>
-
 function stubFetch(response: Response) {
-  fetchMock = vi.fn(async () => response)
-  vi.spyOn(globalThis, "fetch").mockImplementation(fetchMock)
-  return fetchMock
+  const fn = vi.fn(async () => response)
+  vi.stubGlobal("fetch", fn)
+  return fn
 }
 
 const json = (status: number, body: unknown) =>
@@ -17,15 +15,13 @@ const json = (status: number, body: unknown) =>
     headers: { "content-type": "application/json" },
   })
 
-beforeEach(() => {
-  session.clear()
-  vi.restoreAllMocks()
-})
+beforeEach(() => session.clear())
+afterEach(() => vi.unstubAllGlobals())
 
 describe("httpBlob", () => {
   it("sends the bearer token and returns the bytes", async () => {
     session.login("tok")
-    stubFetch(
+    const fetchMock = stubFetch(
       new Response(new TextEncoder().encode("pdf-bytes"), {
         status: 200,
         headers: { "content-type": "application/pdf" },
@@ -95,10 +91,13 @@ describe("401 handling", () => {
     session.login("old")
     const onExpire = vi.fn()
     const off = session.onExpire(onExpire)
-    vi.spyOn(globalThis, "fetch").mockImplementation(async () => {
-      session.login("new")
-      return json(401, { error: { code: "unauthorized", message: "no" } })
-    })
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => {
+        session.login("new") // signed in again while the request was in flight
+        return json(401, { error: { code: "unauthorized", message: "no" } })
+      })
+    )
     await http("/api/v1/users/me").catch(() => {})
     expect(onExpire).not.toHaveBeenCalled()
     expect(session.token).toBe("new")
