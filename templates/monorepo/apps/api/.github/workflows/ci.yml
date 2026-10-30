@@ -1,0 +1,101 @@
+# The checks every change passes: formatting, lints, the tests against a
+# real PostgreSQL, the generated code and the architecture rules, the
+# dependency policy, the image building, and the Terraform (valid, linted,
+# and applied to Floci by `terraform test`).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 30
+    env:
+      # Each test makes a schema of its own in it, and drops it.
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets --locked -- -D warnings
+      - run: cargo test --locked
+      - name: The generated code is current, and the architecture rules hold
+        run: |
+          cargo install rok-data-cli --locked
+          rok sqlc g --check
+          rok sqlc check-arch
+
+  dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # deny.toml: no known advisory but the ones it lists with a reason,
+      # licenses from its allow list, crates from crates.io only.
+      - uses: EmbarkStudios/cargo-deny-action@v2
+
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  terraform:
+    runs-on: ubuntu-latest
+    services:
+      # envs/local is applied to Floci; its RDS runs a real PostgreSQL
+      # container, hence the Docker socket.
+      floci:
+        image: floci/floci:2.3.0
+        ports:
+          - 4566:4566
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock
+    defaults:
+      run:
+        working-directory: deploy/terraform
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.17.1
+          terraform_wrapper: false
+      - uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: v0.65.0
+      - run: terraform fmt -check -recursive
+      - name: Every environment is valid
+        run: |
+          for dir in envs/local envs/staging envs/prod bootstrap; do
+            terraform -chdir="$dir" init -backend=false -input=false
+            terraform -chdir="$dir" validate
+          done
+      - run: tflint --recursive
+      - name: Apply envs/local to Floci, check it, destroy it
+        working-directory: deploy/terraform/envs/local
+        run: terraform test

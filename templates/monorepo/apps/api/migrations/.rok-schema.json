@@ -1,0 +1,687 @@
+{
+  "enums": [
+    {
+      "name": "role",
+      "values": [
+        "user",
+        "admin"
+      ],
+      "module": "types"
+    },
+    {
+      "name": "api_key_scope",
+      "values": [
+        "read",
+        "write"
+      ],
+      "module": "types"
+    }
+  ],
+  "tables": [
+    {
+      "name": "users",
+      "module": "types",
+      "columns": [
+        {
+          "name": "id",
+          "sql_type": "UUID",
+          "nullable": false
+        },
+        {
+          "name": "email",
+          "sql_type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "display_name",
+          "sql_type": "TEXT",
+          "nullable": true
+        },
+        {
+          "name": "password_hash",
+          "sql_type": "TEXT",
+          "nullable": true,
+          "doc": [
+            "Write-only: set by the password flow, never answered."
+          ]
+        },
+        {
+          "name": "has_password",
+          "sql_type": "BOOLEAN",
+          "nullable": false,
+          "generated": "password_hash IS NOT NULL"
+        },
+        {
+          "name": "role",
+          "sql_type": "role",
+          "nullable": false,
+          "default": "'user'"
+        },
+        {
+          "name": "is_active",
+          "sql_type": "BOOLEAN",
+          "nullable": false,
+          "default": "true"
+        },
+        {
+          "name": "email_verified",
+          "sql_type": "BOOLEAN",
+          "nullable": false,
+          "default": "false"
+        },
+        {
+          "name": "totp_secret",
+          "sql_type": "TEXT",
+          "nullable": true
+        },
+        {
+          "name": "totp_enabled",
+          "sql_type": "BOOLEAN",
+          "nullable": false,
+          "default": "false"
+        },
+        {
+          "name": "avatar_key",
+          "sql_type": "TEXT",
+          "nullable": true,
+          "doc": [
+            "The profile photo's storage key; `avatar_url` below is its URL."
+          ]
+        },
+        {
+          "name": "failed_logins",
+          "sql_type": "INTEGER",
+          "nullable": false,
+          "default": "0"
+        },
+        {
+          "name": "locked_until",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "deleted_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": true
+        },
+        {
+          "name": "token_version",
+          "sql_type": "INTEGER",
+          "nullable": false,
+          "default": "1",
+          "doc": [
+            "Bumped by a password change or a reset. A token whose `tv` claim no",
+            "longer matches is rejected on its next request."
+          ]
+        },
+        {
+          "name": "totp_last_step",
+          "sql_type": "BIGINT",
+          "nullable": true,
+          "doc": [
+            "The time step of the last two-factor code accepted, so a code is",
+            "never accepted twice."
+          ]
+        },
+        {
+          "name": "avatar_url",
+          "sql_type": "TEXT",
+          "nullable": true,
+          "generated": "'/api/v1/' || avatar_key",
+          "doc": [
+            "The profile photo's public URL, `/api/v1/avatars/<random>.jpg` (`GET",
+            "/avatars/{file}`), or `NULL` without a photo; `avatar_key` is its",
+            "storage key, set by `PUT /users/me/avatar`. Computed here, so the",
+            "generated `users` feature answers it too; `rok-data-sqlc.toml` hides",
+            "the key."
+          ]
+        }
+      ],
+      "primary_key": [
+        "id"
+      ]
+    },
+    {
+      "name": "audit_log",
+      "module": "types",
+      "doc": [
+        "Administrative actions, newest first; written by the application."
+      ],
+      "columns": [
+        {
+          "name": "id",
+          "sql_type": "UUID",
+          "nullable": false
+        },
+        {
+          "name": "actor_user_id",
+          "sql_type": "UUID",
+          "nullable": false
+        },
+        {
+          "name": "target_user_id",
+          "sql_type": "UUID",
+          "nullable": true
+        },
+        {
+          "name": "action",
+          "sql_type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "details",
+          "sql_type": "JSONB",
+          "nullable": false,
+          "default": "'{}'"
+        },
+        {
+          "name": "created_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "name": "audit_log_actor_user_id_fkey",
+          "columns": [
+            "actor_user_id"
+          ],
+          "ref_table": "users",
+          "ref_columns": [
+            "id"
+          ]
+        },
+        {
+          "name": "audit_log_target_user_id_fkey",
+          "columns": [
+            "target_user_id"
+          ],
+          "ref_table": "users",
+          "ref_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "media",
+      "module": "types",
+      "doc": [
+        "Uploaded files, each owned by its uploader. A file uploaded straight to",
+        "the store (`POST /media/uploads`) starts as an upload intent: no",
+        "`completed_at` yet, and an `expires_at` past which the sweep removes it.",
+        "Every read but the completion's sees completed files only."
+      ],
+      "columns": [
+        {
+          "name": "id",
+          "sql_type": "UUID",
+          "nullable": false
+        },
+        {
+          "name": "owner_id",
+          "sql_type": "UUID",
+          "nullable": false
+        },
+        {
+          "name": "content_type",
+          "sql_type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "size_bytes",
+          "sql_type": "BIGINT",
+          "nullable": false
+        },
+        {
+          "name": "original_filename",
+          "sql_type": "TEXT",
+          "nullable": true
+        },
+        {
+          "name": "storage_key",
+          "sql_type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "completed_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": true,
+          "default": "now()"
+        },
+        {
+          "name": "expires_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": true
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "name": "media_owner_id_fkey",
+          "columns": [
+            "owner_id"
+          ],
+          "ref_table": "users",
+          "ref_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "api_keys",
+      "module": "types",
+      "doc": [
+        "API keys: only a hash of the key is kept."
+      ],
+      "columns": [
+        {
+          "name": "id",
+          "sql_type": "UUID",
+          "nullable": false
+        },
+        {
+          "name": "user_id",
+          "sql_type": "UUID",
+          "nullable": false
+        },
+        {
+          "name": "name",
+          "sql_type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "key_prefix",
+          "sql_type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "key_hash",
+          "sql_type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "scope",
+          "sql_type": "api_key_scope",
+          "nullable": false,
+          "default": "'read'"
+        },
+        {
+          "name": "expires_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": true
+        },
+        {
+          "name": "last_used_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": true
+        },
+        {
+          "name": "revoked_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "name": "api_keys_user_id_fkey",
+          "columns": [
+            "user_id"
+          ],
+          "ref_table": "users",
+          "ref_columns": [
+            "id"
+          ]
+        }
+      ]
+    },
+    {
+      "name": "auth_tokens",
+      "module": "types",
+      "doc": [
+        "Single-use tokens mailed as links. Only the SHA-256 of the token is",
+        "kept; `used_at` spends it, and issuing a new one for the same user and",
+        "purpose invalidates the older ones."
+      ],
+      "columns": [
+        {
+          "name": "id",
+          "sql_type": "UUID",
+          "nullable": false
+        },
+        {
+          "name": "user_id",
+          "sql_type": "UUID",
+          "nullable": false
+        },
+        {
+          "name": "purpose",
+          "sql_type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "token_hash",
+          "sql_type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "new_email",
+          "sql_type": "TEXT",
+          "nullable": true,
+          "doc": [
+            "The address an `email_change` token moves the account to."
+          ]
+        },
+        {
+          "name": "expires_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": false
+        },
+        {
+          "name": "used_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "uniques": [
+        {
+          "name": "auth_tokens_token_hash_key",
+          "columns": [
+            "token_hash"
+          ]
+        }
+      ],
+      "foreign_keys": [
+        {
+          "name": "auth_tokens_user_id_fkey",
+          "columns": [
+            "user_id"
+          ],
+          "ref_table": "users",
+          "ref_columns": [
+            "id"
+          ],
+          "on_delete": "CASCADE"
+        }
+      ],
+      "checks": [
+        {
+          "name": "auth_tokens_purpose_check",
+          "expr": "purpose IN ('email_verification', 'password_reset', 'email_change', 'invitation', 'two_factor_pending')"
+        }
+      ]
+    },
+    {
+      "name": "totp_recovery_codes",
+      "module": "types",
+      "doc": [
+        "Single-use recovery codes, issued when two-factor is enabled. Only a",
+        "keyed hash of each is kept; `used_at` spends it."
+      ],
+      "columns": [
+        {
+          "name": "id",
+          "sql_type": "UUID",
+          "nullable": false
+        },
+        {
+          "name": "user_id",
+          "sql_type": "UUID",
+          "nullable": false
+        },
+        {
+          "name": "code_hash",
+          "sql_type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "used_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "foreign_keys": [
+        {
+          "name": "totp_recovery_codes_user_id_fkey",
+          "columns": [
+            "user_id"
+          ],
+          "ref_table": "users",
+          "ref_columns": [
+            "id"
+          ],
+          "on_delete": "CASCADE"
+        }
+      ]
+    },
+    {
+      "name": "jobs",
+      "module": "types",
+      "doc": [
+        "The job queue (`shared/jobs/`): a job is written on the flow's",
+        "transaction, claimed by one worker (`FOR UPDATE SKIP LOCKED`) and deleted",
+        "once it ran. A job that keeps failing becomes `dead`, keeping its error.",
+        "Mail is a job (`mail.send`)."
+      ],
+      "columns": [
+        {
+          "name": "id",
+          "sql_type": "UUID",
+          "nullable": false
+        },
+        {
+          "name": "kind",
+          "sql_type": "TEXT",
+          "nullable": false,
+          "doc": [
+            "The job's type, such as `mail.send`: which handler runs it."
+          ]
+        },
+        {
+          "name": "payload",
+          "sql_type": "JSONB",
+          "nullable": false
+        },
+        {
+          "name": "status",
+          "sql_type": "TEXT",
+          "nullable": false,
+          "default": "'pending'"
+        },
+        {
+          "name": "attempts",
+          "sql_type": "INTEGER",
+          "nullable": false,
+          "default": "0"
+        },
+        {
+          "name": "run_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "unique_key",
+          "sql_type": "TEXT",
+          "nullable": true,
+          "doc": [
+            "Set, no second job with the same key is enqueued while one exists."
+          ]
+        },
+        {
+          "name": "last_error",
+          "sql_type": "TEXT",
+          "nullable": true
+        },
+        {
+          "name": "traceparent",
+          "sql_type": "TEXT",
+          "nullable": true,
+          "doc": [
+            "The W3C trace context of the request that enqueued it: its span",
+            "continues that trace."
+          ]
+        },
+        {
+          "name": "created_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": false,
+          "default": "now()"
+        },
+        {
+          "name": "updated_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "checks": [
+        {
+          "name": "jobs_status_check",
+          "expr": "status IN ('pending', 'dead')"
+        }
+      ]
+    },
+    {
+      "name": "job_schedules",
+      "module": "types",
+      "doc": [
+        "The job schedules (`shared/jobs/schedule.rs`): one row per scheduled",
+        "kind, its last tick. The one process that moves `last_tick` forward",
+        "enqueues that tick's job, so a tick runs once however many replicas run",
+        "the scheduler."
+      ],
+      "columns": [
+        {
+          "name": "kind",
+          "sql_type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "last_tick",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": false
+        },
+        {
+          "name": "updated_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "primary_key": [
+        "kind"
+      ]
+    }
+  ],
+  "indexes": [
+    {
+      "name": "users_email_key",
+      "table": "users",
+      "sql": "CREATE UNIQUE INDEX users_email_key ON users(lower(email)) WHERE deleted_at IS NULL"
+    },
+    {
+      "name": "auth_tokens_user_purpose",
+      "table": "auth_tokens",
+      "sql": "CREATE INDEX auth_tokens_user_purpose ON auth_tokens(user_id, purpose)"
+    },
+    {
+      "name": "totp_recovery_codes_user",
+      "table": "totp_recovery_codes",
+      "sql": "CREATE INDEX totp_recovery_codes_user ON totp_recovery_codes(user_id)"
+    },
+    {
+      "name": "api_keys_key_hash_key",
+      "table": "api_keys",
+      "sql": "CREATE UNIQUE INDEX api_keys_key_hash_key ON api_keys(key_hash)"
+    },
+    {
+      "name": "api_keys_user_id_active_idx",
+      "table": "api_keys",
+      "sql": "CREATE INDEX api_keys_user_id_active_idx ON api_keys(user_id) WHERE revoked_at IS NULL"
+    },
+    {
+      "name": "jobs_due",
+      "table": "jobs",
+      "sql": "CREATE INDEX jobs_due ON jobs(run_at) WHERE status = 'pending'"
+    },
+    {
+      "name": "jobs_unique_key",
+      "table": "jobs",
+      "sql": "CREATE UNIQUE INDEX jobs_unique_key ON jobs(unique_key)"
+    }
+  ],
+  "extras": [
+    {
+      "up": "CREATE FUNCTION touch_updated_at() RETURNS trigger\nLANGUAGE plpgsql AS $$\nbegin\n  new.updated_at := now();\n  return new;\nend;\n$$",
+      "down": "DROP FUNCTION touch_updated_at()"
+    },
+    {
+      "up": "CREATE TRIGGER users_touch_updated_at BEFORE UPDATE ON users\n    FOR EACH ROW EXECUTE FUNCTION touch_updated_at()",
+      "down": "DROP TRIGGER users_touch_updated_at ON users"
+    },
+    {
+      "up": "CREATE TRIGGER jobs_touch_updated_at BEFORE UPDATE ON jobs\n    FOR EACH ROW EXECUTE FUNCTION touch_updated_at()",
+      "down": "DROP TRIGGER jobs_touch_updated_at ON jobs"
+    },
+    {
+      "up": "CREATE TRIGGER job_schedules_touch_updated_at BEFORE UPDATE ON job_schedules\n    FOR EACH ROW EXECUTE FUNCTION touch_updated_at()",
+      "down": "DROP TRIGGER job_schedules_touch_updated_at ON job_schedules"
+    }
+  ]
+}
