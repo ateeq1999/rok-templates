@@ -2,4 +2,4 @@ target
 .env
 storage
 .git
-deploy/terraform/.terraform
+**/.terraform

@@ -61,6 +61,34 @@ logs. `.github/workflows/ci.yml` checks every change: formatting, clippy,
 the tests against PostgreSQL, `rok sqlc g --check` and `check-arch`,
 `cargo deny`, and the image build.
 
+### Deploying to AWS
+
+`deploy/terraform/` (the same in both templates) is a reference
+deployment: ECS Fargate `web` (behind a load balancer that checks
+`/health/ready`) and `worker` services from one image in ECR, RDS
+PostgreSQL 17, the uploads bucket, SES for mail, every secret in Secrets
+Manager, and the logs in CloudWatch. `modules/app` composes it;
+`envs/staging` and `envs/prod` size it.
+
+1. Once per account, `bootstrap/` makes the bucket the state lives in;
+   put its name in `envs/*/main.tf`'s `backend` block.
+2. In `envs/staging`, a `terraform.tfvars` with `image_tag`, `app_url`,
+   `mail_domain` and `mail_from` (and `certificate_arn` for HTTPS), then
+   `terraform init && terraform apply`. Publish the `mail_dns_records` it
+   prints.
+3. Each release: build and push the server (`:<tag>`) and the migrations
+   (`docker build --target migrate`, `:<tag>-migrate`) to the
+   `repository_url`, run the `migrate_command` it prints and wait for it
+   to stop with exit code 0, then `terraform apply -var image_tag=<tag>`.
+
+`envs/local` applies the parts Floci emulates (the bucket, the secrets,
+mail, the database) to Floci, and `terraform test` checks them, then
+destroys them: `docker compose up -d floci`, then `terraform init &&
+terraform test` in `deploy/terraform/envs/local`. CI runs it, with
+`terraform validate` on every environment and `tflint`. Floci is not AWS:
+a staging apply stays the last check. Commit the `.terraform.lock.hcl`
+each environment's first `init` writes.
+
 ## Jobs
 
 Background work runs on PostgreSQL itself (`src/shared/jobs/`, the same in

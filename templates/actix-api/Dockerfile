@@ -25,6 +25,20 @@ RUN cargo build --release --locked \
     # The crate's one binary, whatever the crate is named, as /server.
     && find target/release -maxdepth 1 -type f -executable -exec cp {} /server \;
 
+# The migrations image (`docker build --target migrate`): `rok migrate up`
+# over `migrations/`, what the deploy runs once before the new version
+# starts (deploy/terraform's migrate task).
+FROM chef AS rok
+RUN cargo install rok-data-cli --locked --version 0.4.0
+
+FROM gcr.io/distroless/cc-debian12:nonroot AS migrate
+COPY --from=rok /usr/local/cargo/bin/rok /rok
+COPY migrations /migrations
+WORKDIR /
+USER nonroot
+ENTRYPOINT ["/rok", "migrate", "up"]
+
+# The server, the default target.
 FROM gcr.io/distroless/cc-debian12:nonroot
 COPY --from=builder /server /server
 # JSON lines for the log collector; override with LOG_FORMAT=pretty.
