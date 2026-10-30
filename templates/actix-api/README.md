@@ -432,7 +432,7 @@ opentelemetry_sdk = { version = "0.32", default-features = false, features = ["t
 qrcode = { version = "0.14", default-features = false, features = ["svg"] }
 rand = "0.10"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
-rok-data = { version = "0.4", features = ["chrono", "json", "uuid"] }
+rok-data = { version = "0.5", features = ["chrono", "json", "uuid"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha1 = "0.11"
