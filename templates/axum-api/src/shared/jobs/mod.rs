@@ -1,6 +1,6 @@
 // Scaffolded once by rok-data-sqlc; this file is yours. It is never regenerated. See docs/guide/architecture.md.
 
-//! Background work on PostgreSQL, with no business meaning: a [`Job`] is a
+//! Background work in the database, with no business meaning: a [`Job`] is a
 //! typed payload and what to do with it; the [`Queue`] writes one on the
 //! flow's own transaction, so a rolled-back flow enqueues nothing; a
 //! [`Worker`] claims due jobs (`FOR UPDATE SKIP LOCKED`, so two workers
