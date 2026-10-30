@@ -26,7 +26,9 @@ fn main() -> io::Result<()> {
         let mut files = Vec::new();
         collect(&template, &template, &mut files)?;
         files.sort();
+        eprintln!("DEBUG: Template {} has {} files", name, files.len());
         for (relative, absolute) in files {
+            eprintln!("DEBUG:   {}", relative);
             output.push_str(&format!(
                 "        File {{ path: {relative:?}, bytes: include_bytes!({absolute:?}) }},\n"
             ));
@@ -57,11 +59,14 @@ fn file_name(path: &Path) -> String {
 }
 
 /// Every file under `dir` as (its path relative to `template`, with `/`,
-/// and its absolute path), but those of `template`'s `target/`.
+/// and its absolute path), but those of `template`'s `target/` and
+/// any `node_modules/` (JS toolchains install their own `node_modules`
+/// which contain binaries and are not part of the template).
 fn collect(template: &Path, dir: &Path, files: &mut Vec<(String, String)>) -> io::Result<()> {
     for path in sorted_entries(dir)? {
         if path.is_dir() {
-            if dir == template && file_name(&path) == "target" {
+            let name = file_name(&path);
+            if name == "target" || name == "node_modules" {
                 continue;
             }
             collect(template, &path, files)?;
