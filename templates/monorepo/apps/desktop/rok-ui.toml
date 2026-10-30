@@ -1,0 +1,2 @@
+# Settings for `cargo rok-ui`.
+routes = "src/routes"

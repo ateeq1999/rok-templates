@@ -56,17 +56,21 @@ mod tests {
         }
     }
 
+    /// Neither a template's `target/` nor a Monorepo template's Rust App's
+    /// (`apps/<app>/target/`) is embedded.
     #[test]
     fn no_build_output_is_embedded() {
         for embedded in EMBEDDED {
-            assert!(
-                !embedded
-                    .files
-                    .iter()
-                    .any(|file| file.path.starts_with("target/")),
-                "`{}` embeds its target/",
-                embedded.dir
-            );
+            for file in embedded.files {
+                let parts: Vec<&str> = file.path.split('/').collect();
+                let in_target = parts.first() == Some(&"target")
+                    || (parts.first() == Some(&"apps") && parts.get(2) == Some(&"target"));
+                assert!(
+                    !in_target,
+                    "`{}` embeds build output: `{}`",
+                    embedded.dir, file.path
+                );
+            }
         }
     }
 

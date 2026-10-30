@@ -4,9 +4,10 @@
 //! `src/lib.rs`) per template, its directory and its files, each
 //! a `File`: its path (relative, with `/`) and its bytes through
 //! `include_bytes!`. What building or installing a template in place
-//! leaves behind is left out: its top-level `target/` and, at any depth,
-//! the directories of [`LOCAL_DIRS`]; so are the files of [`LOCAL_FILES`]
-//! (OS junk, a developer's `.env`). Everything else, hidden files such as
+//! leaves behind is left out: its top-level `target/`, an App's
+//! (`apps/<app>/target/`, a Monorepo template's Rust App built in place)
+//! and, at any depth, the directories of [`LOCAL_DIRS`]; so are the files
+//! of [`LOCAL_FILES`] (OS junk, a developer's `.env`). Everything else, hidden files such as
 //! `.env.example` included, is embedded, and `init` decides what it
 //! copies. `Cargo.toml`'s `include` leaves out the same paths, so the
 //! package ships what is embedded (`tests/package.rs` checks it).
@@ -78,13 +79,15 @@ const LOCAL_DIRS: &[&str] = &[
 const LOCAL_FILES: &[&str] = &[".DS_Store", "Thumbs.db", "desktop.ini", ".env"];
 
 /// Every file under `dir` as (its path relative to `template`, with `/`,
-/// and its absolute path), but those of `template`'s `target/`, of the
-/// [`LOCAL_DIRS`] and the [`LOCAL_FILES`].
+/// and its absolute path), but those of `template`'s `target/` and its
+/// Apps' (`apps/<app>/target/`), of the [`LOCAL_DIRS`] and the
+/// [`LOCAL_FILES`].
 fn collect(template: &Path, dir: &Path, files: &mut Vec<(String, String)>) -> io::Result<()> {
+    let builds_here = dir == template || dir.parent() == Some(template.join("apps").as_path());
     for path in sorted_entries(dir)? {
         let name = file_name(&path);
         if path.is_dir() {
-            if (dir == template && name == "target") || LOCAL_DIRS.contains(&name.as_str()) {
+            if (builds_here && name == "target") || LOCAL_DIRS.contains(&name.as_str()) {
                 continue;
             }
             collect(template, &path, files)?;

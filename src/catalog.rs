@@ -15,8 +15,8 @@ use crate::File;
 pub struct App {
     /// The App's name. An App `rok gen` regenerates (one with generation
     /// settings of its own, such as `api`) goes by it in the scaffold's
-    /// `rok.toml` `[apps]`; the web App has nothing generated yet and is
-    /// not listed there.
+    /// `rok.toml` `[apps]`; the web and desktop Apps have nothing generated
+    /// yet and are not listed there.
     pub name: &'static str,
     /// The directory of `templates/`, under the template's, the App's
     /// files sit in.
@@ -46,6 +46,10 @@ const MONOREPO_APPS: &[App] = &[
     App {
         name: "web",
         dir: "apps/web",
+    },
+    App {
+        name: "desktop",
+        dir: "apps/desktop",
     },
 ];
 
@@ -229,6 +233,50 @@ mod tests {
                 app.name
             );
         }
+    }
+
+    /// Every Rust App of the monorepo (one with a `Cargo.toml.template`) is
+    /// a member of the root workspace, so `cargo -p <package>` reaches it
+    /// from the root and the root `Cargo.lock` covers it.
+    #[test]
+    fn every_rust_app_is_a_member_of_the_root_workspace() {
+        let files =
+            files("monorepo").unwrap_or_else(|| panic!("the monorepo template has no files"));
+        let root = files
+            .iter()
+            .find(|file| file.path == "Cargo.toml.template")
+            .map(|file| String::from_utf8_lossy(file.bytes))
+            .unwrap_or_else(|| panic!("the monorepo template has no root manifest"));
+        let members = root
+            .lines()
+            .find(|line| line.starts_with("members"))
+            .unwrap_or_else(|| panic!("the root manifest names no members:\n{root}"));
+        for app in apps("monorepo") {
+            let manifest = format!("{}/Cargo.toml.template", app.dir);
+            if files.iter().any(|file| file.path == manifest) {
+                assert!(
+                    members.contains(&format!("\"{}\"", app.dir)),
+                    "the Rust App `{}` is not a root workspace member: {members}",
+                    app.name
+                );
+            }
+        }
+    }
+
+    /// The desktop App's package is `desktop`, the name `cargo run -p
+    /// desktop` takes from the root.
+    #[test]
+    fn the_desktop_apps_package_is_named_desktop() {
+        let manifest = files("monorepo")
+            .unwrap_or_else(|| panic!("the monorepo template has no files"))
+            .iter()
+            .find(|file| file.path == "apps/desktop/Cargo.toml.template")
+            .map(|file| String::from_utf8_lossy(file.bytes))
+            .unwrap_or_else(|| panic!("the desktop App has no manifest"));
+        assert!(
+            manifest.contains("\nname = \"desktop\"\n"),
+            "apps/desktop's package is not named `desktop`:\n{manifest}"
+        );
     }
 
     #[test]

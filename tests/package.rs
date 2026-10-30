@@ -51,11 +51,15 @@ fn package_ships_the_embedding_and_licenses_but_no_build_output() -> Result<()> 
         !files.iter().any(|file| file.starts_with("tests/")),
         "tests/ must not be packaged: {files:?}"
     );
-    // A template's build output, when the template was built in place.
+    // A template's build output, or a Monorepo template's Rust App's, when
+    // it was built in place.
     ensure!(
-        !files
-            .iter()
-            .any(|file| file.starts_with("templates/") && file.split('/').nth(2) == Some("target")),
+        !files.iter().any(|file| {
+            let parts: Vec<&str> = file.split('/').collect();
+            parts.first() == Some(&"templates")
+                && (parts.get(2) == Some(&"target")
+                    || (parts.get(2) == Some(&"apps") && parts.get(4) == Some(&"target")))
+        }),
         "a template's target/ must not be packaged: {files:?}"
     );
     Ok(())

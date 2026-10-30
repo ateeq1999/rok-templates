@@ -20,6 +20,7 @@ include = [
     "/build.rs",
     "/templates/**",
     "!/templates/*/target/**",
+    "!/templates/*/apps/*/target/**",
     "!/templates/**/node_modules/**",
     "!/templates/**/dist/**",
     "!/templates/**/dist-ssr/**",

@@ -1,0 +1,11 @@
+# The business layer (`src/features/<f>/bloc/`) stays free of GPUI and HTTP: each
+# `features/<f>/bloc.rs` denies these types, while the rest of the app allows them
+# (Cargo.toml). Blocs reach data through repositories, and views through state.
+disallowed-types = [
+    { path = "gpui::App", reason = "the bloc layer has no GPUI: emit state, let views render it" },
+    { path = "gpui::Window", reason = "the bloc layer has no GPUI: emit state, let views render it" },
+    { path = "gpui::AnyElement", reason = "the bloc layer has no GPUI: emit state, let views render it" },
+    { path = "gpui::Entity", reason = "the bloc layer has no GPUI: emit state, let views render it" },
+    { path = "rok_ui::Cx", reason = "the bloc layer has no GPUI: emit state, let views render it" },
+    { path = "rok_ui::bloc::BlocHandle", reason = "a bloc never holds another bloc: share a repository, or listen in the view" },
+]

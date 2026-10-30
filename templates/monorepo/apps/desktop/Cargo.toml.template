@@ -1,0 +1,28 @@
+[package]
+name = "desktop"
+version = "0.1.0"
+edition = "2021"
+
+# rok-ui and gpui stay at the versions `cargo rok-ui new --template bloc --http`
+# (rok-ui 0.9.1) generated this App with (workspace ADR 0031).
+[dependencies]
+rok-ui = { version = "=0.9.1", features = ["router", "bloc", "http", "form", "typography", "empty"] }
+gpui = "=0.2.2"
+# The API's DTOs derive Serialize and Deserialize.
+serde = { version = "1", features = ["derive"] }
+
+[dev-dependencies]
+gpui = { version = "=0.2.2", features = ["test-support"] }
+
+[build-dependencies]
+rok-ui-build = { version = "=0.9.1" }
+
+[lints.rust]
+missing_docs = "warn"
+
+[lints.clippy]
+pedantic = { level = "warn", priority = -1 }
+# Event handlers match every event, often with the same body.
+match_same_arms = "allow"
+# GPUI is allowed in the app and denied again in each `features/<f>/bloc.rs`: see clippy.toml.
+disallowed_types = "allow"
