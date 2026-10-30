@@ -21,9 +21,13 @@ deploying to AWS) and has recipes for growing them. The two templates
 share their framework-independent files byte for byte;
 `tests/template_drift.rs` checks that they stay so.
 
-The crate is data only: `build.rs` embeds `templates/`, and
-[`EMBEDDED`](https://docs.rs/rok-templates/latest/rok_templates/constant.EMBEDDED.html)
-lists it. The engine, `rok-data-sqlc`, decides what a project gets
-(workspace ADR 0022 in the repository's `docs/decisions/`).
+The crate declares the templates' **catalog** (workspace ADR 0027): the
+names `--template` takes, the template directories they resolve to, and
+the destination path each template file gets in a project. `build.rs`
+embeds `templates/`, [`EMBEDDED`](https://docs.rs/rok-templates/latest/rok_templates/constant.EMBEDDED.html)
+lists it, and the catalog maps names onto it. The write policy — copy
+when absent, skip files marked `@generated` — and the grammar stay with
+the engine, `rok-data-sqlc`, which keeps the marker rules
+(workspace ADRs 0022 and 0027 in the repository's `docs/decisions/`).
 
 Licensed under MIT OR Apache-2.0.

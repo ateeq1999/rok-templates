@@ -2,10 +2,13 @@
 //! of `templates/`, embedded in the crate by `build.rs` so `init` works
 //! from `cargo install`.
 //!
-//! This crate holds the templates' files and nothing else. Which name
-//! selects which template, and which files a project gets, is the engine's
-//! (`rok-data-sqlc`'s `init`), because `rok sqlc init` is its grammar
-//! (workspace ADR 0022).
+//! The [`catalog`] owns the template names, their manifests and the
+//! destination paths a project gets their files at (workspace ADR 0027).
+//! Which name the grammar takes, and the write policy — copy when absent,
+//! skip files marked `@generated` — stay the engine's (`rok-data-sqlc`'s
+//! `init`), so the marker rules stay with the engine.
+
+pub mod catalog;
 
 /// A template file, as `build.rs` embeds it.
 #[derive(Debug)]
