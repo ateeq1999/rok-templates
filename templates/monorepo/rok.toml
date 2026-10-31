@@ -2,6 +2,21 @@
 # regenerates from the root. Each App keeps its own configuration file --
 # `apps/api`'s is `apps/api/rok-data-sqlc.toml` -- so root generation reads
 # the App's settings from inside the App. `apps/web` and `apps/desktop` have
-# nothing generated yet, so they are not named here.
+# nothing generated of their own, so they are not named here.
 [apps]
 api = "apps/api"
+
+# The API's contract: the OpenAPI document `apps/api` serves, written out.
+# After regenerating the Apps, `rok gen` re-exports it by running `export`
+# from this directory with the document's path appended, then emits every
+# client below from it. `rok gen check` builds nothing: it checks the
+# clients against the document as it is (the api's `tests/openapi_artifact.rs`
+# checks the document against what the API serves).
+[contract]
+document = "apps/api/openapi.json"
+export = ["cargo", "run", "--quiet", "-p", "axum-api", "--example", "openapi", "--"]
+
+# The Clients generated from the contract, each its directory. Their files
+# are rok's (marked `@generated`): `rok gen` rewrites them, never edit them.
+[clients]
+ts = "clients/ts"
