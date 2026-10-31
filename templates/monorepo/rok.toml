@@ -21,4 +21,5 @@ export = ["cargo", "run", "--quiet", "-p", "axum-api", "--example", "openapi", "
 # The Rust client's `Cargo.toml` is the exception: it is yours.
 [clients]
 ts = "clients/ts"
+dart = "clients/dart"
 rust = "clients/rust"
