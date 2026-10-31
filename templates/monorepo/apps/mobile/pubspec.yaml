@@ -1,0 +1,87 @@
+name: mobile
+description: "Cross-platform mobile app using Flutter + flutter_bloc with NestJS Better-Auth API"
+publish_to: "none"
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # State Management
+  flutter_bloc: ^9.1.1
+  bloc: ^9.0.0
+  equatable: ^2.0.7
+  hydrated_bloc: ^10.0.0
+
+  # Navigation
+  go_router: ^15.1.2
+
+  # HTTP
+  dio: ^5.9.2
+  dio_cache_interceptor: ^4.0.6
+
+  # Storage
+  flutter_secure_storage: ^10.0.0
+  shared_preferences: ^2.5.3
+
+  # Environment
+  flutter_dotenv: ^6.0.0
+
+  # Forms
+  flutter_form_builder: ^10.3.0+2
+  form_builder_validators: ^11.3.0
+
+  # Images
+  cached_network_image: ^3.4.1
+  image_picker: ^1.2.1
+
+  # Deep Links
+  app_links: ^7.0.0
+
+  # Connectivity
+  connectivity_plus: ^6.0.5
+
+  # Security
+  flutter_windowmanager: ^0.2.0     # Android FLAG_SECURE to block screenshots
+
+  # Firebase
+  firebase_core: ^4.7.0
+  firebase_messaging: ^16.2.0
+  firebase_analytics: ^12.3.0
+
+  # Utils
+  intl: ^0.20.2
+  flutter_local_notifications: ^18.0.1
+  path_provider: ^2.1.5
+
+  # Annotations
+  freezed_annotation: ^3.1.0
+  json_annotation: ^4.11.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  flutter_lints: ^6.0.0
+
+  # Code Generation
+  freezed: ^3.2.5
+  json_serializable: ^6.13.1
+  build_runner: ^2.13.1
+
+  # Testing
+  mocktail: ^1.0.5
+  bloc_test: ^10.0.0
+  integration_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - .env

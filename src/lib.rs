@@ -99,4 +99,93 @@ mod tests {
             "the web App's `.env.example` is not embedded"
         );
     }
+
+    /// A Flutter App resolved, analyzed, run or built in place leaves its
+    /// tool state and build output (`.dart_tool/`, `build/`, Gradle's and
+    /// CocoaPods' directories, the platforms' `ephemeral/` folders) and
+    /// machine files (`local.properties`, the generated Xcode settings, a
+    /// release keystore) behind: none of it reaches the embedding.
+    #[test]
+    fn no_flutter_tool_state_build_output_or_machine_file_is_embedded() {
+        const DIRS: &[&str] = &[
+            ".dart_tool",
+            "build",
+            ".gradle",
+            ".kotlin",
+            ".cxx",
+            "Pods",
+            ".symlinks",
+            "ephemeral",
+            ".pub-cache",
+        ];
+        const FILES: &[&str] = &[
+            ".flutter-plugins",
+            ".flutter-plugins-dependencies",
+            "local.properties",
+            "key.properties",
+            "Generated.xcconfig",
+            "flutter_export_environment.sh",
+            "gradlew",
+            "gradlew.bat",
+            "gradle-wrapper.jar",
+        ];
+        for embedded in EMBEDDED {
+            for file in embedded.files {
+                let parts: Vec<&str> = file.path.split('/').collect();
+                let (name, dirs) = parts.split_last().unwrap_or((&"", &[]));
+                assert!(
+                    !dirs.iter().any(|dir| DIRS.contains(dir))
+                        && !FILES.contains(name)
+                        && !name.ends_with(".jks")
+                        && !name.ends_with(".keystore"),
+                    "`{}` embeds `{}`",
+                    embedded.dir,
+                    file.path
+                );
+            }
+        }
+        let monorepo = find("monorepo").unwrap_or_else(|| panic!("`monorepo` is not embedded"));
+        assert!(
+            monorepo
+                .files
+                .iter()
+                .any(|file| file.path == "apps/mobile/.env.example"),
+            "the mobile App's `.env.example` is not embedded"
+        );
+    }
+
+    /// The Firebase files a template ships are placeholders: Firebase
+    /// configuration names one Firebase project, so a real one never ships
+    /// (workspace ADR 0027). A placeholder names the project
+    /// `your-firebase-project`.
+    #[test]
+    fn firebase_configuration_ships_as_a_placeholder() {
+        const FIREBASE: &[&str] = &[
+            "google-services.json",
+            "GoogleService-Info.plist",
+            "firebase_options.dart",
+            "firebase.json",
+        ];
+        let mut shipped = 0;
+        for embedded in EMBEDDED {
+            for file in embedded.files {
+                let name = file.path.rsplit('/').next().unwrap_or_default();
+                if !FIREBASE.contains(&name) {
+                    continue;
+                }
+                shipped += 1;
+                let text = String::from_utf8_lossy(file.bytes);
+                assert!(
+                    text.contains("your-firebase-project"),
+                    "`{}/{}` is not the placeholder",
+                    embedded.dir,
+                    file.path
+                );
+            }
+        }
+        assert!(
+            shipped > 0,
+            "no Firebase placeholder is embedded (the mobile App ships one)"
+        );
+    }
 }

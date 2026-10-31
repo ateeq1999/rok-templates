@@ -7,7 +7,9 @@
 //! leaves behind is left out: its top-level `target/`, an App's
 //! (`apps/<app>/target/`, a Monorepo template's Rust App built in place)
 //! and, at any depth, the directories of [`LOCAL_DIRS`]; so are the files
-//! of [`LOCAL_FILES`] (OS junk, a developer's `.env`). Everything else, hidden files such as
+//! of [`LOCAL_FILES`] (OS junk, a developer's `.env`, a Flutter build's
+//! machine files) and of [`SECRET_EXTENSIONS`] (a signing keystore).
+//! Everything else, hidden files such as
 //! `.env.example` included, is embedded, and `init` decides what it
 //! copies. `Cargo.toml`'s `include` leaves out the same paths, so the
 //! package ships what is embedded (`tests/package.rs` checks it).
@@ -61,9 +63,12 @@ fn file_name(path: &Path) -> String {
         .unwrap_or_default()
 }
 
-/// Directories a JS App's install or build writes in place, at any depth:
-/// its dependencies and its build output (what the web App's `.gitignore`
-/// names).
+/// Directories an App's install or build writes in place, at any depth: a
+/// JS App's dependencies and build output (what the web App's `.gitignore`
+/// names), and a Flutter App's tool state and build output — `flutter pub
+/// get`'s `.dart_tool/` and the platforms' `ephemeral/` folders, `build/`,
+/// Gradle's and Kotlin's caches, CocoaPods' `Pods/` and `.symlinks/` (what
+/// the mobile App's `.gitignore`s name).
 const LOCAL_DIRS: &[&str] = &[
     "node_modules",
     "dist",
@@ -72,11 +77,46 @@ const LOCAL_DIRS: &[&str] = &[
     ".tanstack",
     ".vinxi",
     ".wrangler",
+    ".dart_tool",
+    ".pub-cache",
+    "build",
+    "ephemeral",
+    ".gradle",
+    ".kotlin",
+    ".cxx",
+    "Pods",
+    ".symlinks",
 ];
 
-/// Files that are a machine's, never a template's: OS junk, and a
-/// developer's own environment (`.env`; the template ships `.env.example`).
-const LOCAL_FILES: &[&str] = &[".DS_Store", "Thumbs.db", "desktop.ini", ".env"];
+/// Files that are a machine's, never a template's: OS junk, a developer's
+/// own environment (`.env`; the template ships `.env.example`), and what a
+/// Flutter build writes for one machine — the plugin lists, the Android
+/// SDK's path and signing settings, the generated Xcode settings and the
+/// Gradle wrapper Flutter adds on the first Android build.
+const LOCAL_FILES: &[&str] = &[
+    ".DS_Store",
+    "Thumbs.db",
+    "desktop.ini",
+    ".env",
+    ".flutter-plugins",
+    ".flutter-plugins-dependencies",
+    "local.properties",
+    "key.properties",
+    "Generated.xcconfig",
+    "flutter_export_environment.sh",
+    "gradlew",
+    "gradlew.bat",
+    "gradle-wrapper.jar",
+];
+
+/// Extensions of files that are secrets, never a template's: a release
+/// signing keystore.
+const SECRET_EXTENSIONS: &[&str] = &[".jks", ".keystore"];
+
+/// Whether `name` is a file the embedding leaves out.
+fn is_local_file(name: &str) -> bool {
+    LOCAL_FILES.contains(&name) || SECRET_EXTENSIONS.iter().any(|ext| name.ends_with(ext))
+}
 
 /// Every file under `dir` as (its path relative to `template`, with `/`,
 /// and its absolute path), but those of `template`'s `target/` and its
@@ -91,7 +131,7 @@ fn collect(template: &Path, dir: &Path, files: &mut Vec<(String, String)>) -> io
                 continue;
             }
             collect(template, &path, files)?;
-        } else if !LOCAL_FILES.contains(&name.as_str()) {
+        } else if !is_local_file(&name) {
             let relative = path
                 .strip_prefix(template)
                 .map_err(io::Error::other)?

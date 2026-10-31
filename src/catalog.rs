@@ -15,8 +15,8 @@ use crate::File;
 pub struct App {
     /// The App's name. An App `rok gen` regenerates (one with generation
     /// settings of its own, such as `api`) goes by it in the scaffold's
-    /// `rok.toml` `[apps]`; the web and desktop Apps have nothing generated
-    /// yet and are not listed there.
+    /// `rok.toml` `[apps]`; the web, desktop and mobile Apps have nothing
+    /// generated yet and are not listed there.
     pub name: &'static str,
     /// The directory of `templates/`, under the template's, the App's
     /// files sit in.
@@ -36,8 +36,7 @@ pub struct Template {
     pub apps: &'static [App],
 }
 
-/// The Apps of the monorepo template. The mobile App joins as its files
-/// arrive.
+/// The Apps of the monorepo template.
 const MONOREPO_APPS: &[App] = &[
     App {
         name: "api",
@@ -50,6 +49,10 @@ const MONOREPO_APPS: &[App] = &[
     App {
         name: "desktop",
         dir: "apps/desktop",
+    },
+    App {
+        name: "mobile",
+        dir: "apps/mobile",
     },
 ];
 
@@ -203,8 +206,10 @@ mod tests {
                 app.dir
             );
             assert!(
-                files.contains(&"Cargo.toml.template") || files.contains(&"package.json"),
-                "App `{}` has no manifest (`Cargo.toml.template` or `package.json`)",
+                files.contains(&"Cargo.toml.template")
+                    || files.contains(&"package.json")
+                    || files.contains(&"pubspec.yaml"),
+                "App `{}` has no manifest (`Cargo.toml.template`, `package.json` or `pubspec.yaml`)",
                 app.name
             );
         }
@@ -233,6 +238,47 @@ mod tests {
                 app.name
             );
         }
+    }
+
+    /// A Flutter App's package is named after the App the catalog names:
+    /// its `pubspec.yaml` declares `name: <app>`, until init names the Apps
+    /// after the project (workspace ADR 0027).
+    #[test]
+    fn a_flutter_apps_package_is_named_after_its_app() {
+        let files =
+            files("monorepo").unwrap_or_else(|| panic!("the monorepo template has no files"));
+        for app in apps("monorepo") {
+            let manifest = format!("{}/pubspec.yaml", app.dir);
+            let Some(file) = files.iter().find(|file| file.path == manifest) else {
+                continue;
+            };
+            let text = String::from_utf8_lossy(file.bytes);
+            assert!(
+                text.lines()
+                    .any(|line| line.trim_end() == format!("name: {}", app.name)),
+                "`{manifest}` does not name its package `{}`",
+                app.name
+            );
+        }
+    }
+
+    /// The monorepo's Apps: the API, and the web, desktop and mobile Apps
+    /// that call it.
+    #[test]
+    fn the_monorepo_names_its_four_apps() {
+        let named: Vec<(&str, &str)> = apps("monorepo")
+            .iter()
+            .map(|app| (app.name, app.dir))
+            .collect();
+        assert_eq!(
+            named,
+            [
+                ("api", "apps/api"),
+                ("web", "apps/web"),
+                ("desktop", "apps/desktop"),
+                ("mobile", "apps/mobile"),
+            ]
+        );
     }
 
     /// Every Rust App of the monorepo (one with a `Cargo.toml.template`) is

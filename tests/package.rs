@@ -67,8 +67,10 @@ fn package_ships_the_embedding_and_licenses_but_no_build_output() -> Result<()> 
 
 /// The package ships exactly what `build.rs` embeds: every embedded
 /// template file is packaged, and no packaged template file is left out of
-/// the embedding — so neither a JS App's `node_modules` nor its build
-/// output, installed or built in place, reaches the package. (Cargo leaves
+/// the embedding — so neither a JS App's `node_modules` and build output
+/// nor a Flutter App's `.dart_tool`, `build/`, platform caches or machine
+/// files (`local.properties`, a keystore), left by resolving or building
+/// it in place, reach the package. (Cargo leaves
 /// out a directory holding a `Cargo.toml`: a template's manifest is
 /// `Cargo.toml.template`.)
 #[test]
