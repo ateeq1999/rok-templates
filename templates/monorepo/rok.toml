@@ -19,6 +19,8 @@ export = ["cargo", "run", "--quiet", "-p", "axum-api", "--example", "openapi", "
 
 # The Clients generated from the contract, each its directory. Their files
 # are rok's (marked `@generated`): `rok gen` rewrites them, never edit them.
+# The Rust client's `Cargo.toml` is the exception: it is yours.
 [clients]
 ts = "clients/ts"
 dart = "clients/dart"
+rust = "clients/rust"

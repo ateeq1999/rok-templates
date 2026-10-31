@@ -1,6 +1,8 @@
-# The monorepo's workspace: the Rust Apps are its members. Non-Rust Apps (the
-# web and the mobile app) have no root here; their files live under their
-# Apps' directories and their toolchains mind them.
+# The monorepo's workspace: the Rust Apps are its members, and the Rust
+# client generated from the API's contract (`clients/rust`), which the api's
+# tests call the API through. Non-Rust Apps (the web and
+# the mobile app) have no root here; their files live under their Apps'
+# directories and their toolchains mind them.
 [workspace]
 resolver = "3"
-members = ["apps/api", "apps/desktop"]
+members = ["apps/api", "apps/desktop", "clients/rust"]
