@@ -54,8 +54,11 @@ utoipa-swagger-ui = { version = "9", features = ["axum", "vendored"] }
 uuid = { version = "1", features = ["v7", "serde"] }
 zeroize = "1"
 
-# The test client: a request through the router, and its body.
+# The test client: a request through the router, and its body. The
+# generated Rust client (`clients/rust`) drives `tests/client/` against the
+# API on a real socket, so the contract, the client and the server agree.
 [dev-dependencies]
+api-client = { path = "../../clients/rust" }
 http-body-util = "0.1"
 
 [lints.rust]

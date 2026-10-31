@@ -1,0 +1,27 @@
+[package]
+name = "api-client"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+publish = false
+description = "The API's Rust client, generated from apps/api/openapi.json"
+
+# This manifest is yours; `src/` is rok's (`rok gen` regenerates it from
+# the API's contract, workspace ADR 0027). The generated code needs these.
+[dependencies]
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+
+# Gentler than the Apps' lint set: generated code a caller links, kept free
+# of the panicking shortcuts all the same.
+[lints.clippy]
+unwrap_used = "warn"
+expect_used = "warn"
+panic = "warn"
+dbg_macro = "warn"
+print_stdout = "warn"

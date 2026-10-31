@@ -14,6 +14,9 @@ one API contract (workspace ADRs 0027 and 0031).
   `apps/api` runs, check it with `cargo test -p desktop`. Its business
   logic (`src/features/<f>/bloc/`) stays free of GPUI (`clippy.toml`).
 - `clients/` — generated Clients for the API's contract; do not edit a
-  generated Client by hand.
+  generated Client by hand. `clients/rust` (package `api-client`, a root
+  workspace member) is the Rust one: its `src/` is generated, its
+  `Cargo.toml` is yours; check it with `cargo clippy -p api-client` and
+  the api's `tests/client/`, which call the API through it.
 - `rok.toml` names the Apps; `rok gen` from the root regenerates the
   generated code of every Rust App named there.

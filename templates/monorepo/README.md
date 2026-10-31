@@ -13,8 +13,11 @@ contract (workspace ADRs 0027 and 0031). The Apps `rok sqlc init
   member of the root workspace. It talks to `apps/api` through its own
   HTTP layer today; its README is its reference.
 - `clients/ts/` — the TypeScript Client for the API's contract, generated
-  from `apps/api/openapi.json` (the Dart and Rust Clients follow). Its
-  files are rok's: never edit them.
+  from `apps/api/openapi.json`. Its files are rok's: never edit them.
+- `clients/rust/` — the Rust Client (package `api-client`), generated from
+  the same document: an async `reqwest` crate with its own serde types, a
+  member of the root workspace. The api App's `tests/client/` drive the
+  API through it. Its `src/` is rok's; its `Cargo.toml` is yours.
 
 Start one:
 
