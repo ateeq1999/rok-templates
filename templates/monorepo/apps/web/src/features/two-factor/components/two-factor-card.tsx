@@ -29,7 +29,6 @@ import {
 import { FieldGroup } from "@/components/ui/field"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
-import { twoFactorApi } from "@/features/two-factor/api"
 import {
   formatRecoveryCodesFile,
   recoveryCodesFilename,
@@ -41,7 +40,9 @@ import {
 import type { TotpSetup } from "@/features/two-factor/schemas"
 import { userKeys } from "@/features/users/queries"
 import { copyToClipboard, downloadBlob } from "@/lib/clipboard"
-import { ApiError } from "@/lib/http"
+// Every two-factor call keeps the session on a 401: a wrong code or
+// password is an answer here, not an expired session.
+import { ApiError, api } from "@/lib/client"
 import { useApiForm } from "@/lib/use-api-form"
 
 /**
@@ -67,7 +68,7 @@ export function TwoFactorCard({
   const refetchMe = () => qc.refetchQueries({ queryKey: userKeys.me })
 
   const startSetup = useMutation({
-    mutationFn: twoFactorApi.setup,
+    mutationFn: () => api.auth.setup({ keepSession: true }),
     onSuccess: setSetup,
     onError: (error) => {
       if (error instanceof ApiError) {
@@ -172,7 +173,7 @@ function SetupDialog({
     defaultValues: { code: "" },
     request: async (value) => {
       try {
-        return await twoFactorApi.enable(value)
+        return await api.auth.enable(value, { keepSession: true })
       } catch (error) {
         if (error instanceof ApiError && error.status === 400)
           onReset(error.message)
@@ -375,7 +376,7 @@ function DisableDialog({
     defaultValues: { current_password: "" },
     badRequestField: "current_password",
     unauthorizedField: "current_password",
-    request: (value) => twoFactorApi.disable(value),
+    request: (value) => api.auth.disable(value, { keepSession: true }),
     onSuccess: onDisabled,
   })
 

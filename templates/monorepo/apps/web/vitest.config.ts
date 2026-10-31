@@ -1,7 +1,9 @@
 import { defineConfig } from "vitest/config"
 
 export default defineConfig({
-  resolve: { tsconfigPaths: true },
+  // `dedupe`: the generated client (`../../clients/ts`, outside this App)
+  // imports TanStack Query, which resolves to this App's copy.
+  resolve: { tsconfigPaths: true, dedupe: ["@tanstack/react-query"] },
   // Vite loads .env for every mode by default, so a developer's local
   // VITE_API_URL (set for `bun dev`/`bun build`) would otherwise leak into
   // the test run and make apiUrl()/http() assertions machine-dependent.

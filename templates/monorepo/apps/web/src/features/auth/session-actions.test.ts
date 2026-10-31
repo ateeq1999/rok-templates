@@ -1,6 +1,6 @@
 import { CancelledError } from "@tanstack/react-query"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { ApiError } from "@/lib/http"
+import { ApiError } from "@/lib/client"
 import { session } from "@/lib/session"
 import { homeFor, requireMe } from "./session-actions"
 

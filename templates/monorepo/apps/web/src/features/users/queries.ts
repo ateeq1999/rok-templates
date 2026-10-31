@@ -1,66 +1,44 @@
 import {
   keepPreviousData,
-  queryOptions,
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query"
 import { statsKeys } from "@/features/stats/queries"
-import { usersApi } from "./api"
+import { api, keys, mutations, queries } from "@/lib/client"
+import type { UpdateUserDto } from "@/lib/client"
 import type { ListParams, User } from "./schemas"
 
 export const userKeys = {
-  all: ["users"] as const,
-  me: ["users", "me"] as const,
-  lists: () => ["users", "list"] as const,
-  list: (p: ListParams) => ["users", "list", p] as const,
-  detail: (id: string) => ["users", "detail", id] as const,
+  all: keys.users,
+  me: queries.users.me().queryKey,
+  lists: () => [...keys.users, "list"] as const,
+  detail: (id: string) => queries.users.getOne(id).queryKey,
 }
 
-export const meQueryOptions = queryOptions({
-  queryKey: userKeys.me,
-  queryFn: usersApi.me,
+export const meQueryOptions = queries.users.me()
+
+export const usersListQueryOptions = (params: ListParams) => ({
+  ...queries.users.list(params),
+  placeholderData: keepPreviousData,
 })
 
-export const usersListQueryOptions = (params: ListParams) =>
-  queryOptions({
-    queryKey: userKeys.list(params),
-    queryFn: ({ signal }) => usersApi.list(params, signal),
-    placeholderData: keepPreviousData,
-  })
-
-export const userDetailQueryOptions = (id: string) =>
-  queryOptions({
-    queryKey: userKeys.detail(id),
-    queryFn: () => usersApi.get(id),
-  })
+export const userDetailQueryOptions = (id: string) => queries.users.getOne(id)
 
 export function useUpdateMe() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: usersApi.updateMe,
+    ...mutations.users.updateMe(),
     onSuccess: (user) => qc.setQueryData(userKeys.me, user),
-  })
-}
-
-export function useCreateUser() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: usersApi.create,
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: userKeys.lists() })
-      void qc.invalidateQueries({ queryKey: statsKeys.all })
-    },
   })
 }
 
 export function useUpdateUser(id: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (body: Parameters<typeof usersApi.update>[1]) =>
-      usersApi.update(id, body),
+    mutationFn: (body: UpdateUserDto) => api.users.update(id, body),
     onSuccess: (user: User) => {
       qc.setQueryData(userKeys.detail(id), user)
-      const me = qc.getQueryData<User>(userKeys.me)
+      const me = qc.getQueryData(userKeys.me)
       if (me?.id === id) qc.setQueryData(userKeys.me, user)
       void qc.invalidateQueries({ queryKey: userKeys.lists() })
       void qc.invalidateQueries({ queryKey: statsKeys.all })
@@ -77,11 +55,11 @@ function applyMeUpdate(qc: ReturnType<typeof useQueryClient>, user: User) {
 export function useAvatarMutations() {
   const qc = useQueryClient()
   const upload = useMutation({
-    mutationFn: usersApi.uploadAvatar,
+    ...mutations.avatars.upload(),
     onSuccess: (user) => applyMeUpdate(qc, user),
   })
   const remove = useMutation({
-    mutationFn: usersApi.removeAvatar,
+    ...mutations.avatars.remove(),
     onSuccess: (user) => applyMeUpdate(qc, user),
   })
   return { upload, remove }
@@ -90,7 +68,7 @@ export function useAvatarMutations() {
 export function useDeleteUser() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: usersApi.remove,
+    mutationFn: (id: string) => api.users.remove(id),
     onSuccess: (_data, id) => {
       qc.removeQueries({ queryKey: userKeys.detail(id) })
       void qc.invalidateQueries({ queryKey: userKeys.lists() })

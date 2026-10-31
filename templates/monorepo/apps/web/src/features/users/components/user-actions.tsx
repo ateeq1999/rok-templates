@@ -15,7 +15,7 @@ import { toast } from "@/components/ui/toast"
 import { meQueryOptions, useUpdateUser } from "@/features/users/queries"
 import { userLabel } from "@/features/users/schemas"
 import type { User } from "@/features/users/schemas"
-import { ApiError } from "@/lib/http"
+import { ApiError } from "@/lib/client"
 import { DeleteUserDialog, EditUserDialog } from "./user-dialogs"
 
 /** Row actions menu with the edit/delete dialogs it opens. */

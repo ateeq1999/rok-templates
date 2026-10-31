@@ -8,12 +8,11 @@ import {
 import { Button } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
-import { authApi } from "@/features/auth/api"
-import { ApiError } from "@/lib/http"
+import { api, ApiError } from "@/lib/client"
 
 export function useResendVerification() {
   return useMutation({
-    mutationFn: authApi.resendVerification,
+    mutationFn: () => api.auth.resend(),
     onSuccess: () =>
       toast.add({
         type: "success",

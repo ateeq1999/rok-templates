@@ -9,12 +9,11 @@ import {
 } from "@/components/common/form-fields"
 import { Button } from "@/components/ui/button"
 import { FieldGroup } from "@/components/ui/field"
-import { authApi } from "@/features/auth/api"
+import { api, ApiError } from "@/lib/client"
 import { totpVerifyOutcome } from "@/features/auth/login-flow"
 import { totpCodeFormSchema } from "@/features/auth/schemas"
 import type { TotpCodeMode } from "@/features/auth/schemas"
 import { completeSignIn } from "@/features/auth/session-actions"
-import { ApiError } from "@/lib/http"
 import { useApiForm } from "@/lib/use-api-form"
 
 /**
@@ -92,7 +91,7 @@ function CodeForm({
     defaultValues: { code: "" },
     request: async ({ code }) => {
       try {
-        return await authApi.verifyTotp({ pending_token: pendingToken, code })
+        return await api.auth.verify2fa({ pending_token: pendingToken, code })
       } catch (error) {
         if (totpVerifyOutcome(error) === "restart" && error instanceof ApiError)
           onRestart(

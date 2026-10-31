@@ -46,24 +46,8 @@ export const changeEmailSchema = z.object({
   current_password: z.string().min(1, "Required"),
 })
 
-export const tokenResponseSchema = z.object({
-  access_token: z.string(),
-  token_type: z.string(),
-  expires_in: z.number(),
-})
-
-/** Password login for an account with two-factor on: no session yet, only a short-lived token. */
-export const totpRequiredSchema = z.object({
-  requires_totp: z.literal(true),
-  pending_token: z.string(),
-})
-
-/** `POST /auth/login` returns either a session or the two-factor marker. */
-export const loginResponseSchema = z.union([
-  totpRequiredSchema,
-  tokenResponseSchema,
-])
-export type LoginResponse = z.infer<typeof loginResponseSchema>
+/** `POST /auth/login`'s answer: a session, or the two-factor marker (`requires_totp`, `pending_token`). */
+export type { LoginResponse } from "@/lib/client"
 
 // Two-factor sign-in step: an authenticator code, or a recovery code.
 export const authenticatorCodeSchema = z

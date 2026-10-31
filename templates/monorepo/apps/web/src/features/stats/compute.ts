@@ -1,4 +1,4 @@
-import { usersApi } from "@/features/users/api"
+import { api } from "@/lib/client"
 import type { User } from "@/features/users/schemas"
 
 export type Stats = {
@@ -61,7 +61,7 @@ export async function fetchStatsClientSide(): Promise<Stats> {
   const users: User[] = []
   let total = 0
   for (let page = 1; page <= MAX_PAGES; page++) {
-    const res = await usersApi.list({
+    const res = await api.users.list({
       page,
       per_page: PAGE_SIZE,
       sort: "created_at",

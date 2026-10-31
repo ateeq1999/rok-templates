@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import type { QueryClient } from "@tanstack/react-query"
 import { session } from "@/lib/session"
 import { meQueryOptions } from "@/features/users/queries"
-import { ApiError } from "@/lib/http"
+import { ApiError } from "@/lib/client"
 import type { User } from "@/features/users/schemas"
 import type { RouterContext } from "@/router"
 import { safeRedirect } from "./schemas"
@@ -15,7 +15,7 @@ export function homeFor(me: Pick<User, "role">) {
 }
 
 /**
- * Shared by every sign-in path (password, OAuth, passkey, QR): clear any
+ * Shared by every sign-in path (password, two-factor): clear any
  * previous user's cache, store the token, load `me`, then go to the
  * requested redirect (same-origin only) or the role's home.
  */

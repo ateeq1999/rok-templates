@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { mediaApi } from "./api"
+import { api } from "@/lib/client"
 import { mediaKeys } from "./queries"
 import type { Media } from "./schemas"
 
@@ -9,10 +9,10 @@ import type { Media } from "./schemas"
  * object URL for <img>/<video>/<audio>. The URL is revoked whenever the blob
  * changes and on unmount, so nothing leaks.
  */
-export function useBlobUrl(item: Pick<Media, "url">, enabled = true) {
+export function useBlobUrl(item: Pick<Media, "id" | "url">, enabled = true) {
   const query = useQuery({
     queryKey: mediaKeys.blob(item.url),
-    queryFn: ({ signal }) => mediaApi.content(item, signal),
+    queryFn: ({ signal }) => api.media.content(item.id, { signal }),
     enabled,
     staleTime: Infinity,
     gcTime: 60_000,

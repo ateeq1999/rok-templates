@@ -7,10 +7,9 @@ import {
   TextField,
 } from "@/components/common/form-fields"
 import { FieldGroup } from "@/components/ui/field"
-import { authApi } from "@/features/auth/api"
+import { api, ApiError } from "@/lib/client"
 import { forgotSchema } from "@/features/auth/schemas"
 import { redirectIfSignedIn } from "@/features/auth/session-actions"
-import { ApiError } from "@/lib/http"
 import { useApiForm } from "@/lib/use-api-form"
 
 export const Route = createFileRoute("/_public/forgot-password")({
@@ -26,7 +25,7 @@ function ForgotPasswordPage() {
     defaultValues: { email: "" },
     request: async (value) => {
       try {
-        await authApi.forgotPassword(value)
+        await api.auth.forgot(value)
       } catch (error) {
         // Anti-enumeration: only rate limits and outages are surfaced.
         const surfaced =

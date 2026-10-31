@@ -117,7 +117,10 @@ export function AuditLogTable({
                       <UserRef id={entry.actor_user_id} lookup={lookup} />
                     </TableCell>
                     <TableCell>
-                      <UserRef id={entry.target_user_id} lookup={lookup} />
+                      <UserRef
+                        id={entry.target_user_id ?? null}
+                        lookup={lookup}
+                      />
                     </TableCell>
                     <TableCell>
                       <Details details={entry.details} />

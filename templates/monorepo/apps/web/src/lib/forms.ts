@@ -1,4 +1,4 @@
-import { ApiError } from "./http"
+import { ApiError } from "./client"
 
 export type ServerErrors = {
   /** Field name -> first message. */

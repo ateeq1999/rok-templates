@@ -580,12 +580,12 @@ export const api = {
       id: string,
       options?: RequestOptions
     ) =>
-      request<void>(
+      request<Blob>(
         {
           method: "GET",
           path: `/api/v1/media/${encodeURIComponent(String(id))}/content`,
           secured: true,
-          response: "none",
+          response: "blob",
         },
         options
       ),

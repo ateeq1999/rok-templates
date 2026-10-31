@@ -1,16 +1,11 @@
 import { z } from "zod"
+import type { TotpSetupResponse } from "@/lib/client"
 
-export const totpSetupSchema = z.object({
-  secret: z.string(),
-  /** A data URI: safe to use directly as an <img src>. */
-  qr_code_data_uri: z.string(),
-  provisioning_uri: z.string(),
-})
-export type TotpSetup = z.infer<typeof totpSetupSchema>
-
-export const totpEnabledSchema = z.object({
-  recovery_codes: z.array(z.string()),
-})
+/**
+ * What enrolling an authenticator app needs (the generated client's
+ * `TotpSetupResponse`); its `qr_code_data_uri` is safe as an <img src>.
+ */
+export type TotpSetup = TotpSetupResponse
 
 /** Exactly the 6 digits from the authenticator app. */
 export const enableFormSchema = z.object({

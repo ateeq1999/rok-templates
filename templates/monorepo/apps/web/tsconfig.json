@@ -2,6 +2,7 @@
   "include": [
     "**/*.ts",
     "**/*.tsx",
+    "../../clients/ts/src/**/*.ts",
     "eslint.config.js",
     "prettier.config.js",
     "vite.config.ts"
@@ -13,7 +14,12 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "types": ["vite/client"],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      /* The generated API client (`rok gen` writes it; never edit it). */
+      "@client": ["../../clients/ts/src/index.ts"],
+      /* The client lives outside this App, where no node_modules is: its
+         TanStack Query import resolves to this App's copy. */
+      "@tanstack/react-query": ["./node_modules/@tanstack/react-query"]
     },
 
     /* Bundler mode */

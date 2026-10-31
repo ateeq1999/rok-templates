@@ -24,7 +24,7 @@ import {
   useUploadMedia,
 } from "@/features/media/queries"
 import type { Media, MediaListParams } from "@/features/media/schemas"
-import { ApiError } from "@/lib/http"
+import { ApiError } from "@/lib/client"
 import { cn } from "@/lib/utils"
 
 export function MediaLibrary({

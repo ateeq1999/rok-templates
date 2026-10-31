@@ -43,7 +43,7 @@ import {
 } from "@/features/api-keys/queries"
 import { createApiKeyFormSchema, isExpired } from "@/features/api-keys/schemas"
 import type { ApiKey, CreatedApiKey } from "@/features/api-keys/schemas"
-import { ApiError } from "@/lib/http"
+import { ApiError } from "@/lib/client"
 import { useApiForm } from "@/lib/use-api-form"
 
 const scopeOptions = [

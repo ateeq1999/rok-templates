@@ -1,4 +1,4 @@
-import { ApiError } from "@/lib/http"
+import { ApiError } from "@/lib/client"
 import type { LoginResponse } from "./schemas"
 
 export type LoginStep =

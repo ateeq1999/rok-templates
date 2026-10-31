@@ -1,51 +1,31 @@
 import { describe, expect, it } from "vitest"
-import { ApiError } from "@/lib/http"
+import { ApiError } from "@/lib/client"
+import type { LoginResponse } from "@/lib/client"
 import { loginStepFor, totpVerifyOutcome } from "./login-flow"
 import {
   authenticatorCodeSchema,
-  loginResponseSchema,
   normalizeRecoveryCode,
   recoveryCodeSchema,
   totpCodeFormSchema,
 } from "./schemas"
 
-const session = {
+const session: LoginResponse = {
   access_token: "jwt.token.here",
   token_type: "Bearer",
   expires_in: 3600,
 }
-const totp = { requires_totp: true, pending_token: "pending-abc" }
-
-describe("loginResponseSchema (the login union)", () => {
-  it("parses a signed-in response", () => {
-    expect(loginResponseSchema.parse(session)).toEqual(session)
-  })
-
-  it("parses a two-factor-required response", () => {
-    expect(loginResponseSchema.parse(totp)).toEqual(totp)
-  })
-
-  it("rejects anything that is neither", () => {
-    expect(loginResponseSchema.safeParse({}).success).toBe(false)
-    expect(loginResponseSchema.safeParse({ requires_totp: true }).success).toBe(
-      false
-    )
-    expect(
-      loginResponseSchema.safeParse({ ...totp, requires_totp: false }).success
-    ).toBe(false)
-    expect(loginResponseSchema.safeParse({ access_token: "x" }).success).toBe(
-      false
-    )
-  })
-})
+const totp: LoginResponse = {
+  requires_totp: true,
+  pending_token: "pending-abc",
+}
 
 describe("loginStepFor", () => {
   it("tells the two answers apart by requires_totp", () => {
-    expect(loginStepFor(loginResponseSchema.parse(session))).toEqual({
+    expect(loginStepFor(session)).toEqual({
       kind: "signed_in",
       accessToken: "jwt.token.here",
     })
-    expect(loginStepFor(loginResponseSchema.parse(totp))).toEqual({
+    expect(loginStepFor(totp)).toEqual({
       kind: "totp",
       pendingToken: "pending-abc",
     })

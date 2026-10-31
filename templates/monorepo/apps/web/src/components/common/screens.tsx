@@ -14,7 +14,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@/components/ui/empty"
-import { ApiError } from "@/lib/http"
+import { ApiError } from "@/lib/client"
 
 export function ErrorScreen({
   error,

@@ -1,21 +1,11 @@
 import { z } from "zod"
+import type { Role as ApiRole, UserResponse } from "@/lib/client"
 
 export const roleSchema = z.enum(["user", "admin"])
-export type Role = z.infer<typeof roleSchema>
+export type Role = ApiRole
 
-export const userSchema = z.object({
-  id: z.string(),
-  email: z.string(),
-  display_name: z.string().nullable(),
-  role: roleSchema,
-  is_active: z.boolean(),
-  email_verified: z.boolean(),
-  created_at: z.string(),
-  avatar_url: z.string().nullable().default(null),
-  has_password: z.boolean().default(true),
-  totp_enabled: z.boolean().default(false),
-})
-export type User = z.infer<typeof userSchema>
+/** A user as the API answers it (the generated client's `UserResponse`). */
+export type User = UserResponse
 
 export type Paginated<T> = {
   items: T[]
@@ -23,13 +13,6 @@ export type Paginated<T> = {
   per_page: number
   total: number
 }
-
-export const paginatedUsersSchema = z.object({
-  items: z.array(userSchema),
-  page: z.number(),
-  per_page: z.number(),
-  total: z.number(),
-})
 
 export const displayNameSchema = z
   .string()
@@ -53,16 +36,6 @@ export const listSearchSchema = z.object({
   order: z.enum(["asc", "desc"]).catch("desc").default("desc"),
 })
 export type ListParams = z.infer<typeof listSearchSchema>
-
-export const createUserSchema = z.object({
-  email: z.email("Enter a valid email"),
-  password: z
-    .string()
-    .min(8, "Must be 8-128 characters")
-    .max(128, "Must be 8-128 characters"),
-  display_name: z.string().max(100, "Must be at most 100 characters"),
-  role: roleSchema,
-})
 
 export const inviteUserSchema = z.object({
   email: z.email("Enter a valid email"),

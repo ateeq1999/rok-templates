@@ -7,8 +7,8 @@ contract (workspace ADRs 0027 and 0031). The Apps `rok sqlc init
 - `apps/api/` — the axum API, the `axum` template file for file. Its own
   README is its reference; see it there.
 - `apps/web/` — the web app: TanStack Start (React, TypeScript), run with
-  plain bun (no JS monorepo tool). It talks to `apps/api` through its own
-  HTTP layer today.
+  plain bun (no JS monorepo tool). It talks to `apps/api` through the
+  generated `clients/ts`.
 - `apps/desktop/` — the desktop app: rok-ui's bloc-http starter (GPUI), a
   member of the root workspace. It talks to `apps/api` through its own
   HTTP layer today; its README is its reference.

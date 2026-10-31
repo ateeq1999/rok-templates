@@ -1,28 +1,24 @@
 import {
   keepPreviousData,
-  queryOptions,
   useMutation,
   useQueryClient,
 } from "@tanstack/react-query"
 import { toast } from "@/components/ui/toast"
-import { ApiError } from "@/lib/http"
-import { mediaApi } from "./api"
-import { validateMediaFile } from "./limits"
+import { ApiError, api, keys, queries } from "@/lib/client"
+import { safeUploadName, validateMediaFile } from "./limits"
 import type { Media, MediaListParams } from "./schemas"
 
 export const mediaKeys = {
-  all: ["media"] as const,
-  lists: () => ["media", "list"] as const,
-  list: (p: MediaListParams) => ["media", "list", p] as const,
-  blob: (url: string) => ["media", "blob", url] as const,
+  all: keys.media,
+  lists: () => [...keys.media, "list"] as const,
+  list: (p: MediaListParams) => queries.media.list(p).queryKey,
+  blob: (url: string) => [...keys.media, "blob", url] as const,
 }
 
-export const mediaListQueryOptions = (params: MediaListParams) =>
-  queryOptions({
-    queryKey: mediaKeys.list(params),
-    queryFn: ({ signal }) => mediaApi.list(params, signal),
-    placeholderData: keepPreviousData,
-  })
+export const mediaListQueryOptions = (params: MediaListParams) => ({
+  ...queries.media.list(params),
+  placeholderData: keepPreviousData,
+})
 
 /**
  * Uploads one file at a time (fetch has no progress, so a spinner has to do).
@@ -41,7 +37,11 @@ export function useUploadMedia() {
           continue
         }
         try {
-          stored.push(await mediaApi.upload(file))
+          stored.push(
+            await api.media.upload(file, {
+              filename: safeUploadName(file.name),
+            })
+          )
         } catch (error) {
           if (!(error instanceof ApiError)) throw error
           toast.add({
@@ -71,7 +71,7 @@ export function useUploadMedia() {
 export function useDeleteMedia() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (item: Media) => mediaApi.remove(item.id),
+    mutationFn: (item: Media) => api.media.remove(item.id),
     onSuccess: (_data, item) => {
       qc.removeQueries({ queryKey: mediaKeys.blob(item.url) })
       void qc.invalidateQueries({ queryKey: mediaKeys.lists() })

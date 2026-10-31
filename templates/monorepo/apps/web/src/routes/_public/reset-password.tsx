@@ -9,12 +9,11 @@ import {
 } from "@/components/common/form-fields"
 import { buttonVariants } from "@/components/ui/button"
 import { FieldGroup } from "@/components/ui/field"
-import { authApi } from "@/features/auth/api"
+import { api, ApiError } from "@/lib/client"
 import { resetSchema } from "@/features/auth/schemas"
 import { PasswordStrengthMeter } from "@/features/auth/components/password-strength-meter"
 import { isLinkProblem } from "@/features/auth/errors"
 import { useCapturedToken } from "@/features/auth/use-captured-token"
-import { ApiError } from "@/lib/http"
 import { useApiForm } from "@/lib/use-api-form"
 
 // Serves both password-reset and invitation links.
@@ -45,7 +44,7 @@ function ResetPasswordPage() {
       isLinkProblem(message) ? undefined : "password",
     request: async ({ password }) => {
       try {
-        await authApi.resetPassword({ token: token!, new_password: password })
+        await api.auth.reset({ token: token!, new_password: password })
       } catch (error) {
         if (
           error instanceof ApiError &&

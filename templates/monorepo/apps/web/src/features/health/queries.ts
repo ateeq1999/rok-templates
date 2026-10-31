@@ -1,12 +1,12 @@
 import { queryOptions } from "@tanstack/react-query"
-import { http } from "@/lib/http"
+import { api } from "@/lib/client"
 
 export const healthQueryOptions = queryOptions({
   queryKey: ["health"] as const,
   queryFn: async () => {
     const [live, ready] = await Promise.allSettled([
-      http("/health/live", { skipExpire: true }),
-      http("/health/ready", { skipExpire: true }),
+      api.health.liveness(),
+      api.health.readiness(),
     ])
     return {
       live: live.status === "fulfilled",

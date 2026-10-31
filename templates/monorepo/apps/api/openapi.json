@@ -2124,7 +2124,10 @@
         ],
         "responses": {
           "200": {
-            "description": "The file's bytes, with the detected Content-Type"
+            "description": "The file's bytes, with the detected Content-Type",
+            "content": {
+              "application/octet-stream": {}
+            }
           },
           "400": {
             "description": "A malformed id",

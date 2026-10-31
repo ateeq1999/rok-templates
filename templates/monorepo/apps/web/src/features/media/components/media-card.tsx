@@ -16,13 +16,12 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Spinner } from "@/components/ui/spinner"
 import { toast } from "@/components/ui/toast"
-import { mediaApi } from "@/features/media/api"
+import { api, ApiError } from "@/lib/client"
 import { formatBytes, mediaKind } from "@/features/media/limits"
 import { downloadName } from "@/features/media/schemas"
 import type { Media } from "@/features/media/schemas"
 import { useBlobUrl } from "@/features/media/use-blob-url"
 import { downloadBlob } from "@/lib/clipboard"
-import { ApiError } from "@/lib/http"
 
 const PREVIEW_BOX = "flex h-40 items-center justify-center bg-muted"
 
@@ -110,7 +109,7 @@ export function MediaCard({
 
   const download = useMutation({
     mutationFn: async () => {
-      const blob = await mediaApi.content(item)
+      const blob = await api.media.content(item.id)
       downloadBlob(blob, name)
     },
     onError: (error) => {

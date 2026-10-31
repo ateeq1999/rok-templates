@@ -1,4 +1,4 @@
-import { apiUrl } from "@/lib/http"
+import { apiUrl } from "@/lib/client"
 
 export const AVATAR_TYPES = [
   "image/png",

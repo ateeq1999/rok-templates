@@ -1,23 +1,14 @@
 import { z } from "zod"
+import type { ApiKeyResponse, CreatedApiKeyResponse } from "@/lib/client"
 
 export const scopeSchema = z.enum(["read", "write"])
 export type Scope = z.infer<typeof scopeSchema>
 
-export const apiKeySchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  key_prefix: z.string(),
-  scope: scopeSchema,
-  expires_at: z.string().nullable(),
-  last_used_at: z.string().nullable(),
-  created_at: z.string(),
-})
-export type ApiKey = z.infer<typeof apiKeySchema>
+/** A key as the API lists it (the generated client's `ApiKeyResponse`). */
+export type ApiKey = ApiKeyResponse
 
-export const apiKeysSchema = z.array(apiKeySchema)
-
-export const createdApiKeySchema = apiKeySchema.extend({ key: z.string() })
-export type CreatedApiKey = z.infer<typeof createdApiKeySchema>
+/** A key as it is created: with its secret, shown once. */
+export type CreatedApiKey = CreatedApiKeyResponse
 
 export const expiryOptions = ["never", "30", "90", "365"] as const
 export type ExpiryOption = (typeof expiryOptions)[number]
@@ -40,5 +31,5 @@ export function isExpired(
   key: Pick<ApiKey, "expires_at">,
   now = new Date()
 ): boolean {
-  return key.expires_at !== null && new Date(key.expires_at) <= now
+  return key.expires_at != null && new Date(key.expires_at) <= now
 }

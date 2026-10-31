@@ -25,10 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import {
-  CreateUserDialog,
-  InviteUserDialog,
-} from "@/features/users/components/user-dialogs"
+import { InviteUserDialog } from "@/features/users/components/user-dialogs"
 import { UsersTable } from "@/features/users/components/users-table"
 import { usersListQueryOptions } from "@/features/users/queries"
 import { listSearchSchema } from "@/features/users/schemas"
@@ -36,7 +33,7 @@ import { ErrorScreen } from "@/components/common/screens"
 
 export const Route = createFileRoute("/_app/admin/users/")({
   validateSearch: listSearchSchema.extend({
-    dialog: z.enum(["create", "invite"]).optional().catch(undefined),
+    dialog: z.enum(["invite"]).optional().catch(undefined),
   }),
   loaderDeps: ({ search: { dialog: _dialog, ...rest } }) => rest,
   loader: ({ context, deps }) => {
@@ -59,7 +56,6 @@ function UsersPage() {
   const { dialog, ...search } = Route.useSearch()
   const navigate = Route.useNavigate()
   const qc = useQueryClient()
-  const [createOpen, setCreateOpen] = useState(dialog === "create")
   const [inviteOpen, setInviteOpen] = useState(dialog === "invite")
   const [text, setText] = useState(search.q ?? "")
 
@@ -117,7 +113,6 @@ function UsersPage() {
             <Button variant="outline" onClick={() => setInviteOpen(true)}>
               Invite user
             </Button>
-            <Button onClick={() => setCreateOpen(true)}>Create user</Button>
           </>
         }
       />
@@ -207,9 +202,7 @@ function UsersPage() {
               {search.q ? "No matching users" : "No users yet"}
             </EmptyTitle>
             <EmptyDescription>
-              {search.q
-                ? "Try a different search."
-                : "Create or invite the first user."}
+              {search.q ? "Try a different search." : "Invite the first user."}
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
@@ -250,7 +243,6 @@ function UsersPage() {
         </div>
       </div>
 
-      {createOpen && <CreateUserDialog open onOpenChange={setCreateOpen} />}
       {inviteOpen && <InviteUserDialog open onOpenChange={setInviteOpen} />}
     </div>
   )

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { ApiError, http, httpBlob } from "../http"
+import { ApiError, api } from "../client"
 import { toServerErrors } from "../forms"
 import { session } from "../session"
 
@@ -18,7 +18,7 @@ const json = (status: number, body: unknown) =>
 beforeEach(() => session.clear())
 afterEach(() => vi.unstubAllGlobals())
 
-describe("httpBlob", () => {
+describe("a bytes answer (media content)", () => {
   it("sends the bearer token and returns the bytes", async () => {
     session.login("tok")
     const fetchMock = stubFetch(
@@ -27,7 +27,7 @@ describe("httpBlob", () => {
         headers: { "content-type": "application/pdf" },
       })
     )
-    const blob = await httpBlob("/api/v1/media/1/content")
+    const blob = await api.media.content("1")
     const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit]
     expect((init.headers as Record<string, string>).Authorization).toBe(
       "Bearer tok"
@@ -35,11 +35,9 @@ describe("httpBlob", () => {
     expect(await blob.text()).toBe("pdf-bytes")
   })
 
-  it("maps errors like http() does", async () => {
+  it("maps errors like a JSON answer does", async () => {
     stubFetch(json(404, { error: { code: "not_found", message: "not found" } }))
-    const err = await httpBlob("/api/v1/media/x/content").catch(
-      (e: unknown) => e
-    )
+    const err = await api.media.content("x").catch((e: unknown) => e)
     expect(err).toBeInstanceOf(ApiError)
     expect((err as ApiError).status).toBe(404)
   })
@@ -55,24 +53,24 @@ describe("error messages", () => {
         },
       })
     )
-    const err = (await http("/x", { method: "POST" }).catch(
-      (e: unknown) => e
-    )) as ApiError
+    const err = (await api.media
+      .upload(new Blob(["x"]))
+      .catch((e: unknown) => e)) as ApiError
     expect(err.code).toBe("payload_too_large")
     expect(err.message).toBe("the file is too large: at most 8 MiB")
   })
 
   it("falls back to a readable message when a proxy sends no JSON body", async () => {
     stubFetch(new Response("Request Entity Too Large", { status: 413 }))
-    const big = (await http("/x", { method: "POST" }).catch(
-      (e: unknown) => e
-    )) as ApiError
+    const big = (await api.media
+      .upload(new Blob(["x"]))
+      .catch((e: unknown) => e)) as ApiError
     expect(big.message).toBe("The file is too large.")
 
     stubFetch(new Response("", { status: 415 }))
-    const type = (await http("/x", { method: "POST" }).catch(
-      (e: unknown) => e
-    )) as ApiError
+    const type = (await api.media
+      .upload(new Blob(["x"]))
+      .catch((e: unknown) => e)) as ApiError
     expect(type.message).toBe("That file type is not supported.")
   })
 })
@@ -82,7 +80,7 @@ describe("401 handling", () => {
     const onExpire = vi.fn()
     const off = session.onExpire(onExpire)
     stubFetch(json(401, { error: { code: "unauthorized", message: "no" } }))
-    await http("/api/v1/users/me").catch(() => {})
+    await api.users.me().catch(() => {})
     expect(onExpire).not.toHaveBeenCalled()
     off()
   })
@@ -98,7 +96,7 @@ describe("401 handling", () => {
         return json(401, { error: { code: "unauthorized", message: "no" } })
       })
     )
-    await http("/api/v1/users/me").catch(() => {})
+    await api.users.me().catch(() => {})
     expect(onExpire).not.toHaveBeenCalled()
     expect(session.token).toBe("new")
     off()
@@ -109,12 +107,12 @@ describe("401 handling", () => {
     const onExpire = vi.fn()
     const off = session.onExpire(onExpire)
     stubFetch(json(401, { error: { code: "unauthorized", message: "no" } }))
-    await http("/api/v1/users/me").catch(() => {})
+    await api.users.me().catch(() => {})
     expect(onExpire).toHaveBeenCalledTimes(1)
     off()
   })
 
-  it("never expires on skipExpire calls, even with a token (2FA endpoints)", async () => {
+  it("never expires on keepSession calls, even with a token (2FA endpoints)", async () => {
     session.login("current")
     const onExpire = vi.fn()
     const off = session.onExpire(onExpire)
@@ -126,11 +124,9 @@ describe("401 handling", () => {
         },
       })
     )
-    const err = (await http("/api/v1/auth/2fa/verify", {
-      method: "POST",
-      body: {},
-      skipExpire: true,
-    }).catch((e: unknown) => e)) as ApiError
+    const err = (await api.auth
+      .enable({ code: "000000" }, { keepSession: true })
+      .catch((e: unknown) => e)) as ApiError
     expect(err.status).toBe(401)
     expect(onExpire).not.toHaveBeenCalled()
     expect(session.token).toBe("current")

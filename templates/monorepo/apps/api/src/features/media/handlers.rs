@@ -153,7 +153,7 @@ pub async fn remove(
     operation_id = "content",
     params(("id" = uuid::Uuid, Path, description = "Media id")),
     responses(
-        (status = 200, description = "The file's bytes, with the detected Content-Type"),
+        (status = 200, description = "The file's bytes, with the detected Content-Type", content_type = "application/octet-stream"),
         (status = 400, description = "A malformed id", body = ErrorBody),
         (status = 401, description = "No valid bearer token", body = ErrorBody),
         (status = 404, description = "No such file, or it belongs to someone else", body = ErrorBody),

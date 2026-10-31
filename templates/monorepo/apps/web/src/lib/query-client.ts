@@ -1,6 +1,6 @@
 import { MutationCache, QueryCache, QueryClient } from "@tanstack/react-query"
 import { toast } from "@/components/ui/toast"
-import { ApiError } from "./http"
+import { ApiError } from "./client"
 
 function notify(error: unknown) {
   if (

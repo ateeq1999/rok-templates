@@ -19,13 +19,12 @@ import {
 } from "@/components/ui/card"
 import { FieldGroup } from "@/components/ui/field"
 import { Spinner } from "@/components/ui/spinner"
-import { authApi } from "@/features/auth/api"
+import { api } from "@/lib/client"
 import { changePasswordSchema } from "@/features/auth/schemas"
 import { useLogout } from "@/features/auth/session-actions"
 import { PasswordStrengthMeter } from "@/features/auth/components/password-strength-meter"
 import { isWrongCurrentPassword } from "@/features/auth/errors"
 import { TwoFactorCard } from "@/features/two-factor/components/two-factor-card"
-import { PasskeysCard } from "@/features/passkeys/components/passkeys-card"
 import { meQueryOptions } from "@/features/users/queries"
 import { useApiForm } from "@/lib/use-api-form"
 
@@ -49,7 +48,6 @@ function SecuritySettings() {
         hasPassword={me.has_password}
         account={me.email}
       />
-      <PasskeysCard />
 
       <Card>
         <CardHeader>
@@ -96,7 +94,7 @@ function PasswordCard({
     badRequestField: (message) =>
       isWrongCurrentPassword(message) ? "current_password" : "new_password",
     request: ({ current_password, new_password }) =>
-      authApi.changePassword({ current_password, new_password }),
+      api.auth.change({ current_password, new_password }),
     // The server revokes every token on a password change, including this
     // one, so sign out here instead of waiting for the next call to 401.
     onSuccess: async () => {
@@ -171,7 +169,7 @@ function PasswordCard({
 function SetPasswordCard({ email }: { email: string }) {
   const [sent, setSent] = useState(false)
   const request = useMutation({
-    mutationFn: () => authApi.forgotPassword({ email }),
+    mutationFn: () => api.auth.forgot({ email }),
     onSuccess: () => setSent(true),
   })
 
@@ -180,8 +178,8 @@ function SetPasswordCard({ email }: { email: string }) {
       <CardHeader>
         <CardTitle>Password</CardTitle>
         <CardDescription>
-          You do not have a password yet. You sign in with Google, GitHub or a
-          passkey.
+          You do not have a password yet: an invited account sets one from the
+          link in its email.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-3">

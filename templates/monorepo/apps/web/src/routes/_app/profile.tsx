@@ -30,7 +30,7 @@ import {
 } from "@/features/users/queries"
 import { displayNameSchema, userLabel } from "@/features/users/schemas"
 import { useApiForm } from "@/lib/use-api-form"
-import { ApiError } from "@/lib/http"
+import { ApiError } from "@/lib/client"
 
 export const Route = createFileRoute("/_app/profile")({
   component: ProfilePage,
@@ -192,9 +192,7 @@ function ProfilePage() {
             </Badge>
           </Row>
           <Row label="Sign-in">
-            <span>
-              {me.has_password ? "Password" : "Google, GitHub or passkey"}
-            </span>
+            <span>{me.has_password ? "Password" : "No password yet"}</span>
           </Row>
         </CardContent>
       </Card>

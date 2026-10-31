@@ -17,9 +17,8 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { FieldGroup } from "@/components/ui/field"
-import { authApi } from "@/features/auth/api"
+import { api } from "@/lib/client"
 import { changeEmailSchema } from "@/features/auth/schemas"
-import { ConnectedAccounts } from "@/features/oauth/components/connected-accounts"
 import { meQueryOptions } from "@/features/users/queries"
 import { useApiForm } from "@/lib/use-api-form"
 
@@ -35,7 +34,7 @@ function AccountSettings() {
     schema: changeEmailSchema,
     defaultValues: { new_email: "", current_password: "" },
     conflictField: "new_email",
-    request: (value) => authApi.changeEmail(value),
+    request: (value) => api.auth.requestChange(value),
     onSuccess: (_r, value) => {
       setPendingEmail(value.new_email)
       form.reset()
@@ -100,7 +99,6 @@ function AccountSettings() {
           </form>
         </CardContent>
       </Card>
-      <ConnectedAccounts />
     </div>
   )
 }

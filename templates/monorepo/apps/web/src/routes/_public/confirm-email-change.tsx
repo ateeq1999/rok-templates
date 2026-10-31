@@ -4,10 +4,9 @@ import { z } from "zod"
 import { AuthCard } from "@/components/layout/auth-card"
 import { buttonVariants } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
-import { authApi } from "@/features/auth/api"
+import { api, ApiError } from "@/lib/client"
 import { useCapturedToken } from "@/features/auth/use-captured-token"
 import { userKeys } from "@/features/users/queries"
-import { ApiError } from "@/lib/http"
 import { session } from "@/lib/session"
 
 export const Route = createFileRoute("/_public/confirm-email-change")({
@@ -21,7 +20,7 @@ function ConfirmEmailChangePage() {
   const qc = useQueryClient()
 
   const confirm = useMutation({
-    mutationFn: authApi.confirmEmailChange,
+    mutationFn: (body: { token: string }) => api.auth.confirmChange(body),
     onSuccess: () => qc.invalidateQueries({ queryKey: userKeys.me }),
   })
 

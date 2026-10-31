@@ -1,24 +1,18 @@
-import {
-  keepPreviousData,
-  queryOptions,
-  useQueries,
-} from "@tanstack/react-query"
+import { keepPreviousData, useQueries } from "@tanstack/react-query"
 import { userDetailQueryOptions } from "@/features/users/queries"
-import { auditLogApi } from "./api"
+import { keys, queries } from "@/lib/client"
 import { shortId } from "./labels"
 import type { AuditListParams } from "./schemas"
 
 export const auditKeys = {
-  all: ["audit-log"] as const,
-  list: (p: AuditListParams) => ["audit-log", "list", p] as const,
+  all: keys.auditLog,
+  list: (p: AuditListParams) => queries.auditLog.list(p).queryKey,
 }
 
-export const auditLogQueryOptions = (params: AuditListParams) =>
-  queryOptions({
-    queryKey: auditKeys.list(params),
-    queryFn: ({ signal }) => auditLogApi.list(params, signal),
-    placeholderData: keepPreviousData,
-  })
+export const auditLogQueryOptions = (params: AuditListParams) => ({
+  ...queries.auditLog.list(params),
+  placeholderData: keepPreviousData,
+})
 
 /**
  * Resolves user ids to their email through GET /users/{id},

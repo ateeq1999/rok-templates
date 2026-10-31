@@ -4,7 +4,7 @@ import { z } from "zod"
 import { AuthCard } from "@/components/layout/auth-card"
 import { buttonVariants } from "@/components/ui/button"
 import { Spinner } from "@/components/ui/spinner"
-import { authApi } from "@/features/auth/api"
+import { api } from "@/lib/client"
 import { useCapturedToken } from "@/features/auth/use-captured-token"
 import { userKeys } from "@/features/users/queries"
 import { session } from "@/lib/session"
@@ -20,7 +20,7 @@ function VerifyEmailPage() {
   const qc = useQueryClient()
 
   const verify = useMutation({
-    mutationFn: authApi.verifyEmail,
+    mutationFn: (body: { token: string }) => api.auth.verifyEmail(body),
     onSuccess: () => qc.invalidateQueries({ queryKey: userKeys.me }),
   })
 

@@ -7,7 +7,6 @@ import type { UserIcon } from "@hugeicons/core-free-icons"
 import {
   Alert02Icon,
   MailAdd01Icon,
-  UserAdd01Icon,
   UserGroupIcon,
   UserBlock01Icon,
   UserCheck01Icon,
@@ -31,7 +30,7 @@ import {
 } from "@/components/ui/chart"
 import type { ChartConfig } from "@/components/ui/chart"
 import { Skeleton } from "@/components/ui/skeleton"
-import { healthQueryOptions } from "@/features/health/api"
+import { healthQueryOptions } from "@/features/health/queries"
 import { statsQueryOptions } from "@/features/stats/queries"
 import { UserAvatar } from "@/features/users/components/user-avatar"
 import { meQueryOptions } from "@/features/users/queries"
@@ -118,14 +117,6 @@ function Dashboard() {
             >
               <HugeiconsIcon icon={MailAdd01Icon} data-icon="inline-start" />
               Invite user
-            </Link>
-            <Link
-              to="/admin/users"
-              search={{ dialog: "create" }}
-              className={buttonVariants()}
-            >
-              <HugeiconsIcon icon={UserAdd01Icon} data-icon="inline-start" />
-              Create user
             </Link>
           </>
         }

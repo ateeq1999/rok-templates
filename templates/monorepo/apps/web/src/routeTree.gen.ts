@@ -15,7 +15,6 @@ import { Route as PublicRouteRouteImport } from './routes/_public/route'
 import { Route as AppAdminRouteRouteImport } from './routes/_app/admin/route'
 import { Route as AppMediaRouteImport } from './routes/_app/media'
 import { Route as AppProfileRouteImport } from './routes/_app/profile'
-import { Route as AppQrLoginRouteImport } from './routes/_app/qr-login'
 import { Route as AppSettingsRouteRouteImport } from './routes/_app/settings/route'
 import { Route as PublicConfirmEmailChangeRouteImport } from './routes/_public/confirm-email-change'
 import { Route as PublicForgotPasswordRouteImport } from './routes/_public/forgot-password'
@@ -30,7 +29,6 @@ import { Route as AppSettingsAccountRouteImport } from './routes/_app/settings/a
 import { Route as AppSettingsApiKeysRouteImport } from './routes/_app/settings/api-keys'
 import { Route as AppSettingsAppearanceRouteImport } from './routes/_app/settings/appearance'
 import { Route as AppSettingsSecurityRouteImport } from './routes/_app/settings/security'
-import { Route as PublicOauthCallbackRouteImport } from './routes/_public/oauth/callback'
 import { Route as AppAdminUsersIndexRouteImport } from './routes/_app/admin/users/index'
 import { Route as AppAdminUsersUserIdRouteImport } from './routes/_app/admin/users/$userId'
 
@@ -60,11 +58,6 @@ const AppMediaRoute = AppMediaRouteImport.update({
 const AppProfileRoute = AppProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
-  getParentRoute: () => AppRouteRoute,
-} as any)
-const AppQrLoginRoute = AppQrLoginRouteImport.update({
-  id: '/qr-login',
-  path: '/qr-login',
   getParentRoute: () => AppRouteRoute,
 } as any)
 const AppSettingsRouteRoute = AppSettingsRouteRouteImport.update({
@@ -138,11 +131,6 @@ const AppSettingsSecurityRoute = AppSettingsSecurityRouteImport.update({
   path: '/security',
   getParentRoute: () => AppSettingsRouteRoute,
 } as any)
-const PublicOauthCallbackRoute = PublicOauthCallbackRouteImport.update({
-  id: '/oauth/callback',
-  path: '/oauth/callback',
-  getParentRoute: () => PublicRouteRoute,
-} as any)
 const AppAdminUsersIndexRoute = AppAdminUsersIndexRouteImport.update({
   id: '/users/',
   path: '/users/',
@@ -160,7 +148,6 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AppSettingsRouteRouteWithChildren
   '/media': typeof AppMediaRoute
   '/profile': typeof AppProfileRoute
-  '/qr-login': typeof AppQrLoginRoute
   '/confirm-email-change': typeof PublicConfirmEmailChangeRoute
   '/forgot-password': typeof PublicForgotPasswordRoute
   '/login': typeof PublicLoginRoute
@@ -172,7 +159,6 @@ export interface FileRoutesByFullPath {
   '/settings/api-keys': typeof AppSettingsApiKeysRoute
   '/settings/appearance': typeof AppSettingsAppearanceRoute
   '/settings/security': typeof AppSettingsSecurityRoute
-  '/oauth/callback': typeof PublicOauthCallbackRoute
   '/admin/': typeof AppAdminIndexRoute
   '/settings/': typeof AppSettingsIndexRoute
   '/admin/users/$userId': typeof AppAdminUsersUserIdRoute
@@ -182,7 +168,6 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/media': typeof AppMediaRoute
   '/profile': typeof AppProfileRoute
-  '/qr-login': typeof AppQrLoginRoute
   '/confirm-email-change': typeof PublicConfirmEmailChangeRoute
   '/forgot-password': typeof PublicForgotPasswordRoute
   '/login': typeof PublicLoginRoute
@@ -194,7 +179,6 @@ export interface FileRoutesByTo {
   '/settings/api-keys': typeof AppSettingsApiKeysRoute
   '/settings/appearance': typeof AppSettingsAppearanceRoute
   '/settings/security': typeof AppSettingsSecurityRoute
-  '/oauth/callback': typeof PublicOauthCallbackRoute
   '/admin': typeof AppAdminIndexRoute
   '/settings': typeof AppSettingsIndexRoute
   '/admin/users/$userId': typeof AppAdminUsersUserIdRoute
@@ -209,7 +193,6 @@ export interface FileRoutesById {
   '/_app/settings': typeof AppSettingsRouteRouteWithChildren
   '/_app/media': typeof AppMediaRoute
   '/_app/profile': typeof AppProfileRoute
-  '/_app/qr-login': typeof AppQrLoginRoute
   '/_public/confirm-email-change': typeof PublicConfirmEmailChangeRoute
   '/_public/forgot-password': typeof PublicForgotPasswordRoute
   '/_public/login': typeof PublicLoginRoute
@@ -221,7 +204,6 @@ export interface FileRoutesById {
   '/_app/settings/api-keys': typeof AppSettingsApiKeysRoute
   '/_app/settings/appearance': typeof AppSettingsAppearanceRoute
   '/_app/settings/security': typeof AppSettingsSecurityRoute
-  '/_public/oauth/callback': typeof PublicOauthCallbackRoute
   '/_app/admin/': typeof AppAdminIndexRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
   '/_app/admin/users/$userId': typeof AppAdminUsersUserIdRoute
@@ -235,7 +217,6 @@ export interface FileRouteTypes {
     | '/settings'
     | '/media'
     | '/profile'
-    | '/qr-login'
     | '/confirm-email-change'
     | '/forgot-password'
     | '/login'
@@ -247,7 +228,6 @@ export interface FileRouteTypes {
     | '/settings/api-keys'
     | '/settings/appearance'
     | '/settings/security'
-    | '/oauth/callback'
     | '/admin/'
     | '/settings/'
     | '/admin/users/$userId'
@@ -257,7 +237,6 @@ export interface FileRouteTypes {
     | '/'
     | '/media'
     | '/profile'
-    | '/qr-login'
     | '/confirm-email-change'
     | '/forgot-password'
     | '/login'
@@ -269,7 +248,6 @@ export interface FileRouteTypes {
     | '/settings/api-keys'
     | '/settings/appearance'
     | '/settings/security'
-    | '/oauth/callback'
     | '/admin'
     | '/settings'
     | '/admin/users/$userId'
@@ -283,7 +261,6 @@ export interface FileRouteTypes {
     | '/_app/settings'
     | '/_app/media'
     | '/_app/profile'
-    | '/_app/qr-login'
     | '/_public/confirm-email-change'
     | '/_public/forgot-password'
     | '/_public/login'
@@ -295,7 +272,6 @@ export interface FileRouteTypes {
     | '/_app/settings/api-keys'
     | '/_app/settings/appearance'
     | '/_app/settings/security'
-    | '/_public/oauth/callback'
     | '/_app/admin/'
     | '/_app/settings/'
     | '/_app/admin/users/$userId'
@@ -350,13 +326,6 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof AppProfileRouteImport
-      parentRoute: typeof AppRouteRoute
-    }
-    '/_app/qr-login': {
-      id: '/_app/qr-login'
-      path: '/qr-login'
-      fullPath: '/qr-login'
-      preLoaderRoute: typeof AppQrLoginRouteImport
       parentRoute: typeof AppRouteRoute
     }
     '/_app/settings': {
@@ -457,13 +426,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsSecurityRouteImport
       parentRoute: typeof AppSettingsRouteRoute
     }
-    '/_public/oauth/callback': {
-      id: '/_public/oauth/callback'
-      path: '/oauth/callback'
-      fullPath: '/oauth/callback'
-      preLoaderRoute: typeof PublicOauthCallbackRouteImport
-      parentRoute: typeof PublicRouteRoute
-    }
     '/_app/admin/users/': {
       id: '/_app/admin/users/'
       path: '/users'
@@ -523,7 +485,6 @@ interface AppRouteRouteChildren {
   AppSettingsRouteRoute: typeof AppSettingsRouteRouteWithChildren
   AppMediaRoute: typeof AppMediaRoute
   AppProfileRoute: typeof AppProfileRoute
-  AppQrLoginRoute: typeof AppQrLoginRoute
 }
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
@@ -531,7 +492,6 @@ const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppSettingsRouteRoute: AppSettingsRouteRouteWithChildren,
   AppMediaRoute: AppMediaRoute,
   AppProfileRoute: AppProfileRoute,
-  AppQrLoginRoute: AppQrLoginRoute,
 }
 
 const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
@@ -545,7 +505,6 @@ interface PublicRouteRouteChildren {
   PublicRegisterRoute: typeof PublicRegisterRoute
   PublicResetPasswordRoute: typeof PublicResetPasswordRoute
   PublicVerifyEmailRoute: typeof PublicVerifyEmailRoute
-  PublicOauthCallbackRoute: typeof PublicOauthCallbackRoute
 }
 
 const PublicRouteRouteChildren: PublicRouteRouteChildren = {
@@ -555,7 +514,6 @@ const PublicRouteRouteChildren: PublicRouteRouteChildren = {
   PublicRegisterRoute: PublicRegisterRoute,
   PublicResetPasswordRoute: PublicResetPasswordRoute,
   PublicVerifyEmailRoute: PublicVerifyEmailRoute,
-  PublicOauthCallbackRoute: PublicOauthCallbackRoute,
 }
 
 const PublicRouteRouteWithChildren = PublicRouteRoute._addFileChildren(

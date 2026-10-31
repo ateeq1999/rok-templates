@@ -9,7 +9,9 @@ const API_TARGET = process.env.API_PROXY_TARGET ?? "http://127.0.0.1:8080"
 // SPA mode: a static shell is emitted and every route renders in the browser,
 // so the app needs no Node server (the API is a separate service).
 const config = defineConfig({
-  resolve: { tsconfigPaths: true },
+  // `dedupe`: the generated client (`../../clients/ts`, outside this App)
+  // imports TanStack Query, which resolves to this App's copy.
+  resolve: { tsconfigPaths: true, dedupe: ["@tanstack/react-query"] },
   server: {
     proxy: {
       "/api": { target: API_TARGET, changeOrigin: true },

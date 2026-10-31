@@ -11,7 +11,7 @@ import {
   TextField,
 } from "@/components/common/form-fields"
 import { FieldGroup } from "@/components/ui/field"
-import { authApi } from "@/features/auth/api"
+import { api } from "@/lib/client"
 import { TotpLoginStep } from "@/features/auth/components/totp-login-step"
 import { loginStepFor } from "@/features/auth/login-flow"
 import { loginSchema, safeRedirect } from "@/features/auth/schemas"
@@ -20,9 +20,6 @@ import {
   redirectIfSignedIn,
 } from "@/features/auth/session-actions"
 import { useApiForm } from "@/lib/use-api-form"
-import { SocialButtons } from "@/features/oauth/components/social-buttons"
-import { PasskeyLoginButton } from "@/features/passkeys/components/passkey-login-button"
-import { QrLoginDialog } from "@/features/qr-login/components/qr-login-panel"
 
 export const Route = createFileRoute("/_public/login")({
   validateSearch: z.object({
@@ -87,7 +84,7 @@ function PasswordStep({
   const { form, formError, formErrorStatus } = useApiForm({
     schema: loginSchema,
     defaultValues: { email: "", password: "" },
-    request: (value) => authApi.login(value),
+    request: (value) => api.auth.login(value),
     onSuccess: async (response) => {
       const step = loginStepFor(response)
       if (step.kind === "totp") {
@@ -179,11 +176,6 @@ function PasswordStep({
           Forgot password?
         </Link>
       </form>
-      <SocialButtons redirect={redirect} mode="signin" />
-      <div className="flex flex-col gap-2">
-        <PasskeyLoginButton redirect={redirect} />
-        <QrLoginDialog redirect={redirect} />
-      </div>
     </AuthCard>
   )
 }

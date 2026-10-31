@@ -9,11 +9,10 @@ import {
 } from "@/components/common/form-fields"
 import { buttonVariants } from "@/components/ui/button"
 import { FieldGroup } from "@/components/ui/field"
-import { authApi } from "@/features/auth/api"
+import { api } from "@/lib/client"
 import { registerSchema } from "@/features/auth/schemas"
 import { redirectIfSignedIn } from "@/features/auth/session-actions"
 import { PasswordStrengthMeter } from "@/features/auth/components/password-strength-meter"
-import { SocialButtons } from "@/features/oauth/components/social-buttons"
 import { useApiForm } from "@/lib/use-api-form"
 
 export const Route = createFileRoute("/_public/register")({
@@ -29,7 +28,7 @@ function RegisterPage() {
     defaultValues: { email: "", password: "", confirm: "" },
     conflictField: "email",
     badRequestField: "password",
-    request: ({ email, password }) => authApi.register({ email, password }),
+    request: ({ email, password }) => api.auth.register({ email, password }),
     onSuccess: (_user, value) => setSentTo(value.email),
   })
 
@@ -110,7 +109,6 @@ function RegisterPage() {
           Create account
         </SubmitButton>
       </form>
-      <SocialButtons mode="signup" />
     </AuthCard>
   )
 }
