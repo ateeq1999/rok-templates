@@ -31,6 +31,18 @@ of `rok.toml` names, reading each App's settings from inside it:
 rok gen
 ```
 
+## The contract
+
+`apps/api/openapi.json` is the OpenAPI document the API serves at
+`/api-docs/openapi.json`, written out by its `openapi` example:
+
+```sh
+cargo run -p axum-api --example openapi -- apps/api/openapi.json
+```
+
+The Clients are generated from it. Never edit it by hand: the api's
+`tests/openapi_artifact.rs` fails when it is not what the API serves.
+
 ## Running the API
 
 You need PostgreSQL and Rust 1.94 or newer; `apps/api/README.md` has

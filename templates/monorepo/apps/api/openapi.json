@@ -1,0 +1,4121 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "axum-api",
+    "description": "",
+    "license": {
+      "name": ""
+    },
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/v1/api-keys": {
+      "get": {
+        "tags": [
+          "api-keys"
+        ],
+        "summary": "`GET /api/v1/api-keys`: the caller's active keys, newest first, `200`.",
+        "operationId": "list",
+        "responses": {
+          "200": {
+            "description": "The caller's own active keys",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ApiKeyResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "An API key can't manage keys",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "api-keys"
+        ],
+        "summary": "`POST /api/v1/api-keys`: a new key, answered once with its secret, `201`.",
+        "operationId": "create",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateApiKeyDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Key created; the raw key is shown only in this response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedApiKeyResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A malformed body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "An API key can't manage keys",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The caller already has 25 active keys",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A name or expiry out of bounds",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/api-keys/{id}": {
+      "delete": {
+        "tags": [
+          "api-keys"
+        ],
+        "summary": "`DELETE /api/v1/api-keys/{id}`: revokes one of the caller's keys, `204`.",
+        "operationId": "revoke",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "API key id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Key revoked"
+          },
+          "401": {
+            "description": "No valid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "An API key can't manage keys",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Key not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/audit-log": {
+      "get": {
+        "tags": [
+          "audit-log"
+        ],
+        "summary": "`GET /api/v1/audit-log`: one page of rows, `200`.",
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "The page, from 1. Defaults to 1.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "description": "The rows a page holds, 1 to 100. Defaults to 20.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/AuditLogEntrySort"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "description": "The sort's direction. Defaults to `desc`.",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/SortOrder"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of rows.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedResponse_AuditLogEntryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A malformed path, query or body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid bearer token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller is not an admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/audit-log/{id}": {
+      "get": {
+        "tags": [
+          "audit-log"
+        ],
+        "summary": "`GET /api/v1/audit-log/{id}`: the row, `200`.",
+        "operationId": "get_one",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Audit log entry id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The row.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditLogEntryResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A malformed path, query or body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid bearer token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller is not an admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such row, or not the caller's.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/2fa/disable": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "`POST /api/v1/auth/2fa/disable`: two-factor off, `200`.",
+        "operationId": "disable",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DisableTotpDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Two-factor disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Wrong current password (`wrong_password`), or a malformed body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this IP",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/2fa/enable": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "`POST /api/v1/auth/2fa/enable`: two-factor on, with recovery codes,\n`200`.",
+        "operationId": "enable",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnableTotpDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Two-factor enabled; recovery codes shown exactly once",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TotpEnabledResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Wrong code, already enabled, or no setup in progress",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "An empty code, or one over 32 characters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this IP",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/2fa/setup": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "`POST /api/v1/auth/2fa/setup`: a new authenticator secret, not enforced\nuntil enabled, `200`.",
+        "operationId": "setup",
+        "responses": {
+          "200": {
+            "description": "Secret + QR code; not yet enforced until /2fa/enable confirms it",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TotpSetupResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Two-factor is already on",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this IP",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/2fa/verify": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "`POST /api/v1/auth/2fa/verify`: a sign-in's second step, a session,\n`200`.",
+        "operationId": "verify",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyTotpDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Completes the login",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "pending_token is invalid or expired (`invalid_token`), or a malformed body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Wrong authenticator/recovery code, or the account is temporarily locked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Account disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "An empty token or code, or a code over 32 characters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this IP",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/email/change": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "`POST /api/v1/auth/email/change`: mails a link to confirm a new email\naddress, `202`.",
+        "operationId": "request_change",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangeEmailDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Confirmation link sent to the new address",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The current password is wrong (`wrong_password`), or a malformed body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Not an email",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this IP",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/email/change/confirm": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "`POST /api/v1/auth/email/change/confirm`: moves the account to the\naddress a link was mailed to, `200`.",
+        "operationId": "confirm_change",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyEmailDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Email address updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Link is invalid, expired or already used, or the address was taken meanwhile (`invalid_token`), or a malformed body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "An empty token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this IP",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/email/verification/resend": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "`POST /api/v1/auth/email/verification/resend`: mails a new verification\nlink, `202`.",
+        "operationId": "resend",
+        "responses": {
+          "202": {
+            "description": "Accepted; a no-op if already verified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this IP",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/email/verify": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "`POST /api/v1/auth/email/verify`: verifies the email a link was mailed\nto, `200`.",
+        "operationId": "verify",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VerifyEmailDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Email verified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Link is invalid, expired or already used (`invalid_token`), or a malformed body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "An empty token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this IP",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/invitations": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "`POST /api/v1/auth/invitations`: an admin invites someone, `201`.",
+        "operationId": "invite",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteUserDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Account created; a \"set your password\" link was emailed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A malformed body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller is not an admin",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Email already registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Not an email, or a display name over 100 characters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this IP",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "`POST /api/v1/auth/login`: a session, `200`.",
+        "operationId": "login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CredentialsDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Either a session (access_token) or, for a two-factor-enabled account, requires_totp + pending_token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LoginResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A malformed body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid email/password, or the account is temporarily locked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Account disabled or email not verified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Not an email, or a password outside 8 to 128 characters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this IP",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/me": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "`GET /api/v1/auth/me`: the signed-in user, `200`.",
+        "operationId": "me",
+        "responses": {
+          "200": {
+            "description": "The signed-in user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this IP",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/password/change": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "`POST /api/v1/auth/password/change`: replaces the signed-in user's\npassword and signs every session out, `200`.",
+        "operationId": "change",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ChangePasswordDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Password updated; every session, this one included, is signed out",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Wrong current password (`wrong_password`), the new one has appeared in a known breach (`breached_password`), or a malformed body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A new password outside 8 to 128 characters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this IP",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/password/forgot": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "`POST /api/v1/auth/password/forgot`: mails a reset link if the address\nis registered, `202` either way.",
+        "operationId": "forgot",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ForgotPasswordDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Always accepted, whether or not the address is registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A malformed body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Not an email",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this IP",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/password/reset": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "`POST /api/v1/auth/password/reset`: sets a new password with a reset\nor invitation link, `200`.",
+        "operationId": "reset",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResetPasswordDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Password updated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MessageResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Link is invalid, expired or already used (`invalid_token`), the password has appeared in a known breach (`breached_password`), or a malformed body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "An empty token, or a password outside 8 to 128 characters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this IP",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/auth/register": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "`POST /api/v1/auth/register`: a new account, `201`.",
+        "operationId": "register",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CredentialsDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Account created; a verification email was sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Password has appeared in a known breach (`breached_password`), or a malformed body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Email already registered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Not an email, or a password outside 8 to 128 characters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this IP",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/avatars/{file}": {
+      "get": {
+        "tags": [
+          "avatars"
+        ],
+        "summary": "`GET /api/v1/avatars/{file}`: a profile photo, public and cacheable for\ngood, `200`.",
+        "operationId": "serve",
+        "parameters": [
+          {
+            "name": "file",
+            "in": "path",
+            "description": "Generated avatar file name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The JPEG image",
+            "content": {
+              "image/jpeg": {}
+            }
+          },
+          "404": {
+            "description": "No such file",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/jobs": {
+      "get": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "`GET /api/v1/jobs`: one page of the jobs, newest first, `200`.",
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Only the jobs with this status: `pending` (waiting, or running) or\n`dead` (out of attempts). Every status when absent.",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/JobStatus"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "description": "Only the jobs of this kind, such as `mail.send`.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "description": "The page, from 1. Defaults to 1.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "description": "The jobs a page holds, 1 to 100. Defaults to 20.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The jobs, newest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedResponse_JobResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A malformed query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller is no admin",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/jobs/{id}": {
+      "delete": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "`DELETE /api/v1/jobs/{id}`: cancels a pending or dead job, `204`.",
+        "operationId": "cancel",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Job id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Cancelled"
+          },
+          "401": {
+            "description": "No valid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller is no admin",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No job has this id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A worker is running it right now",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/jobs/{id}/retry": {
+      "post": {
+        "tags": [
+          "jobs"
+        ],
+        "summary": "`POST /api/v1/jobs/{id}/retry`: puts a dead job back in the queue, due\nnow with its attempts at zero, `204`.",
+        "operationId": "retry",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Job id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Queued again"
+          },
+          "401": {
+            "description": "No valid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller is no admin",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No dead job has this id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/media": {
+      "get": {
+        "tags": [
+          "media"
+        ],
+        "summary": "`GET /api/v1/media`: one page of the caller's files, newest first, `200`.",
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "The page, from 1. Defaults to 1.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "description": "The files a page holds, 1 to 100. Defaults to 20.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The caller's files, newest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedResponse_MediaResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A malformed query",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "media"
+        ],
+        "summary": "`POST /api/v1/media`: stores the raw body as one of the caller's files,\n`201`. The file name is `?filename=`, or else the `X-Filename` header.",
+        "operationId": "upload",
+        "parameters": [
+          {
+            "name": "filename",
+            "in": "query",
+            "description": "The file's original name, kept for display and as the download name.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "The raw file bytes. The type is detected from the bytes; the request's Content-Type is ignored",
+          "content": {
+            "application/octet-stream": {}
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Stored",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "An empty body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Larger than MEDIA_MAX_UPLOAD_BYTES",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Unrecognized file type, or one that is not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A file name over 255 characters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/media/uploads": {
+      "post": {
+        "tags": [
+          "media"
+        ],
+        "summary": "`POST /api/v1/media/uploads`: starts a direct upload, `201`. The client\nsends the bytes with `method` to `upload_url`, with `headers`, then\ncompletes it; until then the file is no one's to read.",
+        "operationId": "start_upload",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartUploadDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Where to put the bytes, and until when",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UploadTicket"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Larger than MEDIA_MAX_UPLOAD_BYTES",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "A type that is not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "An invalid body, or a file name over 255 characters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/media/{id}": {
+      "get": {
+        "tags": [
+          "media"
+        ],
+        "summary": "`GET /api/v1/media/{id}`: one of the caller's files, `200`.",
+        "operationId": "metadata",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Media id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File metadata",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A malformed id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such file, or it belongs to someone else",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "media"
+        ],
+        "summary": "`DELETE /api/v1/media/{id}`: deletes one of the caller's files, `204`.",
+        "operationId": "remove",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Media id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          },
+          "400": {
+            "description": "A malformed id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such file, or it belongs to someone else",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/media/{id}/complete": {
+      "post": {
+        "tags": [
+          "media"
+        ],
+        "summary": "`POST /api/v1/media/{id}/complete`: completes a direct upload, `200`,\nonce its bytes are up and match what was declared.",
+        "operationId": "complete_upload",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Media id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file, now readable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MediaResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such upload, or it expired or belongs to someone else",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The bytes have not been uploaded yet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The bytes are not the size or type declared; the upload is removed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/media/{id}/content": {
+      "get": {
+        "tags": [
+          "media"
+        ],
+        "summary": "`GET /api/v1/media/{id}/content`: the bytes of one of the caller's\nfiles, `200`, with the detected `Content-Type`. Only an image is shown\ninline; anything else downloads, and `nosniff` and a sandboxing CSP\nkeep the browser from treating it as anything else.",
+        "operationId": "content",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Media id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file's bytes, with the detected Content-Type"
+          },
+          "400": {
+            "description": "A malformed id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such file, or it belongs to someone else",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/media/{id}/url": {
+      "get": {
+        "tags": [
+          "media"
+        ],
+        "summary": "`GET /api/v1/media/{id}/url`: a short-lived URL one of the caller's\nfiles can be fetched from without credentials, `200`.",
+        "operationId": "download_url",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Media id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Where to fetch the file, and until when",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DownloadUrl"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such file, or it belongs to someone else",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/storage/{token}": {
+      "get": {
+        "tags": [
+          "media"
+        ],
+        "summary": "`GET /api/v1/storage/{token}`: the bytes under the key an API-signed\ndownload URL grants, `200`, served as `content` serves them.",
+        "operationId": "get_object",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "description": "The signed token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file's bytes, with their Content-Type"
+          },
+          "403": {
+            "description": "An invalid or expired token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The file is gone",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "media"
+        ],
+        "summary": "`PUT /api/v1/storage/{token}`: stores the raw body under the key an\nAPI-signed upload URL grants, `204`. The token is the credential.",
+        "operationId": "put_object",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "description": "The signed token",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "The file's bytes",
+          "content": {
+            "application/octet-stream": {}
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Stored"
+          },
+          "403": {
+            "description": "An invalid or expired token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Larger than MEDIA_MAX_UPLOAD_BYTES",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/users": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "summary": "`GET /api/v1/users`: one page of rows, `200`.",
+        "operationId": "list",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "The page, from 1. Defaults to 1.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "description": "The rows a page holds, 1 to 100. Defaults to 20.",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int32",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "description": "The text to search for.",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/UserSort"
+            }
+          },
+          {
+            "name": "order",
+            "in": "query",
+            "description": "The sort's direction. Defaults to `desc`.",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/SortOrder"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "One page of rows.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PaginatedResponse_UserResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A malformed path, query or body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid bearer token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller is not an admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/users/me": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "summary": "`GET /api/v1/users/me`: the signed-in user, `200`.",
+        "operationId": "me",
+        "responses": {
+          "200": {
+            "description": "The signed-in user",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "users"
+        ],
+        "summary": "`PATCH /api/v1/users/me`: changes the signed-in user's profile, `200`.",
+        "operationId": "update_me",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateProfileDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Updated profile",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A malformed body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "A display name over 100 characters",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/users/me/avatar": {
+      "put": {
+        "tags": [
+          "avatars"
+        ],
+        "summary": "`PUT /api/v1/users/me/avatar`: makes the raw body (a JPEG, PNG or WebP\nimage) the signed-in user's profile photo, `200`.",
+        "operationId": "upload",
+        "requestBody": {
+          "description": "The raw image bytes (JPEG, PNG or WebP), 2 MiB at most",
+          "content": {
+            "application/octet-stream": {}
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated profile, with the new avatar_url",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Larger than 2 MiB",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Not a decodable JPEG, PNG or WebP image, or too large to process",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "avatars"
+        ],
+        "summary": "`DELETE /api/v1/users/me/avatar`: removes the signed-in user's profile\nphoto, `200`.",
+        "operationId": "remove",
+        "responses": {
+          "200": {
+            "description": "Updated profile, avatar_url now null",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/users/{id}": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "summary": "`GET /api/v1/users/{id}`: the row, `200`.",
+        "operationId": "get_one",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "User id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The row.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A malformed path, query or body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid bearer token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller is not an admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such row, or not the caller's.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "delete": {
+        "tags": [
+          "users"
+        ],
+        "summary": "`DELETE /api/v1/users/{id}`: soft-deletes the row (deletes it with `?permanent=true`), `204`.",
+        "operationId": "remove",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "User id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "permanent",
+            "in": "query",
+            "description": "Whether to delete the row for good rather than soft-delete it.",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "The row, soft-deleted (destroyed with `?permanent=true`)."
+          },
+          "400": {
+            "description": "A malformed path, query or body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid bearer token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller is not an admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such row, or not the caller's.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A unique or foreign-key violation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
+      "patch": {
+        "tags": [
+          "users"
+        ],
+        "summary": "`PATCH /api/v1/users/{id}`: changes the row, `200` with it.",
+        "operationId": "update",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "User id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "The row, changed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "A malformed path, query or body.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid bearer token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller is not an admin.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such row, or not the caller's.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "A unique or foreign-key violation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "The body is over the limit.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The body breaks a rule or a check.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/health/live": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "`200 {\"status\": \"ok\"}` while the server answers at all.",
+        "operationId": "liveness",
+        "responses": {
+          "200": {
+            "description": "The process is running"
+          }
+        }
+      }
+    },
+    "/health/ready": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "`200 {\"status\": \"ready\"}` when the database answers, otherwise `503`\nwith `SERVICE_UNAVAILABLE`.",
+        "operationId": "readiness",
+        "responses": {
+          "200": {
+            "description": "The database is reachable"
+          },
+          "503": {
+            "description": "The database is not reachable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ApiKeyResponse": {
+        "type": "object",
+        "description": "An API key as the list answers it: never the key itself.",
+        "required": [
+          "id",
+          "name",
+          "key_prefix",
+          "scope",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the key was made."
+          },
+          "expires_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When the key stops working, if ever."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The key's id."
+          },
+          "key_prefix": {
+            "type": "string",
+            "description": "First characters of the key, to recognise it in a list. The full key is never shown again."
+          },
+          "last_used_at": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "date-time",
+            "description": "When the key was last used (to the minute)."
+          },
+          "name": {
+            "type": "string",
+            "description": "What the key is for."
+          },
+          "scope": {
+            "$ref": "#/components/schemas/ApiKeyScope",
+            "description": "What the key may do."
+          }
+        }
+      },
+      "ApiKeyScope": {
+        "type": "string",
+        "description": "The `api_key_scope` enum type.",
+        "enum": [
+          "read",
+          "write"
+        ]
+      },
+      "AuditLogEntryResponse": {
+        "type": "object",
+        "description": "A `audit_log` row as the API answers it.",
+        "required": [
+          "id",
+          "actor_user_id",
+          "action",
+          "details",
+          "created_at"
+        ],
+        "properties": {
+          "action": {
+            "type": "string",
+            "description": "The `action` column."
+          },
+          "actor_user_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The `actor_user_id` column."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "The `created_at` column."
+          },
+          "details": {
+            "description": "The `details` column."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The `id` column."
+          },
+          "target_user_id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "The `target_user_id` column."
+          }
+        }
+      },
+      "AuditLogEntrySort": {
+        "type": "string",
+        "description": "The columns `GET /api/v1/audit-log?sort=` takes, in `snake_case`.",
+        "enum": [
+          "id",
+          "created_at"
+        ]
+      },
+      "ChangeEmailDto": {
+        "type": "object",
+        "description": "`POST /auth/email/change`'s body. The new email is trimmed and\nlowercased before it is checked.",
+        "required": [
+          "current_password",
+          "new_email"
+        ],
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "description": "The account's current password."
+          },
+          "new_email": {
+            "type": "string",
+            "description": "The address to move the account to."
+          }
+        }
+      },
+      "ChangePasswordDto": {
+        "type": "object",
+        "description": "`POST /auth/password/change`'s body: the password now and the new one.",
+        "required": [
+          "current_password",
+          "new_password"
+        ],
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "description": "The account's password now."
+          },
+          "new_password": {
+            "type": "string",
+            "description": "The new password: 8 to 128 characters, anything allowed."
+          }
+        }
+      },
+      "CreateApiKeyDto": {
+        "type": "object",
+        "description": "`POST /api-keys`'s body.",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "expires_in_days": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "format": "int32",
+            "description": "Omit for a key that never expires.",
+            "minimum": 0
+          },
+          "name": {
+            "type": "string",
+            "description": "What the key is for, 1 to 100 characters after trimming."
+          },
+          "scope": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/ApiKeyScope",
+                "description": "`read` (default): safe HTTP methods only. `write`: everything an API key may do."
+              }
+            ]
+          }
+        }
+      },
+      "CreatedApiKeyResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiKeyResponse",
+            "description": "The key as the list shows it."
+          },
+          {
+            "type": "object",
+            "required": [
+              "key"
+            ],
+            "properties": {
+              "key": {
+                "type": "string",
+                "description": "Send it as `Authorization: Bearer <key>` or `X-API-Key: <key>`. Store it now."
+              }
+            }
+          }
+        ],
+        "description": "Returned once, when the key is created: the only time the secret is visible."
+      },
+      "CredentialsDto": {
+        "type": "object",
+        "description": "`POST /auth/register`'s and `POST /auth/login`'s body. The email is\ntrimmed and lowercased before it is checked.",
+        "required": [
+          "email",
+          "password"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "The account's email address."
+          },
+          "password": {
+            "type": "string",
+            "description": "The password: 8 to 128 characters, anything allowed."
+          }
+        }
+      },
+      "DisableTotpDto": {
+        "type": "object",
+        "description": "`POST /auth/2fa/disable`'s body. Requires the current password so a\nstolen session token alone cannot turn off two-factor.",
+        "required": [
+          "current_password"
+        ],
+        "properties": {
+          "current_password": {
+            "type": "string",
+            "description": "The account's password now."
+          }
+        }
+      },
+      "DownloadUrl": {
+        "type": "object",
+        "description": "`GET /media/{id}/url`'s answer: a short-lived URL the file's bytes can\nbe fetched from without credentials.",
+        "required": [
+          "url",
+          "expires_at"
+        ],
+        "properties": {
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it stops working."
+          },
+          "url": {
+            "type": "string",
+            "description": "The URL: absolute on an S3-compatible store, else relative to the API."
+          }
+        }
+      },
+      "EnableTotpDto": {
+        "type": "object",
+        "description": "`POST /auth/2fa/enable`'s body: a code from the authenticator app.",
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "The app's current 6-digit code."
+          }
+        }
+      },
+      "ErrorBody": {
+        "type": "object",
+        "description": "The wire standard's error body: `{\"error\": {\"code\", \"message\",\n\"details\"?}}`. Any error answer can use it, not only a rejected body.",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "$ref": "#/components/schemas/ErrorPayload",
+            "description": "What went wrong."
+          }
+        }
+      },
+      "ErrorPayload": {
+        "type": "object",
+        "description": "The `error` of an `ErrorBody`.",
+        "required": [
+          "code",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "A `snake_case` code for programs, such as `BAD_REQUEST`,\n`PAYLOAD_TOO_LARGE` or `VALIDATION_FAILED`."
+          },
+          "details": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "The broken validation rules by field path, `{\"path\": [{\"code\",\n\"message\", \"params\"}]}`, when there are any."
+          },
+          "message": {
+            "type": "string",
+            "description": "A message for people."
+          }
+        }
+      },
+      "ForgotPasswordDto": {
+        "type": "object",
+        "description": "`POST /auth/password/forgot`'s body. The email is trimmed and\nlowercased before it is checked.",
+        "required": [
+          "email"
+        ],
+        "properties": {
+          "email": {
+            "type": "string",
+            "description": "The account's email address."
+          }
+        }
+      },
+      "InviteUserDto": {
+        "type": "object",
+        "description": "`POST /auth/invitations`' body: an admin invites someone, whose account\nis created and a \"set your password\" link mailed. The email is trimmed\nand lowercased, the display name trimmed (an empty one is none), and\nthe role is `user` unless given.",
+        "required": [
+          "email"
+        ],
+        "properties": {
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The invitee's display name, at most 100 characters."
+          },
+          "email": {
+            "type": "string",
+            "description": "The invitee's email address."
+          },
+          "role": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Role",
+                "description": "The invitee's role; `user` when left out."
+              }
+            ]
+          }
+        }
+      },
+      "JobResponse": {
+        "type": "object",
+        "description": "A job, as an admin sees it. Its payload is left out: a pending mail's\nholds the link it carries.",
+        "required": [
+          "id",
+          "kind",
+          "status",
+          "attempts",
+          "run_at",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "attempts": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The attempts it took so far."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it was enqueued."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The job's id."
+          },
+          "kind": {
+            "type": "string",
+            "description": "Its kind, such as `mail.send`."
+          },
+          "last_error": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Why its last attempt failed, if one did."
+          },
+          "run_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it is due: its next attempt, for a pending job."
+          },
+          "status": {
+            "$ref": "#/components/schemas/JobStatus",
+            "description": "`pending` (waiting, or running) or `dead` (out of attempts)."
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it last changed."
+          }
+        }
+      },
+      "JobStatus": {
+        "type": "string",
+        "description": "The values of the `jobs.status` column.",
+        "enum": [
+          "pending",
+          "dead"
+        ]
+      },
+      "LoginResponse": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/TokenResponse",
+            "description": "A session."
+          },
+          {
+            "type": "object",
+            "description": "A second factor is needed first.",
+            "required": [
+              "requires_totp",
+              "pending_token"
+            ],
+            "properties": {
+              "pending_token": {
+                "type": "string",
+                "description": "The token `POST /auth/2fa/verify` takes with the code."
+              },
+              "requires_totp": {
+                "type": "boolean",
+                "description": "Always `true`."
+              }
+            }
+          }
+        ],
+        "description": "What `POST /auth/login` returns: either a real session (`TokenResponse`'s\nshape) or, for a two-factor-enabled account, a marker plus the\nshort-lived token `POST /auth/2fa/verify` needs. Untagged, so each\nvariant serializes as its own plain object: a client tells them apart by\n`access_token` vs `requires_totp`."
+      },
+      "MediaResponse": {
+        "type": "object",
+        "description": "A stored file's metadata, as the API answers it.",
+        "required": [
+          "id",
+          "content_type",
+          "size_bytes",
+          "url",
+          "created_at"
+        ],
+        "properties": {
+          "content_type": {
+            "type": "string",
+            "description": "Detected from the file's bytes, not taken from the upload request."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it was uploaded."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The file's id."
+          },
+          "original_filename": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The name it was uploaded with, if any."
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The file's size, in bytes."
+          },
+          "url": {
+            "type": "string",
+            "description": "Where to fetch the file. It needs the same credentials as any other endpoint."
+          }
+        }
+      },
+      "MessageResponse": {
+        "type": "object",
+        "description": "A message for people, such as `email verified`.",
+        "required": [
+          "message"
+        ],
+        "properties": {
+          "message": {
+            "type": "string",
+            "description": "What happened."
+          }
+        }
+      },
+      "PaginatedResponse_AuditLogEntryResponse": {
+        "type": "object",
+        "description": "One page of a list: `{\"items\", \"page\", \"per_page\", \"total\"}`.",
+        "required": [
+          "items",
+          "page",
+          "per_page",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "description": "A `audit_log` row as the API answers it.",
+              "required": [
+                "id",
+                "actor_user_id",
+                "action",
+                "details",
+                "created_at"
+              ],
+              "properties": {
+                "action": {
+                  "type": "string",
+                  "description": "The `action` column."
+                },
+                "actor_user_id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "description": "The `actor_user_id` column."
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "The `created_at` column."
+                },
+                "details": {
+                  "description": "The `details` column."
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "description": "The `id` column."
+                },
+                "target_user_id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "format": "uuid",
+                  "description": "The `target_user_id` column."
+                }
+              }
+            },
+            "description": "The page's rows."
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The page, from 1.",
+            "minimum": 0
+          },
+          "per_page": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The most rows a page holds.",
+            "minimum": 0
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The rows on every page together.",
+            "minimum": 0
+          }
+        }
+      },
+      "PaginatedResponse_JobResponse": {
+        "type": "object",
+        "description": "One page of a list: `{\"items\", \"page\", \"per_page\", \"total\"}`.",
+        "required": [
+          "items",
+          "page",
+          "per_page",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "description": "A job, as an admin sees it. Its payload is left out: a pending mail's\nholds the link it carries.",
+              "required": [
+                "id",
+                "kind",
+                "status",
+                "attempts",
+                "run_at",
+                "created_at",
+                "updated_at"
+              ],
+              "properties": {
+                "attempts": {
+                  "type": "integer",
+                  "format": "int32",
+                  "description": "The attempts it took so far."
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "When it was enqueued."
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "description": "The job's id."
+                },
+                "kind": {
+                  "type": "string",
+                  "description": "Its kind, such as `mail.send`."
+                },
+                "last_error": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "Why its last attempt failed, if one did."
+                },
+                "run_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "When it is due: its next attempt, for a pending job."
+                },
+                "status": {
+                  "$ref": "#/components/schemas/JobStatus",
+                  "description": "`pending` (waiting, or running) or `dead` (out of attempts)."
+                },
+                "updated_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "When it last changed."
+                }
+              }
+            },
+            "description": "The page's rows."
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The page, from 1.",
+            "minimum": 0
+          },
+          "per_page": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The most rows a page holds.",
+            "minimum": 0
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The rows on every page together.",
+            "minimum": 0
+          }
+        }
+      },
+      "PaginatedResponse_MediaResponse": {
+        "type": "object",
+        "description": "One page of a list: `{\"items\", \"page\", \"per_page\", \"total\"}`.",
+        "required": [
+          "items",
+          "page",
+          "per_page",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "description": "A stored file's metadata, as the API answers it.",
+              "required": [
+                "id",
+                "content_type",
+                "size_bytes",
+                "url",
+                "created_at"
+              ],
+              "properties": {
+                "content_type": {
+                  "type": "string",
+                  "description": "Detected from the file's bytes, not taken from the upload request."
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "When it was uploaded."
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "description": "The file's id."
+                },
+                "original_filename": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "The name it was uploaded with, if any."
+                },
+                "size_bytes": {
+                  "type": "integer",
+                  "format": "int64",
+                  "description": "The file's size, in bytes."
+                },
+                "url": {
+                  "type": "string",
+                  "description": "Where to fetch the file. It needs the same credentials as any other endpoint."
+                }
+              }
+            },
+            "description": "The page's rows."
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The page, from 1.",
+            "minimum": 0
+          },
+          "per_page": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The most rows a page holds.",
+            "minimum": 0
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The rows on every page together.",
+            "minimum": 0
+          }
+        }
+      },
+      "PaginatedResponse_UserResponse": {
+        "type": "object",
+        "description": "One page of a list: `{\"items\", \"page\", \"per_page\", \"total\"}`.",
+        "required": [
+          "items",
+          "page",
+          "per_page",
+          "total"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "description": "A `users` row as the API answers it.",
+              "required": [
+                "id",
+                "email",
+                "has_password",
+                "role",
+                "is_active",
+                "email_verified",
+                "totp_enabled",
+                "created_at"
+              ],
+              "properties": {
+                "avatar_url": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "The `avatar_url` column."
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time",
+                  "description": "The `created_at` column."
+                },
+                "display_name": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "The `display_name` column."
+                },
+                "email": {
+                  "type": "string",
+                  "description": "The `email` column."
+                },
+                "email_verified": {
+                  "type": "boolean",
+                  "description": "The `email_verified` column."
+                },
+                "has_password": {
+                  "type": "boolean",
+                  "description": "The `has_password` column."
+                },
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "description": "The `id` column."
+                },
+                "is_active": {
+                  "type": "boolean",
+                  "description": "The `is_active` column."
+                },
+                "role": {
+                  "$ref": "#/components/schemas/Role",
+                  "description": "The `role` column."
+                },
+                "totp_enabled": {
+                  "type": "boolean",
+                  "description": "The `totp_enabled` column."
+                }
+              }
+            },
+            "description": "The page's rows."
+          },
+          "page": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The page, from 1.",
+            "minimum": 0
+          },
+          "per_page": {
+            "type": "integer",
+            "format": "int32",
+            "description": "The most rows a page holds.",
+            "minimum": 0
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The rows on every page together.",
+            "minimum": 0
+          }
+        }
+      },
+      "ResetPasswordDto": {
+        "type": "object",
+        "description": "`POST /auth/password/reset`'s body: a reset (or invitation) link's\ntoken and the new password.",
+        "required": [
+          "token",
+          "new_password"
+        ],
+        "properties": {
+          "new_password": {
+            "type": "string",
+            "description": "The new password: 8 to 128 characters, anything allowed."
+          },
+          "token": {
+            "type": "string",
+            "description": "The token the mailed link carries (`?token=`)."
+          }
+        }
+      },
+      "Role": {
+        "type": "string",
+        "description": "The `role` enum type.",
+        "enum": [
+          "user",
+          "admin"
+        ]
+      },
+      "SortOrder": {
+        "type": "string",
+        "description": "The direction of a list's sort: `order=asc` or `order=desc`, the\ndefault.",
+        "enum": [
+          "asc",
+          "desc"
+        ]
+      },
+      "StartUploadDto": {
+        "type": "object",
+        "description": "`POST /media/uploads`'s body: a file the client will put straight into\nthe store (engine ADR 0024). Both values are checked against the bytes\nwhen the upload is completed.",
+        "required": [
+          "content_type",
+          "size_bytes"
+        ],
+        "properties": {
+          "content_type": {
+            "type": "string",
+            "description": "The file's type, such as `image/png`: one of `MEDIA_ALLOWED_TYPES`."
+          },
+          "filename": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The file's original name, kept for display and as the download name."
+          },
+          "size_bytes": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The file's size, in bytes: at most `MEDIA_MAX_UPLOAD_BYTES`."
+          }
+        }
+      },
+      "TokenResponse": {
+        "type": "object",
+        "description": "A session: a bearer token and how long it lasts.",
+        "required": [
+          "access_token",
+          "expires_in",
+          "token_type"
+        ],
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "description": "The JWT to send as `Authorization: Bearer <access_token>`."
+          },
+          "expires_in": {
+            "type": "integer",
+            "format": "int64",
+            "description": "Seconds until it expires."
+          },
+          "token_type": {
+            "type": "string",
+            "description": "Always `Bearer`."
+          }
+        }
+      },
+      "TotpEnabledResponse": {
+        "type": "object",
+        "description": "Shown exactly once, right after enabling two-factor: only hashes of\nthese are ever stored.",
+        "required": [
+          "recovery_codes"
+        ],
+        "properties": {
+          "recovery_codes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Ten single-use `XXXXX-XXXXX` codes, each standing in for an\nauthenticator code once."
+          }
+        }
+      },
+      "TotpSetupResponse": {
+        "type": "object",
+        "description": "Everything needed to enroll an authenticator app. Two-factor is not yet\non: the caller confirms a code from the app with `POST /auth/2fa/enable`\nfirst.",
+        "required": [
+          "secret",
+          "qr_code_data_uri",
+          "provisioning_uri"
+        ],
+        "properties": {
+          "provisioning_uri": {
+            "type": "string",
+            "description": "The `otpauth://totp/…` URI the QR code carries."
+          },
+          "qr_code_data_uri": {
+            "type": "string",
+            "description": "The QR code of `provisioning_uri`, as a `data:image/svg+xml` URI."
+          },
+          "secret": {
+            "type": "string",
+            "description": "Base32-encoded; lets the user type the secret in by hand if they\ncannot scan the QR code."
+          }
+        }
+      },
+      "UpdateProfileDto": {
+        "type": "object",
+        "description": "`PATCH /users/me`'s body. A field left out keeps its value; the display\nname is trimmed, and `null` or an empty one clears it.",
+        "properties": {
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The new display name, at most 100 characters.",
+            "default": null
+          }
+        }
+      },
+      "UpdateUserDto": {
+        "type": "object",
+        "description": "`PATCH /api/v1/users/{id}`'s body, checked by the rules of `UpdateUser`.\nEvery field is optional: a field left out keeps its column's value, and\n`null` sets a nullable column to `NULL`.",
+        "properties": {
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The new value of the `display_name` column.\n\nTransforms: `trim`.",
+            "default": null
+          },
+          "is_active": {
+            "type": [
+              "boolean",
+              "null"
+            ],
+            "description": "The new value of the `is_active` column.",
+            "default": null
+          },
+          "role": {
+            "oneOf": [
+              {
+                "type": "null"
+              },
+              {
+                "$ref": "#/components/schemas/Role",
+                "description": "The new value of the `role` column."
+              }
+            ],
+            "default": null
+          }
+        }
+      },
+      "UploadTicket": {
+        "type": "object",
+        "description": "`POST /media/uploads`'s answer: where to put the bytes, and until when.",
+        "required": [
+          "media_id",
+          "method",
+          "upload_url",
+          "headers",
+          "expires_at"
+        ],
+        "properties": {
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the URL stops working; an upload not completed by then is\nremoved."
+          },
+          "headers": {
+            "type": "object",
+            "description": "The headers to send with the bytes: their `Content-Type`.",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "type": "string"
+            }
+          },
+          "media_id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The file's id: `POST /media/{media_id}/complete` once the bytes are up."
+          },
+          "method": {
+            "type": "string",
+            "description": "The method to send the bytes with: `PUT`."
+          },
+          "upload_url": {
+            "type": "string",
+            "description": "Where to send them: absolute on an S3-compatible store, else relative\nto the API (`/api/v1/storage/…`)."
+          }
+        }
+      },
+      "UserResponse": {
+        "type": "object",
+        "description": "A `users` row as the API answers it: the same shape as the `users`\nfeature's, which this feature may not import.",
+        "required": [
+          "id",
+          "email",
+          "has_password",
+          "role",
+          "is_active",
+          "email_verified",
+          "totp_enabled",
+          "created_at"
+        ],
+        "properties": {
+          "avatar_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The profile photo's public, cacheable URL,\n`/api/v1/avatars/<file>`, or `null` without one."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the account was created."
+          },
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The display name."
+          },
+          "email": {
+            "type": "string",
+            "description": "The email address."
+          },
+          "email_verified": {
+            "type": "boolean",
+            "description": "Whether the email address is verified."
+          },
+          "has_password": {
+            "type": "boolean",
+            "description": "Whether the account has a password (an invited one has none yet)."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The account's id."
+          },
+          "is_active": {
+            "type": "boolean",
+            "description": "Whether the account may sign in."
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role",
+            "description": "The role."
+          },
+          "totp_enabled": {
+            "type": "boolean",
+            "description": "Whether two-factor sign-in is on."
+          }
+        }
+      },
+      "UserSort": {
+        "type": "string",
+        "description": "The columns `GET /api/v1/users?sort=` takes, in `snake_case`.",
+        "enum": [
+          "created_at",
+          "email"
+        ]
+      },
+      "VerifyEmailDto": {
+        "type": "object",
+        "description": "Body for redeeming a link token: email verification and email-change\nconfirmation.",
+        "required": [
+          "token"
+        ],
+        "properties": {
+          "token": {
+            "type": "string",
+            "description": "The token the mailed link carries (`?token=`)."
+          }
+        }
+      },
+      "VerifyTotpDto": {
+        "type": "object",
+        "description": "`POST /auth/2fa/verify`'s body. `code` accepts either a live 6-digit\nauthenticator code or an `XXXXX-XXXXX` recovery code.",
+        "required": [
+          "pending_token",
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "An authenticator code or a recovery code."
+          },
+          "pending_token": {
+            "type": "string",
+            "description": "The token `POST /auth/login` answered with `requires_totp`."
+          }
+        }
+      }
+    },
+    "securitySchemes": {
+      "bearer_auth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "description": "A JWT the application signed, sent as `Bearer <token>`."
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "auth"
+    },
+    {
+      "name": "api-keys"
+    },
+    {
+      "name": "jobs"
+    },
+    {
+      "name": "health"
+    },
+    {
+      "name": "users"
+    },
+    {
+      "name": "audit-log"
+    }
+  ]
+}
