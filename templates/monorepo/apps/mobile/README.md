@@ -1,202 +1,96 @@
-# Flutter Starter
+# The mobile App
 
-![Flutter](https://img.shields.io/badge/Flutter-3.11%2B-blue?logo=flutter)
-![Dart](https://img.shields.io/badge/Dart-3.x-blue?logo=dart)
-![License](https://img.shields.io/badge/License-MIT-green)
-![Tests](https://img.shields.io/badge/Tests-67%20passing-brightgreen)
+The monorepo's Flutter app (iOS, Android, and the desktop and web targets
+Flutter builds). It signs in against `apps/api` and calls it only through
+the generated Dart client in `../../clients/dart` (`package:api_client`),
+which `rok gen` writes from the API's `openapi.json`: the HTTP calls, the
+models and the error type are generated, never hand-written here.
 
-Production-ready Flutter template for iOS + Android + web. Authenticates against a NestJS / Better-Auth backend using Bearer tokens, with opt-out feature modules for admin, organizations, magic-link sign-in, 2FA, push notifications, and theme customization.
+State management is **`flutter_bloc`**; navigation is **`go_router`**.
 
-State management is **`flutter_bloc`**; navigation is **`go_router`**; HTTP is **Dio** with a Bearer-token interceptor and automatic 401 refresh.
+## Run it against the local API
 
----
+```bash
+# 1. the API (from the monorepo's root; see apps/api/README.md)
+cargo run -p axum-api
 
-## Documentation
+# 2. the App
+cd apps/mobile
+flutter pub get
+cp .env.example .env          # optional: API_URL, APP_SCHEME, feature flags
+flutter run --dart-define-from-file=.env
+```
 
-| Guide | When to read |
-|---|---|
-| [Getting started](./docs/getting-started.md) | First-time setup — clone, env, Firebase, run |
-| [Architecture](./docs/architecture.md) | Understand the provider → repository → cubit → view layers |
-| [Feature flags](./docs/feature-flags.md) | Toggle, drop, or add a feature |
-| [Adding a feature](./docs/adding-a-feature.md) | Wire a new API + screen end-to-end |
-| [Security](./docs/security.md) | Pre-ship checklist — obfuscation, pinning, `.env` gotchas |
+Without `API_URL` the App calls `http://127.0.0.1:8080` (apps/api's
+`BIND_ADDR`), or `http://10.0.2.2:8080` from an Android emulator, which
+is the host machine's `127.0.0.1`. A phone on the network needs the
+machine's address in `API_URL` and the API bound to it.
 
-API contract: [`Nestjs_Better_Auth_API_DOCS_2026-04-16.yaml`](./Nestjs_Better_Auth_API_DOCS_2026-04-16.yaml). Task history: [`todo.md`](./todo.md).
+Checks:
 
----
+```bash
+flutter analyze
+flutter test
+```
 
 ## What's in the box
 
-| Module | Flag | Notes |
+| Module | Flag | Calls |
 |---|---|---|
-| Email + password auth | always on | Sign in, sign up, forgot / reset password, email verification |
-| Magic-link auth | `FEATURE_MAGIC_LINK` | Deep-link verify → auto-signed-in |
-| Two-factor auth (TOTP) | `FEATURE_TWO_FACTOR` | QR enrol, verify-setup, disable |
-| Sign up | `FEATURE_SIGN_UP` | Hide to force admin-provisioned accounts |
-| OAuth (placeholder) | `FEATURE_OAUTH` | Hooks for your own providers |
-| Admin panel | `FEATURE_ADMIN` | Paginated users, audit logs, stats; gated by `role == 'admin'` |
-| Organizations | `FEATURE_ORGANIZATIONS` | CRUD, members with roles, invitations (+ deep link) |
-| Push notifications | `FEATURE_PUSH_NOTIFICATIONS` | FCM + device-token registration |
-| Theme customization | `FEATURE_THEME_CUSTOMIZATION` | Mode / seed color / radius / density with live preview |
-| Delete account | `FEATURE_DELETE_ACCOUNT` | Password-gated destructive flow |
+| Sign in, with the two-factor step | always on | `auth.login`, `auth.verify2fa`, `auth.me` |
+| Sign up | `FEATURE_SIGN_UP` | `auth.register` (email and password; the API mails a verification link) |
+| Forgot / reset password | always on | `auth.forgot`, `auth.reset` |
+| Email verification | always on | `auth.verifyEmail`; a new link from the profile (`auth.resend`) |
+| Profile: display name, photo | always on | `users.me`, `users.updateMe`, `avatars.upload` |
+| Change password | always on | `auth.change` (the API ends every session; sign in again) |
+| Two-factor (TOTP) | `FEATURE_TWO_FACTOR` | `auth.setup`, `auth.enable` (recovery codes), `auth.disable` |
+| Theme customization | `FEATURE_THEME_CUSTOMIZATION` | none (on the device) |
 
-Flip any flag in `.env`; delete any module entirely by following [docs/feature-flags.md](./docs/feature-flags.md#dropping-a-feature-delete-the-code).
+Flags are build-time `--dart-define`s ([docs/feature-flags.md](docs/feature-flags.md)).
 
----
+**Not in the App until `apps/api` serves them** — the Flutter starter this
+App was imported from had them against another backend; they are removed,
+not left half-working: organizations, magic-link sign-in, the admin panel,
+deleting the account, OAuth sign-in, push notifications (a recipe:
+[docs/push-notifications.md](docs/push-notifications.md)), and a sign-out
+call (the API has none: signing out forgets the token on the device).
 
-## Stack
+## Talking to the API
 
-| Layer | Package | Purpose |
-|---|---|---|
-| State | `flutter_bloc`, `bloc`, `equatable`, `hydrated_bloc` | Cubit/BLoC + persisted `AuthBloc` |
-| Navigation | `go_router` | `redirect` guard driven by `AuthBloc` stream |
-| HTTP | `dio`, `dio_cache_interceptor` | Bearer token + 401 refresh interceptor |
-| Storage | `flutter_secure_storage`, `shared_preferences` | Tokens in keystore; prefs for theme |
-| Forms | `flutter_form_builder`, `form_builder_validators` | Plus `TextFormField.forceErrorText` for server-side field errors |
-| Images | `cached_network_image`, `image_picker` | Avatars |
-| Deep links | `app_links` | Custom scheme (`myapp://`) — OAuth, magic link, invites |
-| Firebase | `firebase_core`, `firebase_messaging`, `firebase_analytics` | Push + analytics |
-| Env | `flutter_dotenv` | `.env` loaded at startup |
-| Codegen | `freezed`, `json_serializable`, `build_runner` | Immutable models |
-| Testing | `flutter_test`, `mocktail`, `bloc_test` | 67 unit + widget tests |
+```dart
+final api = ApiClient(baseUrl: AppConfig.apiUrl, session: authService);
+final user = await api.users.me();
+```
 
----
+`AuthService` (`lib/app/services/auth_service.dart`) is the client's
+`Session`: it keeps the bearer token in `flutter_secure_storage`, the client
+sends it on every secured call, and a `401` to it signs out. Every failure
+is the client's `ApiException` (`status`, `code`, `message`, and a `422`'s
+field issues, which forms show through `fieldErrors`).
 
-## Layers at a glance
+Change the API, then run `rok gen` from the monorepo's root: it re-exports
+`apps/api/openapi.json` and regenerates the client. Never edit
+`clients/dart` by hand.
+
+## Layers
 
 ```
-View                     ← widgets, side effects (snackbar, navigation)
+View          widgets, side effects (snackbar, navigation)
   │ context.read<Cubit>()
-Cubit / BLoC             ← sealed UI states (*Initial, *Loading, *Loaded, *Failure)
+Cubit / BLoC  sealed UI states (*Initial, *Loading, *Loaded, *Failure)
   │
-Repository               ← DioException → ApiException; envelope unwrap
+Repository    the App's use of the API: `api.<tag>.<operation>(...)`
   │
-Provider                 ← raw Dio calls to /v1/api/...
-  │
-DioService               ← Bearer token + 401 refresh + base URL from .env
+ApiClient     clients/dart, generated (bearer token from AuthService)
 ```
 
-Full directory map and design rationale: [docs/architecture.md](./docs/architecture.md).
+More: [architecture](docs/architecture.md), [adding a feature](docs/adding-a-feature.md),
+[security](docs/security.md), [getting started](docs/getting-started.md).
 
----
+## Firebase
 
-## Quick start
-
-```bash
-# 1. clone & install
-git clone <your-fork> myapp && cd myapp
-flutter pub get
-
-# 2. configure
-cp .env.example .env
-# edit API_URL, APP_SCHEME, and feature flags
-
-# 3. firebase (required — FCM + Analytics init on startup)
-dart pub global activate flutterfire_cli
-flutterfire configure
-
-# 4. run
-flutter run
-
-# 5. verify
-flutter test
-flutter analyze
-```
-
-Detailed walkthrough with troubleshooting: [docs/getting-started.md](./docs/getting-started.md).
-
----
-
-## Project layout
-
-```
-lib/
-├── main.dart                    # DI wiring, deep link handler
-├── firebase_options.dart        # generated by flutterfire_cli
-└── app/
-    ├── core/
-    │   ├── config/              # FeatureFlags
-    │   ├── errors/              # ApiException (statusCode, message, fieldErrors, code, details)
-    │   ├── router/              # GoRouter + AuthBloc-driven redirect
-    │   ├── theme/               # Material 3 theme builder
-    │   └── utils/               # response_parser, snackbar_helper
-    ├── data/
-    │   ├── models/              # User, Organization, AdminUser, AuditLog, ...
-    │   ├── providers/           # *.provider.dart  (raw Dio → /v1/api/*)
-    │   └── repositories/        # *.repository.dart (envelope unwrap + error mapping)
-    ├── modules/                 # feature = folder with cubit + state + view
-    │   ├── auth/{sign_in,sign_up,forgot_password,reset_password,verify_email,
-    │   │        two_factor,magic_link}/
-    │   ├── home/ profile/ settings/ splash/ theme/
-    │   ├── admin/               # users, audit logs, stats
-    │   └── organizations/       # list, detail, invite, accept
-    ├── routes/app_routes.dart
-    └── services/                # AuthService, DioService, NotificationService
-test/
-├── unit/                        # repositories, cubits, models, exceptions
-├── widget/                      # view rendering + loading states
-└── integration_test/
-```
-
----
-
-## Auth flow
-
-1. App starts → `AuthBloc.add(AuthStarted)` → reads token from secure storage.
-2. If token + user present → `AuthAuthenticated(user, token)` → GoRouter redirects to `/home`.
-3. Otherwise → `AuthUnauthenticated` → redirect to `/sign-in`.
-4. Sign-in success → view dispatches `AuthUserChanged(user, token)` → router redirects.
-5. 401 on any API call → `DioService` refreshes the token transparently; if refresh fails, `AuthService.signOut()` broadcasts `AuthUnauthenticated` and the router sends the user back to `/sign-in`.
-
-Admin routes are additionally gated by `authState.user.role == 'admin'` inside the same `redirect`.
-
----
-
-## Response conventions
-
-Non-auth endpoints wrap responses:
-
-```json
-{ "success": true, "data": {...}, "meta": { "timestamp": "...", "requestId": "..." } }
-```
-
-Repositories strip this with `unwrapEnvelope` / `unwrapEnvelopeList` from [response_parser.dart](./lib/app/core/utils/response_parser.dart).
-
-Paginated endpoints put cursor state in `meta.pagination`:
-
-```json
-"meta": { "pagination": { "limit": 20, "hasNextPage": true, "nextCursor": "abc" } }
-```
-
-Error responses use:
-
-```json
-{ "success": false, "error": { "code": "VALIDATION_ERROR", "message": "...", "details": [...] } }
-```
-
-`ApiException.fromDioError` maps `error.details` into a `Map<String, String> fieldErrors`, surfaced in forms via `TextFormField.forceErrorText`.
-
----
-
-## Security
-
-- Bearer tokens live in `flutter_secure_storage` (iOS Keychain / Android Keystore). Never in `SharedPreferences`.
-- All list/read Dio calls accept a `CancelToken`. Paginated cubits cancel stale requests on new calls and on `close()`.
-- Deep link handler only accepts the scheme from `APP_SCHEME` (or `myapp` as fallback) — other schemes are ignored.
-- 401 refresh uses a separate Dio instance to prevent interceptor recursion.
-
----
-
-## Common commands
-
-```bash
-flutter pub get                                              # install deps
-dart run build_runner build --delete-conflicting-outputs     # regenerate *.freezed.dart / *.g.dart
-flutter run                                                  # run on attached device / sim
-flutter test                                                 # unit + widget tests
-flutter test --coverage
-flutter analyze                                              # lint
-flutter build apk --release
-flutter build ios --release                                  # macOS only
-flutter clean && flutter pub get                             # nuke caches
-```
+Firebase configuration names one Firebase project, so the App ships
+placeholders (`android/app/google-services.json`,
+`ios/Runner/GoogleService-Info.plist`, project `your-firebase-project`)
+and does not start Firebase. [docs/push-notifications.md](docs/push-notifications.md)
+makes it real.

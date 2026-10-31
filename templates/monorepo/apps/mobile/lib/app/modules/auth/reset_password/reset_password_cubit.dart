@@ -1,7 +1,8 @@
+import 'package:api_client/api_client.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../data/repositories/auth.repository.dart';
-import '../../../core/errors/app_exception.dart';
+import '../../../core/errors/field_errors.dart';
 
 part 'reset_password_state.dart';
 

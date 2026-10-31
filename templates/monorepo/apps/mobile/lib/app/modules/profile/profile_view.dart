@@ -1,3 +1,4 @@
+import 'package:api_client/api_client.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -14,15 +15,18 @@ class ProfileView extends StatelessWidget {
       listener: (context, state) {
         if (state is ProfileFailure) {
           SnackbarHelper.showError(context, state.message);
-        }
-        if (state is ProfileLoaded) {
-          // Dismiss any transient success messages here if needed.
+        } else if (state is ProfileVerificationSent) {
+          SnackbarHelper.showSuccess(context, 'Verification email sent!');
         }
       },
+      // A failure or a sent link is reported, and the profile stays.
+      buildWhen: (_, next) =>
+          next is! ProfileFailure && next is! ProfileVerificationSent,
       builder: (context, state) {
         final cubit = context.read<ProfileCubit>();
         final isLoading = state is ProfileLoading;
         final user = state is ProfileLoaded ? state.user : null;
+        final avatar = user == null ? null : cubit.avatarUri(user);
 
         return Scaffold(
           appBar: AppBar(title: const Text('Profile')),
@@ -37,10 +41,10 @@ class ProfileView extends StatelessWidget {
                         onTap: cubit.pickAndUploadAvatar,
                         child: CircleAvatar(
                           radius: 50,
-                          backgroundImage: user?.image != null
-                              ? CachedNetworkImageProvider(user!.image!)
+                          backgroundImage: avatar != null
+                              ? CachedNetworkImageProvider(avatar.toString())
                               : null,
-                          child: user?.image == null
+                          child: avatar == null
                               ? const Icon(Icons.person, size: 50)
                               : null,
                         ),
@@ -53,10 +57,10 @@ class ProfileView extends StatelessWidget {
                       const SizedBox(height: 24),
                       ListTile(
                         title: const Text('Name'),
-                        subtitle: Text(user?.name ?? ''),
+                        subtitle: Text(user?.displayName ?? ''),
                         trailing: const Icon(Icons.edit),
                         onTap: () => _showEditNameDialog(context, cubit,
-                            user?.name ?? ''),
+                            user?.displayName ?? ''),
                       ),
                       ListTile(
                         title: const Text('Email'),
@@ -64,7 +68,10 @@ class ProfileView extends StatelessWidget {
                         trailing: (user?.emailVerified ?? false)
                             ? const Icon(Icons.verified,
                                 color: Colors.green, size: 20)
-                            : null,
+                            : TextButton(
+                                onPressed: cubit.resendVerification,
+                                child: const Text('Verify'),
+                              ),
                       ),
                       if (user != null) ...[
                         const SizedBox(height: 8),
@@ -73,7 +80,7 @@ class ProfileView extends StatelessWidget {
                           runSpacing: 8,
                           alignment: WrapAlignment.center,
                           children: [
-                            if (user.twoFactorEnabled)
+                            if (user.totpEnabled)
                               Chip(
                                 avatar: const Icon(Icons.shield_outlined,
                                     size: 16),
@@ -87,7 +94,7 @@ class ProfileView extends StatelessWidget {
                                 avatar: Icon(Icons.shield_outlined, size: 16),
                                 label: Text('2FA Disabled'),
                               ),
-                            if (user.role == 'admin')
+                            if (user.role == Role.admin)
                               Chip(
                                 avatar: const Icon(
                                     Icons.admin_panel_settings_outlined,

@@ -6,8 +6,6 @@ import 'package:integration_test/integration_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:go_router/go_router.dart';
 
-import 'package:mobile/app/data/models/auth_response.model.dart';
-import 'package:mobile/app/data/models/user.model.dart';
 import 'package:mobile/app/data/repositories/auth.repository.dart';
 import 'package:mobile/app/modules/auth/auth_bloc.dart';
 import 'package:mobile/app/modules/auth/sign_in/sign_in_cubit.dart';
@@ -18,6 +16,8 @@ import 'package:mobile/app/modules/auth/sign_up/sign_up_view.dart';
 import 'package:mobile/app/modules/auth/sign_up/sign_up_cubit.dart';
 import 'package:mobile/app/services/auth_service.dart';
 import 'package:mobile/app/routes/app_routes.dart';
+
+import '../test/support/api.dart';
 
 // ── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -32,13 +32,7 @@ class MockAuthService extends Mock implements AuthService {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-final _testUser = User(
-  id: 'user-1',
-  email: 'test@example.com',
-  name: 'Test User',
-  emailVerified: true,
-  createdAt: DateTime(2024),
-);
+final _testUser = testUser();
 
 /// Builds a minimal GoRouter for sign-in flow tests.
 Widget _buildApp({
@@ -121,7 +115,7 @@ void main() {
             email: any(named: 'email'),
             password: any(named: 'password'),
           )).thenAnswer(
-        (_) async => AuthResponse(token: 'tok', user: _testUser),
+        (_) async => SignedIn(token: 'tok', user: _testUser),
       );
 
       await tester.pumpWidget(

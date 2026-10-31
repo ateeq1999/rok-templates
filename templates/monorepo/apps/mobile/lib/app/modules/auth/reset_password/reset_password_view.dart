@@ -79,7 +79,7 @@ class _ResetPasswordViewState extends State<ResetPasswordView>
                       obscureText: cubit.isPasswordHidden,
                       textInputAction: TextInputAction.next,
                       autofillHints: const [AutofillHints.newPassword],
-                      forceErrorText: fieldErrors?['password'],
+                      forceErrorText: fieldErrors?['new_password'],
                       decoration: InputDecoration(
                         labelText: 'New Password',
                         border: const OutlineInputBorder(),

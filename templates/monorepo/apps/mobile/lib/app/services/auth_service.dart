@@ -1,24 +1,26 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:api_client/api_client.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-
-import '../data/models/user.model.dart';
 
 enum AuthStatus { unknown, authenticated, unauthenticated }
 
-/// Manages token + user persistence and broadcasts [AuthStatus] changes.
+/// The session: the API's bearer token and the signed-in user, kept in
+/// secure storage, and the [AuthStatus] changes the [AuthBloc] follows.
 ///
-/// BUG-02 fix: refreshToken logic is now handled in DioService interceptor.
-/// BUG-04 fix: User is stored as JSON, not a URL query string.
-///
-/// DioService subscribes to [getToken] for header injection.
-/// AuthBloc subscribes to [status] for reactive auth state.
-class AuthService {
+/// It is the generated client's [Session]: the client reads [token] before
+/// every secured call, and calls [expired] when the API rejects the token
+/// (a `401`), which signs out. The API has no refresh token: an expired
+/// session signs in again.
+class AuthService implements Session {
+  AuthService({FlutterSecureStorage? storage})
+      : _storage = storage ?? const FlutterSecureStorage();
+
   static const _tokenKey = 'auth_token';
   static const _userKey = 'current_user';
 
-  final _storage = const FlutterSecureStorage();
+  final FlutterSecureStorage _storage;
   final _statusController = StreamController<AuthStatus>.broadcast();
 
   /// Stream of auth status changes. AuthBloc subscribes to this.
@@ -31,12 +33,22 @@ class AuthService {
 
   Future<String?> getToken() => _storage.read(key: _tokenKey);
 
-  Future<User?> getUser() async {
+  @override
+  Future<String?> token() => getToken();
+
+  /// The API rejected `token`: when it is still this session's, the
+  /// session is over.
+  @override
+  Future<void> expired(String token) async {
+    if (await getToken() == token) await signOut();
+  }
+
+  Future<UserResponse?> getUser() async {
     final raw = await _storage.read(key: _userKey);
     if (raw == null) return null;
     try {
-      return User.fromJson(jsonDecode(raw) as Map<String, dynamic>);
-    } catch (_) {
+      return UserResponse.fromJson(jsonDecode(raw) as Map<String, Object?>);
+    } on Object {
       return null;
     }
   }
@@ -46,7 +58,7 @@ class AuthService {
     _statusController.add(AuthStatus.authenticated);
   }
 
-  Future<void> saveUser(User user) async {
+  Future<void> saveUser(UserResponse user) async {
     await _storage.write(key: _userKey, value: jsonEncode(user.toJson()));
   }
 

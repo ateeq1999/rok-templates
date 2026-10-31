@@ -36,20 +36,12 @@ class _SignInViewState extends State<SignInView> {
     return BlocConsumer<SignInCubit, SignInState>(
       listener: (context, state) {
         if (state is SignInTwoFactorRequired) {
-          context.push(AppRoutes.twoFactor);
+          context.push(AppRoutes.twoFactor, extra: state.pendingToken);
         } else if (state is SignInSuccess) {
-          if (state.token != null) {
-            context.read<AuthBloc>().add(
-                  AuthUserChanged(user: state.user, token: state.token!),
-                );
-            context.go(AppRoutes.home);
-          } else {
-            // Email verification pending — stay on sign-in, show message.
-            SnackbarHelper.showError(
-              context,
-              'Please verify your email before signing in.',
-            );
-          }
+          context.read<AuthBloc>().add(
+                AuthUserChanged(user: state.user, token: state.token),
+              );
+          context.go(AppRoutes.home);
         } else if (state is SignInFailure) {
           final hasFieldErrors = state.fieldErrors?.isNotEmpty ?? false;
           if (!hasFieldErrors) {
@@ -169,11 +161,6 @@ class _SignInViewState extends State<SignInView> {
                           child: const Text('Sign Up'),
                         ),
                       ],
-                    ),
-                  if (flags.magicLink)
-                    TextButton(
-                      onPressed: () => context.push(AppRoutes.magicLink),
-                      child: const Text('Sign in with Magic Link'),
                     ),
                 ],
                 ),

@@ -1,120 +1,98 @@
 # Getting Started
 
-This guide gets the starter running on a device or emulator in ~10 minutes. It assumes a working Flutter 3.11+ SDK (`flutter doctor` green).
+This gets the App running against the monorepo's API on a device or
+emulator. It assumes a working Flutter SDK (`flutter doctor` green) and
+`apps/api` set up as its README says.
 
-## 1. Clone & rename
+## 1. Start the API
+
+From the monorepo's root:
 
 ```bash
-git clone <your-fork-url> myapp
-cd myapp
+cargo run -p axum-api
 ```
 
-Then change these identifiers to your own:
-
-- `name:` in [pubspec.yaml](../pubspec.yaml) (currently `mobile`)
-- Application ID / Bundle ID: run `flutter create --org com.yourcompany --platforms ios,android .` in-place to re-seed the native folders, **or** edit `android/app/build.gradle` (`applicationId`) and `ios/Runner.xcodeproj` (`PRODUCT_BUNDLE_IDENTIFIER`) manually.
-- Deep link scheme: see step 5.
+It listens on `127.0.0.1:8080` (`BIND_ADDR` in `apps/api/.env`).
 
 ## 2. Install dependencies
 
 ```bash
+cd apps/mobile
 flutter pub get
 ```
 
-Generated files (`*.freezed.dart`, `*.g.dart`) are committed. Re-run codegen only after editing a model:
+`api_client` resolves by path from `../../clients/dart`, the client
+`rok gen` generates from `apps/api/openapi.json`.
 
-```bash
-dart run build_runner build --delete-conflicting-outputs
-```
-
-## 3. Configure `.env`
-
-Copy the template:
+## 3. Configure (optional)
 
 ```bash
 cp .env.example .env
 ```
 
-Edit [`.env`](../.env.example):
+| Setting | Default | Meaning |
+|---|---|---|
+| `API_URL` | `http://127.0.0.1:8080` (`http://10.0.2.2:8080` on an Android emulator) | The API's origin |
+| `APP_SCHEME` | `myapp` | Deep-link scheme (step 5) |
+| `FEATURE_*` | `true` | [Feature flags](./feature-flags.md) |
 
-```env
-API_URL=http://localhost:3000     # iOS sim + macOS/web
-# API_URL=http://10.0.2.2:3000    # Android emulator (host machine loopback)
+The values are compiled in: `flutter run --dart-define-from-file=.env`.
+A physical phone needs the machine's network address in `API_URL`, and
+the API bound to it.
 
-APP_SCHEME=myapp                  # deep link scheme (see step 5)
+## 4. Firebase
 
-FEATURE_MAGIC_LINK=true
-FEATURE_TWO_FACTOR=true
-FEATURE_ORGANIZATIONS=true
-FEATURE_ADMIN=true
-FEATURE_SIGN_UP=true
-FEATURE_OAUTH=false
-FEATURE_PUSH_NOTIFICATIONS=true
-FEATURE_THEME_CUSTOMIZATION=true
-FEATURE_DELETE_ACCOUNT=false
-```
-
-`.env` is listed in [`pubspec.yaml` assets](../pubspec.yaml#L80-L82) and loaded at startup by [main.dart:37](../lib/main.dart#L37). See [feature-flags.md](./feature-flags.md) for flag semantics.
-
-## 4. Firebase setup
-
-Push notifications and FCM require a Firebase project.
-
-```bash
-dart pub global activate flutterfire_cli
-flutterfire configure
-```
-
-This writes `lib/firebase_options.dart` and the platform config files. If you don't want push notifications, set `FEATURE_PUSH_NOTIFICATIONS=false` — but Firebase still initialises on startup, so you'll need a valid `firebase_options.dart` either way (a minimal no-op project works).
-
-Required files:
-
-- `android/app/google-services.json`
-- `ios/Runner/GoogleService-Info.plist`
+Not needed: the App does not start Firebase, and ships placeholders for its
+configuration. [push-notifications.md](./push-notifications.md) adds it.
 
 ## 5. Deep links
 
 Default scheme is `myapp://`. Change it in three places:
 
-1. `.env` → `APP_SCHEME=myapp`
+1. `APP_SCHEME` (step 3)
 2. [android/app/src/main/AndroidManifest.xml](../android/app/src/main/AndroidManifest.xml) — `<data android:scheme="myapp"/>`
 3. `ios/Runner/Info.plist` → `CFBundleURLSchemes`
 
-Supported inbound links (handled in [main.dart:138-175](../lib/main.dart#L138-L175)):
+Inbound links (handled in [main.dart](../lib/main.dart)):
 
 | URL | Effect |
 |---|---|
-| `myapp://auth/callback?token=...` | OAuth token → save → `/home` |
 | `myapp://auth/verify-email?token=...` | → `/verify-email` |
 | `myapp://auth/reset-password?token=...` | → `/reset-password` |
-| `myapp://auth/magic-link?token=...` | → `/magic-link` (auto-verifies) |
-| `myapp://invite?token=...` | → `/invitations/accept` |
+
+`apps/api` mails links to `{APP_URL}/verify-email?token=...` and
+`{APP_URL}/reset-password?token=...`; to have them open the App, route
+them to the scheme above (an App Link / Universal Link on `APP_URL`, or a
+redirect page there).
 
 ## 6. Run
 
 ```bash
-flutter run
+flutter run --dart-define-from-file=.env
 ```
 
 Splash → redirects based on [AuthBloc](../lib/app/modules/auth/auth_bloc.dart) state:
 - No stored token → `/sign-in`
-- Valid token + user → `/home`
+- Stored token + user → `/home`
+
+Sign up, follow the verification link the API mails (with
+`MAIL_TRANSPORT=log`, `apps/api`'s default, it logs the mail), then sign
+in.
 
 ## 7. Verify
 
 ```bash
-flutter test           # all unit + widget tests (should pass green)
-flutter analyze        # lint + type check
+flutter analyze
+flutter test
 ```
 
 ## Troubleshooting
 
 | Symptom | Fix |
 |---|---|
-| `Unable to load asset: .env` | `.env` missing — copy from `.env.example` |
-| Android sign-in hangs | Using `localhost` instead of `10.0.2.2` from emulator |
-| iOS sim can't reach API | Use `localhost` (iOS sim shares host network) |
-| `FirebaseException: [core/no-app]` | Run `flutterfire configure` — `firebase_options.dart` is out of sync |
+| "Cannot reach the server" on an Android emulator | `API_URL` names `localhost`: the emulator's own; leave it unset or use `10.0.2.2` |
+| "Cannot reach the server" on a phone | `API_URL` must be the machine's network address, and the API bound to it |
+| Signed out after changing the password | Expected: the API ends every session; sign in with the new password |
 | Deep link opens browser instead of app | Intent filter missing or `APP_SCHEME` mismatch; check step 5 |
 
 Next: [architecture.md](./architecture.md) to understand how the layers fit together.

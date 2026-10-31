@@ -128,6 +128,9 @@ mod tests {
             "gradlew",
             "gradlew.bat",
             "gradle-wrapper.jar",
+            "GeneratedPluginRegistrant.java",
+            "GeneratedPluginRegistrant.h",
+            "GeneratedPluginRegistrant.m",
         ];
         for embedded in EMBEDDED {
             for file in embedded.files {

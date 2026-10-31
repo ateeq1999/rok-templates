@@ -91,7 +91,8 @@ const LOCAL_DIRS: &[&str] = &[
 /// Files that are a machine's, never a template's: OS junk, a developer's
 /// own environment (`.env`; the template ships `.env.example`), and what a
 /// Flutter build writes for one machine — the plugin lists, the Android
-/// SDK's path and signing settings, the generated Xcode settings and the
+/// SDK's path and signing settings, the generated Xcode settings, the
+/// Android and iOS plugin registrants `flutter pub get` writes, and the
 /// Gradle wrapper Flutter adds on the first Android build.
 const LOCAL_FILES: &[&str] = &[
     ".DS_Store",
@@ -107,6 +108,9 @@ const LOCAL_FILES: &[&str] = &[
     "gradlew",
     "gradlew.bat",
     "gradle-wrapper.jar",
+    "GeneratedPluginRegistrant.java",
+    "GeneratedPluginRegistrant.h",
+    "GeneratedPluginRegistrant.m",
 ];
 
 /// Extensions of files that are secrets, never a template's: a release

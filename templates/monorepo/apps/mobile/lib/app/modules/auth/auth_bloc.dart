@@ -1,8 +1,8 @@
 import 'dart:async';
 
+import 'package:api_client/api_client.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../data/models/user.model.dart';
 import '../../services/auth_service.dart';
 
 part 'auth_event.dart';
@@ -53,7 +53,13 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     }
   }
 
-  void _onUserChanged(AuthUserChanged event, Emitter<AuthState> emit) {
+  /// The signed-in user changed (signed in, or their profile did): kept
+  /// with the session, so a restart shows it.
+  Future<void> _onUserChanged(
+    AuthUserChanged event,
+    Emitter<AuthState> emit,
+  ) async {
+    await _authService.saveUser(event.user);
     emit(AuthAuthenticated(user: event.user, token: event.token));
   }
 

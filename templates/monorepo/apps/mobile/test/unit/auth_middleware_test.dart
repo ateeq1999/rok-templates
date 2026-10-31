@@ -6,23 +6,18 @@
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:mobile/app/data/models/user.model.dart';
 import 'package:mobile/app/modules/auth/auth_bloc.dart';
 import 'package:mobile/app/services/auth_service.dart';
 import 'package:mobile/app/routes/app_routes.dart';
+
+import '../support/api.dart';
 
 class MockAuthService extends Mock implements AuthService {
   @override
   Stream<AuthStatus> get status => const Stream.empty();
 }
 
-final _testUser = User(
-  id: 'user-1',
-  email: 'test@example.com',
-  name: 'Test User',
-  emailVerified: true,
-  createdAt: DateTime(2024),
-);
+final _testUser = testUser();
 
 void main() {
   late MockAuthService mockAuthService;
@@ -57,7 +52,7 @@ void main() {
       verify: (bloc) {
         final state = bloc.state as AuthAuthenticated;
         expect(state.token, equals('valid-token'));
-        expect(state.user.email, equals('test@example.com'));
+        expect(state.user.email, equals('ada@example.com'));
       },
     );
 
@@ -73,8 +68,13 @@ void main() {
       'emits AuthAuthenticated when AuthUserChanged is added',
       build: () => AuthBloc(authService: mockAuthService),
       seed: () => const AuthUnauthenticated(),
+      setUp: () {
+        when(() => mockAuthService.saveUser(_testUser))
+            .thenAnswer((_) async {});
+      },
       act: (bloc) =>
           bloc.add(AuthUserChanged(user: _testUser, token: 'new-token')),
+      verify: (_) => verify(() => mockAuthService.saveUser(_testUser)).called(1),
       expect: () => [isA<AuthAuthenticated>()],
     );
   });

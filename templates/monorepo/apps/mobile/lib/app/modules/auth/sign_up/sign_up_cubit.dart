@@ -1,7 +1,8 @@
+import 'package:api_client/api_client.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../data/repositories/auth.repository.dart';
-import '../../../core/errors/app_exception.dart';
+import '../../../core/errors/field_errors.dart';
 
 part 'sign_up_state.dart';
 
@@ -21,7 +22,6 @@ class SignUpCubit extends Cubit<SignUpState> {
   }
 
   Future<void> signUp({
-    required String name,
     required String email,
     required String password,
   }) async {
@@ -29,7 +29,6 @@ class SignUpCubit extends Cubit<SignUpState> {
     emit(const SignUpLoading());
     try {
       await _authRepository.signUp(
-        name: name.trim(),
         email: email.trim(),
         password: password,
       );

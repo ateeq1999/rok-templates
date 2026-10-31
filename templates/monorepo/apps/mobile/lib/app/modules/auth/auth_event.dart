@@ -9,14 +9,14 @@ final class AuthStarted extends AuthEvent {
   const AuthStarted();
 }
 
-/// Fired after a successful sign-in or OAuth callback.
+/// Fired after a successful sign-in, or when the signed-in user changes.
 final class AuthUserChanged extends AuthEvent {
   const AuthUserChanged({required this.user, required this.token});
-  final User user;
+  final UserResponse user;
   final String token;
 }
 
-/// Fired when the user explicitly signs out or the token refresh fails.
+/// Fired when the user signs out or the API rejects the session.
 final class AuthSignedOut extends AuthEvent {
   const AuthSignedOut();
 }

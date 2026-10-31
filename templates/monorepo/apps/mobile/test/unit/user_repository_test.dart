@@ -1,102 +1,61 @@
-import 'package:dio/dio.dart';
-import 'package:flutter_test/flutter_test.dart';
-import 'package:mocktail/mocktail.dart';
+import 'dart:convert';
 
-import 'package:mobile/app/core/errors/app_exception.dart';
-import 'package:mobile/app/data/providers/user.provider.dart';
+import 'package:api_client/api_client.dart';
+import 'package:flutter_test/flutter_test.dart';
+
 import 'package:mobile/app/data/repositories/user.repository.dart';
 
-class MockUserProvider extends Mock implements UserProvider {}
-
-Response<dynamic> _response(dynamic data, {int status = 200}) {
-  return Response<dynamic>(
-    requestOptions: RequestOptions(path: '/v1/api/users/me'),
-    statusCode: status,
-    data: data,
-  );
-}
-
-Map<String, dynamic> _envelope(Map<String, dynamic> data) => {
-      'success': true,
-      'data': data,
-      'meta': {
-        'timestamp': '2024-01-01T00:00:00.000Z',
-        'requestId': 'req-1',
-      },
-    };
-
-Map<String, dynamic> _userPayload() => {
-      'id': 'u-1',
-      'email': 'a@b.com',
-      'name': 'Alice',
-      'emailVerified': true,
-      'twoFactorEnabled': true,
-      'role': 'admin',
-      'createdAt': '2024-01-01T00:00:00.000Z',
-      'updatedAt': '2024-02-01T00:00:00.000Z',
-    };
+import '../support/api.dart';
 
 void main() {
-  late MockUserProvider provider;
-  late UserRepository repo;
+  late Requests requests;
 
-  setUp(() {
-    provider = MockUserProvider();
-    repo = UserRepository(provider);
-  });
+  setUp(() => requests = []);
 
-  group('UserRepository.getMe', () {
-    test('unwraps envelope and parses user fields', () async {
-      when(() => provider.getMe())
-          .thenAnswer((_) async => _response(_envelope(_userPayload())));
-
-      final user = await repo.getMe();
-
-      expect(user.id, 'u-1');
-      expect(user.email, 'a@b.com');
-      expect(user.twoFactorEnabled, isTrue);
-      expect(user.role, 'admin');
-      expect(user.updatedAt, isNotNull);
-    });
-
-    test('throws ApiException from envelope error', () async {
-      final req = RequestOptions(path: '/v1/api/users/me');
-      when(() => provider.getMe()).thenThrow(DioException(
-        requestOptions: req,
-        type: DioExceptionType.badResponse,
-        response: Response<dynamic>(
-          requestOptions: req,
-          statusCode: 401,
-          data: {
-            'success': false,
-            'error': {'code': 'UNAUTHORIZED', 'message': 'Token expired'},
-          },
-        ),
-      ));
-
-      expect(
-        () => repo.getMe(),
-        throwsA(isA<ApiException>()
-            .having((e) => e.statusCode, 'statusCode', 401)
-            .having((e) => e.code, 'code', 'UNAUTHORIZED')),
-      );
-    });
-  });
-
-  group('UserRepository.updateProfile', () {
-    test('unwraps envelope on patch response', () async {
-      when(() => provider.updateProfile(
-            name: any(named: 'name'),
-            email: any(named: 'email'),
-          )).thenAnswer(
-        (_) async => _response(
-          _envelope({..._userPayload(), 'name': 'Alice Updated'}),
+  UserRepository repository(Map<String, Object?> answer) => UserRepository(
+        fakeApi(
+          (_) async => json(answer),
+          session: Session(token: () => 'tok-1'),
+          requests: requests,
         ),
       );
 
-      final user = await repo.updateProfile(name: 'Alice Updated');
+  test('getMe reads the signed-in user with the session token', () async {
+    final user = await repository(userJson()).getMe();
 
-      expect(user.name, 'Alice Updated');
-    });
+    expect(requests.single.url.path, '/api/v1/users/me');
+    expect(requests.single.headers['Authorization'], 'Bearer tok-1');
+    expect(user.displayName, 'Ada');
+    expect(user.role, Role.user);
+  });
+
+  test('updateDisplayName patches the display name', () async {
+    final user = await repository(userJson(displayName: 'Ada L.'))
+        .updateDisplayName('Ada L.');
+
+    expect(requests.single.method, 'PATCH');
+    expect(jsonDecode(requests.single.body), {'display_name': 'Ada L.'});
+    expect(user.displayName, 'Ada L.');
+  });
+
+  test('uploadAvatar puts the image bytes with their type', () async {
+    await repository(userJson(avatarUrl: '/api/v1/avatars/a.png'))
+        .uploadAvatar([1, 2, 3], 'image/png');
+
+    final request = requests.single;
+    expect(request.method, 'PUT');
+    expect(request.url.path, '/api/v1/users/me/avatar');
+    expect(request.headers['Content-Type'], 'image/png');
+    expect(request.bodyBytes, [1, 2, 3]);
+  });
+
+  test('avatarUri resolves the API\'s path on its origin', () {
+    final repo = repository(userJson());
+    final withAvatar =
+        UserResponse.fromJson(userJson(avatarUrl: '/api/v1/avatars/a.png'));
+
+    expect(repo.avatarUri(withAvatar).toString(),
+        '$apiOrigin/api/v1/avatars/a.png');
+    expect(repo.avatarUri(testUser()), isNull);
   });
 }

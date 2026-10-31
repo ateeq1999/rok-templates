@@ -14,10 +14,15 @@ final class ProfileLoading extends ProfileState {
 
 final class ProfileLoaded extends ProfileState {
   const ProfileLoaded(this.user);
-  final User user;
+  final UserResponse user;
 }
 
 final class ProfileFailure extends ProfileState {
   const ProfileFailure(this.message);
   final String message;
+}
+
+/// A new verification link is on its way.
+final class ProfileVerificationSent extends ProfileState {
+  const ProfileVerificationSent();
 }

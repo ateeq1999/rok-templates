@@ -13,6 +13,11 @@ one API contract (workspace ADRs 0027 and 0031).
   root workspace member); run it with `cargo run -p desktop` while
   `apps/api` runs, check it with `cargo test -p desktop`. Its business
   logic (`src/features/<f>/bloc/`) stays free of GPUI (`clippy.toml`).
+- `apps/mobile/` — the mobile app (Flutter, package `mobile`); its checks
+  are `flutter analyze` and `flutter test`. It calls the API only through
+  the generated `clients/dart` (`package:api_client`): never add HTTP code
+  or JSON models by hand; a missing call means a change to `apps/api` and
+  `rok gen`.
 - `clients/` — generated Clients for the API's contract; do not edit a
   generated Client by hand.
 - `rok.toml` names the Apps; `rok gen` from the root regenerates the

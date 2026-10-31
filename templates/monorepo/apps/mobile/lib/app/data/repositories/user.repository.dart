@@ -1,74 +1,36 @@
-import 'package:dio/dio.dart';
+import 'dart:typed_data';
 
-import '../models/user.model.dart';
-import '../providers/user.provider.dart';
-import '../../core/errors/app_exception.dart';
-import '../../core/utils/response_parser.dart';
+import 'package:api_client/api_client.dart';
 
+/// The signed-in user's profile, through the generated client's `users`
+/// and `avatars` operations. Every failure is the client's [ApiException].
 class UserRepository {
-  UserRepository(this._provider);
+  UserRepository(this._api);
 
-  final UserProvider _provider;
+  final ApiClient _api;
 
-  Future<User> getMe() async {
-    try {
-      final response = await _provider.getMe();
-      return User.fromJson(unwrapEnvelope(response.data));
-    } on DioException catch (e) {
-      throw ApiException.fromDioError(e);
-    }
-  }
+  Future<UserResponse> getMe() => _api.users.me();
 
-  Future<User> updateProfile({String? name, String? email}) async {
-    try {
-      final response = await _provider.updateProfile(name: name, email: email);
-      return User.fromJson(unwrapEnvelope(response.data));
-    } on DioException catch (e) {
-      throw ApiException.fromDioError(e);
-    }
-  }
+  /// Sets the display name; `null` clears it.
+  Future<UserResponse> updateDisplayName(String? displayName) =>
+      _api.users.updateMe(
+        UpdateProfileDto(displayName: Nullable(displayName)),
+      );
 
-  Future<User> uploadAvatar(String filePath) async {
-    try {
-      final response = await _provider.uploadAvatar(filePath);
-      return User.fromJson(unwrapEnvelope(response.data));
-    } on DioException catch (e) {
-      throw ApiException.fromDioError(e);
-    }
-  }
+  /// Makes `bytes` (a JPEG, PNG or WebP image, its type `contentType`)
+  /// the profile photo.
+  Future<UserResponse> uploadAvatar(List<int> bytes, String contentType) =>
+      _api.avatars.upload(
+        Bytes(Uint8List.fromList(bytes), contentType: contentType),
+      );
 
-  Future<void> deleteAvatar() async {
-    try {
-      await _provider.deleteAvatar();
-    } on DioException catch (e) {
-      throw ApiException.fromDioError(e);
-    }
-  }
+  Future<UserResponse> deleteAvatar() => _api.avatars.remove();
 
-  Future<void> deleteAccount({String? password}) async {
-    try {
-      await _provider.deleteAccount(password: password);
-    } on DioException catch (e) {
-      throw ApiException.fromDioError(e);
-    }
-  }
-
-  Future<void> registerDeviceToken({
-    required String token,
-    required String platform,
-  }) async {
-    try {
-      await _provider.registerDeviceToken(token: token, platform: platform);
-    } on DioException catch (e) {
-      throw ApiException.fromDioError(e);
-    }
-  }
-
-  Future<void> deleteDeviceToken({required String tokenId}) async {
-    try {
-      await _provider.deleteDeviceToken(tokenId: tokenId);
-    } on DioException catch (e) {
-      throw ApiException.fromDioError(e);
-    }
-  }
+  /// The profile photo's URL on the API, or `null` without one: the API
+  /// answers it as a path on its origin.
+  Uri? avatarUri(UserResponse user) => switch (user.avatarUrl) {
+        final String path when path.startsWith('/') => _api.url(path),
+        final String url => Uri.tryParse(url),
+        null => null,
+      };
 }

@@ -1,13 +1,14 @@
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:mobile/app/data/models/user.model.dart';
 import 'package:mobile/app/modules/auth/auth_bloc.dart';
 import 'package:mobile/app/modules/auth/sign_in/sign_in_cubit.dart';
+import 'package:mobile/app/modules/auth/two_factor/two_factor_cubit.dart';
 import 'package:mobile/app/data/repositories/auth.repository.dart';
-import 'package:mobile/app/data/models/auth_response.model.dart';
 import 'package:mobile/app/services/auth_service.dart';
 import 'package:mobile/app/routes/app_routes.dart';
+
+import '../support/api.dart';
 
 class MockAuthService extends Mock implements AuthService {
   @override
@@ -16,13 +17,7 @@ class MockAuthService extends Mock implements AuthService {
 
 class MockAuthRepository extends Mock implements AuthRepository {}
 
-final _testUser = User(
-  id: 'user-1',
-  email: 'test@example.com',
-  name: 'Test User',
-  emailVerified: true,
-  createdAt: DateTime(2024),
-);
+final _testUser = testUser();
 
 void main() {
   setUpAll(() {
@@ -97,7 +92,7 @@ void main() {
               password: any(named: 'password'),
             )).thenAnswer(
           (_) async =>
-              AuthResponse(token: 'new-token', user: _testUser),
+              SignedIn(token: 'new-token', user: _testUser),
         );
       },
       act: (cubit) =>
@@ -106,7 +101,7 @@ void main() {
       verify: (cubit) {
         final state = cubit.state as SignInSuccess;
         expect(state.token, equals('new-token'));
-        expect(state.user.email, equals('test@example.com'));
+        expect(state.user.email, equals('ada@example.com'));
       },
     );
 
@@ -131,6 +126,51 @@ void main() {
       act: (cubit) =>
           cubit.signIn(email: 'test@example.com', password: 'password'),
       expect: () => <SignInState>[],
+    );
+
+    blocTest<SignInCubit, SignInState>(
+      'asks for the second step when the account has two-factor on',
+      build: () => SignInCubit(authRepository: mockRepository),
+      setUp: () {
+        when(() => mockRepository.signIn(
+              email: any(named: 'email'),
+              password: any(named: 'password'),
+            )).thenAnswer((_) async => const TwoFactorRequired('pending-1'));
+      },
+      act: (cubit) =>
+          cubit.signIn(email: 'ada@example.com', password: 'password123'),
+      expect: () => [
+        isA<SignInLoading>(),
+        isA<SignInTwoFactorRequired>()
+            .having((s) => s.pendingToken, 'pendingToken', 'pending-1'),
+      ],
+    );
+  });
+
+  group('TwoFactorCubit', () {
+    late MockAuthRepository mockRepository;
+
+    setUp(() => mockRepository = MockAuthRepository());
+
+    blocTest<TwoFactorCubit, TwoFactorState>(
+      'verifies the code with the pending token and signs in',
+      build: () => TwoFactorCubit(
+        authRepository: mockRepository,
+        pendingToken: 'pending-1',
+      ),
+      setUp: () {
+        when(() => mockRepository.verifyTwoFactor(
+              pendingToken: 'pending-1',
+              code: '123456',
+            )).thenAnswer(
+          (_) async => SignedIn(user: _testUser, token: 'tok-2'),
+        );
+      },
+      act: (cubit) => cubit.verify(code: '123456'),
+      expect: () => [
+        isA<TwoFactorLoading>(),
+        isA<TwoFactorSuccess>().having((s) => s.token, 'token', 'tok-2'),
+      ],
     );
   });
 

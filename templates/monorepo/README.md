@@ -12,6 +12,10 @@ contract (workspace ADRs 0027 and 0031). The Apps `rok sqlc init
 - `apps/desktop/` — the desktop app: rok-ui's bloc-http starter (GPUI), a
   member of the root workspace. It talks to `apps/api` through its own
   HTTP layer today; its README is its reference.
+- `apps/mobile/` — the mobile app: Flutter (`flutter_bloc`, `go_router`).
+  It talks to `apps/api` through the generated `clients/dart`; what the API
+  does not serve yet (organizations, magic link, admin, deleting the
+  account, push notifications) is not in it. Its README is its reference.
 - `clients/ts/` — the TypeScript Client for the API's contract, generated
   from `apps/api/openapi.json`. Its files are rok's: never edit them.
 - `clients/dart/` — the Dart Client (the pub package `api_client`, for a
@@ -86,3 +90,19 @@ cargo run -p desktop
 It calls the API at `http://127.0.0.1:8080`; `ROK_API_URL` points it
 elsewhere. `cargo test -p desktop` is its check. On Linux, GPUI needs its
 system libraries first (`apps/desktop/README.md` lists them).
+
+## Running the mobile app
+
+You need Flutter. With the API running, from `apps/mobile`:
+
+```sh
+flutter pub get
+flutter run
+```
+
+It calls the API at `http://127.0.0.1:8080` (`http://10.0.2.2:8080` from
+an Android emulator); `--dart-define=API_URL=...`, or a `.env` passed with
+`--dart-define-from-file=.env`, points it elsewhere (see
+`apps/mobile/.env.example`). `flutter analyze` and `flutter test` are its
+checks. Firebase ships as a placeholder: `apps/mobile/docs/push-notifications.md`
+makes it real.

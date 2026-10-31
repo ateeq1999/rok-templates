@@ -1,152 +1,133 @@
-import 'package:dio/dio.dart';
+import 'package:api_client/api_client.dart';
 
-import '../models/auth_response.model.dart';
-import '../providers/auth.provider.dart';
-import '../../core/errors/app_exception.dart';
+import '../../services/auth_service.dart';
 
+/// What signing in answered: a session, or the second step two-factor
+/// sign-in asks for.
+sealed class SignInResult {
+  const SignInResult();
+}
+
+/// Signed in: the session is saved and [user] is who it belongs to.
+final class SignedIn extends SignInResult {
+  const SignedIn({required this.user, required this.token});
+  final UserResponse user;
+  final String token;
+}
+
+/// The account has two-factor on: [pendingToken] goes with the code to
+/// [AuthRepository.verifyTwoFactor].
+final class TwoFactorRequired extends SignInResult {
+  const TwoFactorRequired(this.pendingToken);
+  final String pendingToken;
+}
+
+/// The account flows, through the generated client's `auth` operations.
+/// Every failure is the client's [ApiException].
 class AuthRepository {
-  AuthRepository(this._provider);
+  AuthRepository(this._api, this._session);
 
-  final AuthProvider _provider;
+  final ApiClient _api;
+  final AuthService _session;
 
-  Future<AuthResponse> signIn({
+  /// The two-factor calls are secured, but their `401` is a wrong code or
+  /// password, not an expired session.
+  static const _keepSession = RequestOptions(keepSession: true);
+
+  Future<SignInResult> signIn({
     required String email,
     required String password,
   }) async {
+    final answer = await _api.auth.login(
+      CredentialsDto(email: email, password: password),
+    );
+    return switch (answer) {
+      TokenResponse(:final accessToken) => _startSession(accessToken),
+      LoginResponsePendingToken(:final pendingToken) =>
+        TwoFactorRequired(pendingToken),
+    };
+  }
+
+  /// A two-factor sign-in's second step: the authenticator's `code`.
+  Future<SignedIn> verifyTwoFactor({
+    required String pendingToken,
+    required String code,
+  }) async {
+    final session = await _api.auth.verify2fa(
+      VerifyTotpDto(code: code, pendingToken: pendingToken),
+    );
+    return _startSession(session.accessToken);
+  }
+
+  /// Saves `token` as the session, then reads whose it is.
+  Future<SignedIn> _startSession(String token) async {
+    await _session.saveToken(token);
     try {
-      final response = await _provider.signIn(email: email, password: password);
-      return AuthResponse.fromJson(response.data as Map<String, dynamic>);
-    } on DioException catch (e) {
-      throw ApiException.fromDioError(e);
+      final user = await _api.auth.me();
+      await _session.saveUser(user);
+      return SignedIn(user: user, token: token);
+    } on Object {
+      await _session.signOut();
+      rethrow;
     }
   }
 
-  Future<AuthResponse> signUp({
+  /// A new account; the API mails a link to verify its email before it
+  /// signs in.
+  Future<UserResponse> signUp({
     required String email,
     required String password,
-    required String name,
-  }) async {
-    try {
-      final response =
-          await _provider.signUp(email: email, password: password, name: name);
-      return AuthResponse.fromJson(response.data as Map<String, dynamic>);
-    } on DioException catch (e) {
-      throw ApiException.fromDioError(e);
-    }
-  }
+  }) =>
+      _api.auth.register(CredentialsDto(email: email, password: password));
 
-  Future<void> signOut() async {
-    try {
-      await _provider.signOut();
-    } on DioException catch (e) {
-      throw ApiException.fromDioError(e);
-    }
-  }
+  /// The API has no sign-out call: the token is forgotten here.
+  Future<void> signOut() => _session.signOut();
 
-  Future<void> forgotPassword({required String email}) async {
-    try {
-      await _provider.forgotPassword(email: email);
-    } on DioException catch (e) {
-      throw ApiException.fromDioError(e);
-    }
-  }
+  Future<void> forgotPassword({required String email}) =>
+      _api.auth.forgot(ForgotPasswordDto(email: email));
 
   Future<void> resetPassword({
     required String token,
     required String password,
-  }) async {
-    try {
-      await _provider.resetPassword(token: token, password: password);
-    } on DioException catch (e) {
-      throw ApiException.fromDioError(e);
-    }
-  }
+  }) =>
+      _api.auth.reset(ResetPasswordDto(newPassword: password, token: token));
 
+  /// Changes the password. The API signs every session out with it, this
+  /// one too.
   Future<void> changePassword({
     required String currentPassword,
     required String newPassword,
   }) async {
-    try {
-      await _provider.changePassword(
+    await _api.auth.change(
+      ChangePasswordDto(
         currentPassword: currentPassword,
         newPassword: newPassword,
+      ),
+    );
+    await _session.signOut();
+  }
+
+  Future<void> verifyEmail({required String token}) =>
+      _api.auth.verifyEmail(VerifyEmailDto(token: token));
+
+  Future<void> sendVerificationEmail() => _api.auth.resend();
+
+  /// A new authenticator secret, not enforced until [enableTwoFactor].
+  Future<TotpSetupResponse> setUpTwoFactor() =>
+      _api.auth.setup(options: _keepSession);
+
+  /// Turns two-factor on with the first `code`; the recovery codes.
+  Future<List<String>> enableTwoFactor({required String code}) async {
+    final enabled = await _api.auth.enable(
+      EnableTotpDto(code: code),
+      options: _keepSession,
+    );
+    return enabled.recoveryCodes;
+  }
+
+  Future<void> disableTwoFactor({required String currentPassword}) =>
+      _api.auth.disable(
+        DisableTotpDto(currentPassword: currentPassword),
+        options: _keepSession,
       );
-    } on DioException catch (e) {
-      throw ApiException.fromDioError(e);
-    }
-  }
-
-  Future<void> verifyEmail({required String token}) async {
-    try {
-      await _provider.verifyEmail(token: token);
-    } on DioException catch (e) {
-      throw ApiException.fromDioError(e);
-    }
-  }
-
-  Future<void> sendVerificationEmail() async {
-    try {
-      await _provider.sendVerificationEmail();
-    } on DioException catch (e) {
-      throw ApiException.fromDioError(e);
-    }
-  }
-
-  Future<AuthResponse> verifyTwoFactor({required String code}) async {
-    try {
-      final response = await _provider.verifyTwoFactor(code: code);
-      return AuthResponse.fromJson(response.data as Map<String, dynamic>);
-    } on DioException catch (e) {
-      throw ApiException.fromDioError(e);
-    }
-  }
-
-  /// Returns the TOTP URI (`otpauth://...`) and base64 QR code PNG.
-  /// BUG-R2 fix: API returns `{qrCode, uri}` — was wrongly reading `totpUri`.
-  Future<({String uri, String qrCode})> enableTwoFactor() async {
-    try {
-      final response = await _provider.enableTwoFactor();
-      final data = response.data as Map<String, dynamic>;
-      return (
-        uri: data['uri'] as String,
-        qrCode: data['qrCode'] as String? ?? '',
-      );
-    } on DioException catch (e) {
-      throw ApiException.fromDioError(e);
-    }
-  }
-
-  /// Confirm 2FA setup by verifying the first TOTP code from the authenticator.
-  Future<void> verifyTwoFactorSetup({required String code}) async {
-    try {
-      await _provider.verifyTwoFactorSetup(code: code);
-    } on DioException catch (e) {
-      throw ApiException.fromDioError(e);
-    }
-  }
-
-  Future<void> disableTwoFactor({required String code}) async {
-    try {
-      await _provider.disableTwoFactor(code: code);
-    } on DioException catch (e) {
-      throw ApiException.fromDioError(e);
-    }
-  }
-
-  Future<void> sendMagicLink({required String email}) async {
-    try {
-      await _provider.sendMagicLink(email: email);
-    } on DioException catch (e) {
-      throw ApiException.fromDioError(e);
-    }
-  }
-
-  Future<AuthResponse> verifyMagicLink({required String token}) async {
-    try {
-      final response = await _provider.verifyMagicLink(token: token);
-      return AuthResponse.fromJson(response.data as Map<String, dynamic>);
-    } on DioException catch (e) {
-      throw ApiException.fromDioError(e);
-    }
-  }
 }

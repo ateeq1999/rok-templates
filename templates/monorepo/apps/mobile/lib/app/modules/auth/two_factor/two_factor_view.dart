@@ -30,10 +30,10 @@ class _TwoFactorViewState extends State<TwoFactorView>
   Widget build(BuildContext context) {
     return BlocConsumer<TwoFactorCubit, TwoFactorState>(
       listener: (context, state) {
-        if (state is TwoFactorSuccess && state.token != null) {
+        if (state is TwoFactorSuccess) {
           Clipboard.setData(const ClipboardData(text: ''));
           context.read<AuthBloc>().add(
-                AuthUserChanged(user: state.user, token: state.token!),
+                AuthUserChanged(user: state.user, token: state.token),
               );
           context.go(AppRoutes.home);
         } else if (state is TwoFactorFailure) {

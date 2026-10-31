@@ -12,16 +12,17 @@ final class SignInLoading extends SignInState {
   const SignInLoading();
 }
 
+/// Signed in: the session is saved.
 final class SignInSuccess extends SignInState {
-  const SignInSuccess({this.token, required this.user});
-  // null when email verification is required before first sign-in
-  final String? token;
-  final User user;
+  const SignInSuccess({required this.token, required this.user});
+  final String token;
+  final UserResponse user;
 }
 
-/// API indicated 2FA is required to complete sign-in.
+/// The account has two-factor on: the code goes with [pendingToken].
 final class SignInTwoFactorRequired extends SignInState {
-  const SignInTwoFactorRequired();
+  const SignInTwoFactorRequired(this.pendingToken);
+  final String pendingToken;
 }
 
 final class SignInFailure extends SignInState {

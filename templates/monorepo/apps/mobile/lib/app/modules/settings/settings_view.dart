@@ -17,20 +17,17 @@ class SettingsView extends StatelessWidget {
     return BlocConsumer<SettingsCubit, SettingsState>(
       listener: (context, state) {
         if (state is SettingsPasswordChanged) {
-          SnackbarHelper.showSuccess(context, 'Password changed successfully');
-          context.read<SettingsCubit>().resetToInitial();
-        } else if (state is SettingsTwoFactorEnabled) {
-          _showTwoFactorQrDialog(context, state.uri, state.qrCode);
-        } else if (state is SettingsTwoFactorVerified) {
           SnackbarHelper.showSuccess(
-              context, 'Two-factor authentication enabled');
+              context, 'Password changed. Sign in with the new one.');
+        } else if (state is SettingsTwoFactorSetUp) {
+          _showTwoFactorQrDialog(context, state.uri, state.secret);
+        } else if (state is SettingsTwoFactorEnabled) {
+          _showRecoveryCodesDialog(context, state.recoveryCodes);
           context.read<SettingsCubit>().resetToInitial();
         } else if (state is SettingsTwoFactorDisabled) {
           SnackbarHelper.showSuccess(
               context, 'Two-factor authentication disabled');
           context.read<SettingsCubit>().resetToInitial();
-        } else if (state is SettingsAccountDeleted) {
-          SnackbarHelper.showSuccess(context, 'Account deleted');
         } else if (state is SettingsFailure) {
           SnackbarHelper.showError(context, state.message);
           context.read<SettingsCubit>().resetToInitial();
@@ -43,7 +40,7 @@ class SettingsView extends StatelessWidget {
         // FL7.6: read twoFactorEnabled from AuthBloc user
         final authState = context.watch<AuthBloc>().state;
         final twoFactorEnabled = authState is AuthAuthenticated
-            ? authState.user.twoFactorEnabled
+            ? authState.user.totpEnabled
             : false;
 
         return Scaffold(
@@ -65,7 +62,7 @@ class SettingsView extends StatelessWidget {
                         title: const Text('Enable Two-Factor Auth'),
                         subtitle: const Text('Add TOTP authenticator app'),
                         trailing: const Icon(Icons.chevron_right),
-                        onTap: cubit.enableTwoFactor,
+                        onTap: cubit.setUpTwoFactor,
                       ),
                     if (flags.twoFactor && twoFactorEnabled)
                       ListTile(
@@ -96,18 +93,6 @@ class SettingsView extends StatelessWidget {
                       title: const Text('Sign Out'),
                       onTap: cubit.signOut,
                     ),
-                    if (flags.deleteAccount) ...[
-                      const Divider(),
-                      ListTile(
-                        leading: const Icon(Icons.delete_forever,
-                            color: Colors.red),
-                        title: const Text('Delete Account',
-                            style: TextStyle(color: Colors.red)),
-                        subtitle: const Text(
-                            'Permanently remove your account and data'),
-                        onTap: () => _showDeleteAccountDialog(context, cubit),
-                      ),
-                    ],
                   ],
                 ),
         );
@@ -116,7 +101,7 @@ class SettingsView extends StatelessWidget {
   }
 
   void _showTwoFactorQrDialog(
-      BuildContext context, String uri, String qrCode) {
+      BuildContext context, String uri, String secret) {
     final codeController = TextEditingController();
     final cubit = context.read<SettingsCubit>();
     showDialog<void>(
@@ -132,7 +117,7 @@ class SettingsView extends StatelessWidget {
               '1. Open your authenticator app (Google Authenticator, Authy, etc.).',
             ),
             const SizedBox(height: 8),
-            const Text('2. Scan this URI or enter it manually:'),
+            const Text('2. Add this account (copy the URI) or type the secret in:'),
             const SizedBox(height: 8),
             Container(
               padding: const EdgeInsets.all(8),
@@ -143,8 +128,8 @@ class SettingsView extends StatelessWidget {
               child: Row(
                 children: [
                   Expanded(
-                    child: SelectableText(uri,
-                        style: const TextStyle(fontSize: 10)),
+                    child: SelectableText(secret,
+                        style: const TextStyle(fontSize: 12)),
                   ),
                   IconButton(
                     icon: const Icon(Icons.copy, size: 16),
@@ -185,7 +170,7 @@ class SettingsView extends StatelessWidget {
               final code = codeController.text.trim();
               if (code.length == 6) {
                 Navigator.of(dialogContext).pop();
-                cubit.verifyTwoFactorSetup(code: code);
+                cubit.enableTwoFactor(code: code);
               }
             },
             child: const Text('Confirm'),
@@ -197,21 +182,17 @@ class SettingsView extends StatelessWidget {
 
   void _showDisableTwoFactorDialog(
       BuildContext context, SettingsCubit cubit) {
-    final codeController = TextEditingController();
+    final passwordController = TextEditingController();
     showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Disable Two-Factor Auth'),
         content: TextField(
-          controller: codeController,
-          keyboardType: TextInputType.number,
-          maxLength: 6,
-          textAlign: TextAlign.center,
-          inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          controller: passwordController,
+          obscureText: true,
           decoration: const InputDecoration(
-            labelText: '6-digit TOTP code',
+            labelText: 'Current password',
             border: OutlineInputBorder(),
-            counterText: '',
           ),
         ),
         actions: [
@@ -222,10 +203,10 @@ class SettingsView extends StatelessWidget {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () {
-              final code = codeController.text.trim();
-              if (code.isNotEmpty) {
+              final password = passwordController.text;
+              if (password.isNotEmpty) {
                 Navigator.of(dialogContext).pop();
-                cubit.disableTwoFactor(code: code);
+                cubit.disableTwoFactor(currentPassword: password);
               }
             },
             child: const Text('Disable',
@@ -236,61 +217,40 @@ class SettingsView extends StatelessWidget {
     );
   }
 
-  void _showDeleteAccountDialog(BuildContext context, SettingsCubit cubit) {
-    final passwordController = TextEditingController();
-    final confirmController = TextEditingController();
+  /// Two-factor is on: the recovery codes, shown once.
+  void _showRecoveryCodesDialog(
+      BuildContext context, List<String> recoveryCodes) {
+    final codes = recoveryCodes.join('\n');
     showDialog<void>(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setState) => AlertDialog(
-          title: const Text('Delete Account',
-              style: TextStyle(color: Colors.red)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Text(
-                'This action is permanent. Your account, profile data, and '
-                'organizations you own will be deleted.',
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: passwordController,
-                obscureText: true,
-                onChanged: (_) => setState(() {}),
-                decoration: const InputDecoration(
-                  labelText: 'Current password',
-                ),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: confirmController,
-                onChanged: (_) => setState(() {}),
-                decoration: const InputDecoration(
-                  labelText: 'Type DELETE to confirm',
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Two-factor authentication enabled'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Keep these recovery codes somewhere safe; they are not '
+              'shown again.',
             ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              onPressed: confirmController.text.trim() == 'DELETE' &&
-                      passwordController.text.isNotEmpty
-                  ? () {
-                      Navigator.of(dialogContext).pop();
-                      cubit.deleteAccount(password: passwordController.text);
-                    }
-                  : null,
-              child: const Text('Delete Forever',
-                  style: TextStyle(color: Colors.white)),
+            const SizedBox(height: 12),
+            SelectableText(
+              codes,
+              style: const TextStyle(fontFamily: 'monospace'),
             ),
           ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Clipboard.setData(ClipboardData(text: codes)),
+            child: const Text('Copy'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Done'),
+          ),
+        ],
       ),
     );
   }

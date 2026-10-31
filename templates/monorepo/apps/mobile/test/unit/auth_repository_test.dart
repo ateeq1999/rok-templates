@@ -1,120 +1,170 @@
+import 'dart:convert';
+
+import 'package:api_client/api_client.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mobile/app/data/models/auth_response.model.dart';
-import 'package:mobile/app/data/models/user.model.dart';
+import 'package:http/http.dart' as http;
+
+import 'package:mobile/app/core/errors/field_errors.dart';
+import 'package:mobile/app/data/repositories/auth.repository.dart';
+import 'package:mobile/app/services/auth_service.dart';
+
+import '../support/api.dart';
 
 void main() {
-  group('AuthResponse model', () {
-    test('fromJson creates correct AuthResponse', () {
-      final json = {
-        'token': 'jwt-token-123',
-        'user': {
-          'id': 'user-123',
-          'email': 'test@example.com',
-          'name': 'Test User',
-          'image': null,
-          'emailVerified': true,
-          'createdAt': '2024-01-01T00:00:00.000',
-        },
-      };
+  late AuthService session;
+  late Requests requests;
 
-      final authResponse = AuthResponse.fromJson(json);
+  setUp(() {
+    FlutterSecureStorage.setMockInitialValues({});
+    session = AuthService();
+    requests = [];
+  });
 
-      expect(authResponse.token, equals('jwt-token-123'));
-      expect(authResponse.user, isA<User>());
-      expect(authResponse.user.email, equals('test@example.com'));
-      expect(authResponse.user.name, equals('Test User'));
-    });
+  tearDown(() => session.dispose());
 
-    test('toJson creates correct JSON', () {
-      final user = User(
-        id: 'user-123',
-        email: 'test@example.com',
-        name: 'Test User',
-        image: null,
-        emailVerified: true,
-        createdAt: DateTime(2024),
+  AuthRepository repository(
+    Future<http.Response> Function(http.Request request) answer,
+  ) =>
+      AuthRepository(
+        fakeApi(answer, session: session, requests: requests),
+        session,
       );
 
-      final authResponse = AuthResponse(token: 'jwt-token-123', user: user);
-      final json = authResponse.toJson();
+  group('AuthRepository.signIn', () {
+    test('a session answer is saved, sent to /auth/me, and signs in',
+        () async {
+      final repo = repository((request) async => switch (request.url.path) {
+            '/api/v1/auth/login' => json({
+                'access_token': 'tok-1',
+                'expires_in': 900,
+                'token_type': 'Bearer',
+              }),
+            '/api/v1/auth/me' => json(userJson()),
+            _ => json(null, status: 404),
+          });
 
-      expect(json['token'], equals('jwt-token-123'));
-      expect(json['user'], isA<Map<String, dynamic>>());
+      final result = await repo.signIn(email: 'ada@example.com', password: 'pw');
+
+      expect(result, isA<SignedIn>());
+      final signedIn = result as SignedIn;
+      expect(signedIn.token, 'tok-1');
+      expect(signedIn.user.email, 'ada@example.com');
+      expect(await session.getToken(), 'tok-1');
+      expect((await session.getUser())?.displayName, 'Ada');
+
+      final login = requests.first;
+      expect(login.method, 'POST');
+      expect(jsonDecode(login.body),
+          {'email': 'ada@example.com', 'password': 'pw'});
+      expect(login.headers['Authorization'], isNull);
+      expect(requests.last.url.path, '/api/v1/auth/me');
+      expect(requests.last.headers['Authorization'], 'Bearer tok-1');
+    });
+
+    test('an account with two-factor on answers the second step', () async {
+      final repo = repository((_) async => json({
+            'pending_token': 'pending-1',
+            'requires_totp': true,
+          }));
+
+      final result = await repo.signIn(email: 'ada@example.com', password: 'pw');
+
+      expect(result, isA<TwoFactorRequired>());
+      expect((result as TwoFactorRequired).pendingToken, 'pending-1');
+      expect(await session.getToken(), isNull);
+    });
+
+    test('wrong credentials are the API\'s 401, and no session starts',
+        () async {
+      final repo = repository((_) async =>
+          error(401, 'UNAUTHORIZED', 'invalid email or password'));
+
+      await expectLater(
+        repo.signIn(email: 'ada@example.com', password: 'nope'),
+        throwsA(isA<ApiException>()
+            .having((e) => e.status, 'status', 401)
+            .having((e) => e.message, 'message', 'invalid email or password')),
+      );
+      expect(await session.getToken(), isNull);
+    });
+
+    test('a 422 names the fields it rejected', () async {
+      final repo = repository((_) async => error(
+            422,
+            'VALIDATION_FAILED',
+            'the request is invalid',
+            details: {
+              'email': [
+                {'code': 'email', 'message': 'not an email address'},
+              ],
+            },
+          ));
+
+      await expectLater(
+        repo.signIn(email: 'bad', password: 'pw'),
+        throwsA(isA<ApiException>().having(
+          (e) => e.fieldErrors,
+          'fieldErrors',
+          {'email': 'not an email address'},
+        )),
+      );
     });
   });
 
-  group('User model', () {
-    test('fromJson creates correct User', () {
-      final json = {
-        'id': 'user-123',
-        'email': 'test@example.com',
-        'name': 'Test User',
-        'image': 'https://example.com/avatar.jpg',
-        'emailVerified': true,
-        'createdAt': '2024-01-01T00:00:00.000',
-      };
+  test('verifyTwoFactor sends the code with the pending token and signs in',
+      () async {
+    final repo = repository((request) async => switch (request.url.path) {
+          '/api/v1/auth/2fa/verify' => json({
+              'access_token': 'tok-2',
+              'expires_in': 900,
+              'token_type': 'Bearer',
+            }),
+          _ => json(userJson(totpEnabled: true)),
+        });
 
-      final user = User.fromJson(json);
+    final signedIn =
+        await repo.verifyTwoFactor(pendingToken: 'pending-1', code: '123456');
 
-      expect(user.id, equals('user-123'));
-      expect(user.email, equals('test@example.com'));
-      expect(user.name, equals('Test User'));
-      expect(user.image, equals('https://example.com/avatar.jpg'));
-      expect(user.emailVerified, isTrue);
-      expect(user.createdAt, equals(DateTime(2024)));
-    });
+    expect(jsonDecode(requests.first.body),
+        {'code': '123456', 'pending_token': 'pending-1'});
+    expect(signedIn.user.totpEnabled, isTrue);
+    expect(await session.getToken(), 'tok-2');
+  });
 
-    test('toJson serialises all fields', () {
-      final user = User(
-        id: 'user-123',
-        email: 'test@example.com',
-        name: 'Test User',
-        image: null,
-        emailVerified: false,
-        createdAt: DateTime(2024),
-      );
+  test('changing the password ends the session (the API ends them all)',
+      () async {
+    await session.saveToken('tok-1');
+    final repo =
+        repository((_) async => json({'message': 'password changed'}));
 
-      final json = user.toJson();
+    await repo.changePassword(currentPassword: 'old', newPassword: 'new-pw-1');
 
-      expect(json['id'], equals('user-123'));
-      expect(json['email'], equals('test@example.com'));
-      expect(json['name'], equals('Test User'));
-      expect(json['image'], isNull);
-      expect(json['emailVerified'], isFalse);
-    });
+    expect(jsonDecode(requests.single.body),
+        {'current_password': 'old', 'new_password': 'new-pw-1'});
+    expect(await session.getToken(), isNull);
+  });
 
-    test('copyWith creates new User with updated fields', () {
-      final user = User(
-        id: 'user-123',
-        email: 'test@example.com',
-        name: 'Original Name',
-        image: null,
-        emailVerified: false,
-        createdAt: DateTime(2024),
-      );
+  test('a wrong password to turn two-factor off keeps the session', () async {
+    await session.saveToken('tok-1');
+    final repo =
+        repository((_) async => error(401, 'UNAUTHORIZED', 'wrong password'));
 
-      final updated = user.copyWith(name: 'Updated Name');
+    await expectLater(
+      repo.disableTwoFactor(currentPassword: 'nope'),
+      throwsA(isA<ApiException>().having((e) => e.status, 'status', 401)),
+    );
+    expect(requests.single.headers['Authorization'], 'Bearer tok-1');
+    expect(await session.getToken(), 'tok-1');
+  });
 
-      expect(updated.id, equals('user-123'));
-      expect(updated.name, equals('Updated Name'));
-      expect(updated.email, equals('test@example.com'));
-    });
+  test('signing up registers an email and a password', () async {
+    final repo = repository((_) async =>
+        json(userJson(emailVerified: false), status: 201));
 
-    test('copyWith preserves fields not specified', () {
-      final user = User(
-        id: 'user-123',
-        email: 'test@example.com',
-        name: 'Name',
-        image: 'https://example.com/img.jpg',
-        emailVerified: true,
-        createdAt: DateTime(2024),
-      );
+    final user = await repo.signUp(email: 'ada@example.com', password: 'pw-12345');
 
-      final updated = user.copyWith(email: 'new@example.com');
-
-      expect(updated.name, equals('Name'));
-      expect(updated.image, equals('https://example.com/img.jpg'));
-      expect(updated.emailVerified, isTrue);
-    });
+    expect(requests.single.url.path, '/api/v1/auth/register');
+    expect(user.emailVerified, isFalse);
   });
 }

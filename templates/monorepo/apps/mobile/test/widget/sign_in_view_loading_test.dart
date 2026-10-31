@@ -24,15 +24,9 @@ class MockAuthService extends Mock implements AuthService {
 }
 
 const _testFlags = FeatureFlags(
-  magicLink: true,
   twoFactor: true,
-  organizations: true,
-  admin: true,
   signUp: true,
-  oauth: false,
-  notifications: true,
   themeCustomization: true,
-  deleteAccount: false,
 );
 
 Widget _buildSut({

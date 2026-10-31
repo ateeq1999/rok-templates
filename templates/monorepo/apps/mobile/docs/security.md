@@ -5,11 +5,11 @@ What this template does for you, what it doesn't, and what you need to decide be
 ## What's built in
 
 ### Token storage
-Access + refresh tokens live in `flutter_secure_storage` — Keychain on iOS, EncryptedSharedPreferences on Android. See [`lib/app/data/datasources/local/secure_storage.dart`](../lib/app/data/datasources/local/secure_storage.dart).
+The bearer token and the signed-in user live in `flutter_secure_storage` — Keychain on iOS, EncryptedSharedPreferences on Android. See [`lib/app/services/auth_service.dart`](../lib/app/services/auth_service.dart). The API has no refresh token: a `401` to the session's token signs out.
 
 ### Transport
-- `Dio` is configured with a bearer interceptor and a 401 refresh flow in [`lib/app/data/datasources/remote/dio_client.dart`](../lib/app/data/datasources/remote/dio_client.dart).
-- All requests go over HTTPS in production (enforced by the API, not the client).
+- Every call goes through the generated client (`clients/dart`), which sends the bearer token only to the operations the API's contract marks secured.
+- All requests go over HTTPS in production (an `https://` `API_URL`; enforced by the API, not the client).
 
 ### Screenshot / screen-recording block
 Sensitive screens mix in [`SecureScreenMixin`](../lib/app/core/utils/secure_screen.dart). On Android this sets `FLAG_SECURE` — the OS blocks screenshots, screen recording, and hides the window from the recent-apps preview.
@@ -40,19 +40,16 @@ flutter build ipa --release --obfuscate --split-debug-info=build/symbols
 Keep `build/symbols/` — you need it to symbolicate crash reports. Don't commit it.
 
 ### Certificate pinning
-Not enabled. If your threat model includes a hostile network (corporate MITM, public-WiFi attacker with a rogue CA), add pinning. `dio` supports this through a custom `HttpClientAdapter` — see the [dio docs](https://pub.dev/packages/dio#https). Pin the leaf or intermediate, rotate before it expires, and ship an override mechanism so an expired pin doesn't brick the app.
+Not enabled. If your threat model includes a hostile network (corporate MITM, public-WiFi attacker with a rogue CA), add pinning. The generated client takes an `http.Client` (`ApiClient(httpClient: ...)`): give it an `IOClient` over an `HttpClient` whose `SecurityContext` trusts only your certificate. Pin the leaf or intermediate, rotate before it expires, and ship an override mechanism so an expired pin doesn't brick the app.
 
-### `.env` in the release bundle
-`.env` is declared as a Flutter asset so `flutter_dotenv` can read it. On release builds it ships inside the APK/IPA — anyone with a decompiler can read it. **Never put server secrets in `.env`.** Put only public values there: API base URL, public Firebase config, public analytics keys. Anything that would hurt if leaked belongs in the backend or in a remote-config service.
+### Build-time settings in the release bundle
+`--dart-define` values (`API_URL`, the flags, whatever `.env` holds for `--dart-define-from-file`) are compiled into the App — anyone with a decompiler can read them. **Never put server secrets there.** Put only public values there: the API's URL, public analytics keys. Anything that would hurt if leaked belongs in the backend.
 
 ### Biometric lock
 Not implemented. If you want Face ID / fingerprint to gate app entry or sensitive actions, add [`local_auth`](https://pub.dev/packages/local_auth) and gate the relevant routes. Keep in mind biometric auth is a UX gate, not a cryptographic one — it doesn't encrypt data by itself.
 
 ### Jailbreak / root detection
 Not implemented. Most apps don't need it and the packages that do it are an arms race. Skip unless you have a specific compliance requirement.
-
-## Dependencies + CVE scanning
-Dependabot is configured in [`.github/dependabot.yml`](../.github/dependabot.yml) — pub weekly, GitHub Actions monthly. Review the PRs; don't auto-merge.
 
 ## Reporting
 If you find a security issue in this template, open a private advisory on GitHub rather than a public issue.
