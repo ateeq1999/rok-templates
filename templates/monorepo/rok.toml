@@ -20,3 +20,4 @@ export = ["cargo", "run", "--quiet", "-p", "axum-api", "--example", "openapi", "
 # are rok's (marked `@generated`): `rok gen` rewrites them, never edit them.
 [clients]
 ts = "clients/ts"
+dart = "clients/dart"
