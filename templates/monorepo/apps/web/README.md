@@ -2,6 +2,14 @@
 
 This is a template for a new TanStack Start project with React, TypeScript, and shadcn/ui.
 
+It is the web App of rok-data's monorepo template, and its home is the
+`rok-templates` crate
+([`crates/rok-templates/templates/monorepo/apps/web`](https://github.com/ateeq1999/rok-data/tree/main/crates/rok-templates/templates/monorepo/apps/web)
+in rok-data): the `tanstack-starter-axum` repository it was imported from
+is no longer maintained. [The monorepo
+guide](https://github.com/ateeq1999/rok-data/blob/main/crates/rok-templates/docs/guide/monorepo.md)
+describes the project around it.
+
 ## Adding components
 
 To add components to your app, run the following command:

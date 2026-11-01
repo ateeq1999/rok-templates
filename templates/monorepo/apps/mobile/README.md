@@ -8,6 +8,13 @@ models and the error type are generated, never hand-written here.
 
 State management is **`flutter_bloc`**; navigation is **`go_router`**.
 
+Its home is rok-data's `rok-templates` crate
+([`crates/rok-templates/templates/monorepo/apps/mobile`](https://github.com/ateeq1999/rok-data/tree/main/crates/rok-templates/templates/monorepo/apps/mobile)):
+the `Nestjs-Better-Auth-Flutter-Starter` repository it was imported from
+is no longer maintained. [The monorepo
+guide](https://github.com/ateeq1999/rok-data/blob/main/crates/rok-templates/docs/guide/monorepo.md)
+describes the project around it.
+
 ## Run it against the local API
 
 ```bash
@@ -93,4 +100,4 @@ Firebase configuration names one Firebase project, so the App ships
 placeholders (`android/app/google-services.json`,
 `ios/Runner/GoogleService-Info.plist`, project `your-firebase-project`)
 and does not start Firebase. [docs/push-notifications.md](docs/push-notifications.md)
-makes it real.
+points to the recipe that makes it real.

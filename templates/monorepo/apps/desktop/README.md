@@ -11,6 +11,14 @@ from `cargo rok-ui new desktop --template bloc --http` at rok-ui 0.9.1
   `routes` module.
 - `tests/features/` — each bloc's tests, against fake repositories.
 
+Its home is rok-data's `rok-templates` crate
+([`crates/rok-templates/templates/monorepo/apps/desktop`](https://github.com/ateeq1999/rok-data/tree/main/crates/rok-templates/templates/monorepo/apps/desktop));
+[the monorepo
+guide](https://github.com/ateeq1999/rok-data/blob/main/crates/rok-templates/docs/guide/monorepo.md)
+describes the project around it. Its providers are still the starter's
+own HTTP calls, which `apps/api` does not serve; moving them onto the
+generated `clients/rust` is the next step of workspace ADR 0031.
+
 ## Running it
 
 With `apps/api` running (see the monorepo's README), from the root:

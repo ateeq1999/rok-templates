@@ -1,6 +1,14 @@
-//! The project templates `rok sqlc init --template` copies: each directory
-//! of `templates/`, embedded in the crate by `build.rs` so `init` works
-//! from `cargo install`.
+//! The project templates `rok init --template` (and the legacy `rok sqlc
+//! init --template`) writes: each directory of `templates/`, embedded in
+//! the crate by `build.rs` so `init` works from `cargo install`.
+//!
+//! - `axum` and `actix`: a complete API on one web framework.
+//! - `monorepo`: one backend and three apps sharing one API contract
+//!   (workspace ADRs 0027 and 0031) — the axum API (`apps/api`), a web app
+//!   (`apps/web`, TanStack Start), a desktop app (`apps/desktop`, rok-ui)
+//!   and a mobile app (`apps/mobile`, Flutter) — and the TypeScript, Dart
+//!   and Rust clients the engine emits from the API's OpenAPI document
+//!   (`clients/`).
 //!
 //! The [`catalog`] owns the template names, their manifests and the
 //! destination paths a project gets their files at (workspace ADR 0027).

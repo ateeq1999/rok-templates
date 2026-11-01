@@ -109,4 +109,13 @@ an Android emulator); `--dart-define=API_URL=...`, or a `.env` passed with
 `--dart-define-from-file=.env`, points it elsewhere (see
 `apps/mobile/.env.example`). `flutter analyze` and `flutter test` are its
 checks. Firebase ships as a placeholder: `apps/mobile/docs/push-notifications.md`
-makes it real.
+points to the recipe that makes it real.
+
+## Where this comes from
+
+The template lives in rok-data's `rok-templates` crate
+(`crates/rok-templates/templates/monorepo/`), the only place its Apps are
+maintained. [The monorepo
+guide](https://github.com/ateeq1999/rok-data/blob/main/crates/rok-templates/docs/guide/monorepo.md)
+walks the whole project: the Apps, the contract, the Clients, the `rok
+gen` loop, and what the Apps leave out until the API serves it.

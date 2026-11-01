@@ -1,18 +1,28 @@
 # The templates' guide
 
-`rok sqlc init --template axum` (or `--template actix`) makes an API that
-is ready for production: accounts, uploads, background jobs, logs, traces,
+`rok init --template axum` (or `--template actix`) makes an API that is
+ready for production: accounts, uploads, background jobs, logs, traces,
 metrics, a security baseline, a Docker image, a local stack, CI and an AWS
-deployment. This guide is about what the templates ship and how you grow
-them; how rok-data-sqlc generates the API itself is
+deployment. `rok init --template monorepo` puts that axum API beside a
+web, a desktop and a mobile app, with the clients they call it through.
+This guide is about what the templates ship and how you grow them; how
+rok-data-sqlc generates the API itself is
 [the engine's guide](../../../rok-data-sqlc/docs/guide/index.md).
 
-Everything here works the same in both templates: the parts with no
-framework in them are the same file, byte for byte, in both
-(`tests/template_drift.rs` checks it). Each **Capability** is compiled in
-and inert until its environment variable turns it on (workspace ADR 0023).
+Everything about the API works the same in every template: the parts with
+no framework in them are the same file, byte for byte, in the actix and
+axum templates, and the monorepo's `apps/api` is the axum template file
+for file (`tests/template_drift.rs` checks both). Each **Capability** is
+compiled in and inert until its environment variable turns it on
+(workspace ADR 0023).
 
 ## Pages
+
+The templates:
+
+- [The monorepo template](monorepo.md): the api, web, desktop and mobile
+  Apps, the one contract, the TypeScript, Dart and Rust clients, the
+  `rok gen` loop, and what is hidden and why.
 
 What the API does:
 
@@ -43,3 +53,5 @@ templates; these pages add them to your project:
   replicas
 - [Signed outbound webhooks](recipes/webhooks.md), delivered as jobs
 - [Sign-in with OIDC](recipes/oidc.md) (an identity provider)
+- [Push notifications](recipes/push-notifications.md) with Firebase Cloud
+  Messaging, for the monorepo's mobile App
