@@ -6,7 +6,7 @@
 //!
 //! | Variable | Default | Setting |
 //! |---|---|---|
-//! | `DATABASE_URL` | required | the PostgreSQL URL |
+//! | `DATABASE_URL` | required | the database URL |
 //! | `APP_ROLE` | `all` | what this process runs: `all` (the API and the job worker), `web` (the API) or `worker` (the job worker and the schedule; `/health` only on `BIND_ADDR`) |
 //! | `BIND_ADDR` | `0.0.0.0:8080` | where the server listens |
 //! | `METRICS_ADDR` | unset | where `/metrics` (Prometheus) is served, apart from the API: `0.0.0.0:9090` in a container; unset, no metrics |

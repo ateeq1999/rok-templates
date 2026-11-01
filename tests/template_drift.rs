@@ -168,6 +168,33 @@ fn the_templates_share_their_framework_independent_files() -> Result<()> {
     Ok(())
 }
 
+/// The monorepo's api App is the axum template file for file (workspace
+/// ADR 0027): every file of `templates/axum-api` but its manifest and lock
+/// file (the monorepo's root holds the lock file, and init renames the
+/// App's package) has the same copy under `templates/monorepo/apps/api`,
+/// which adds only its own files (the contract's export and the tests
+/// that drive the API through the Rust client).
+#[test]
+fn the_monorepo_api_app_is_the_axum_template() -> Result<()> {
+    let (axum, api) = (
+        templates().join("axum-api"),
+        templates().join("monorepo/apps/api"),
+    );
+    let paths: Vec<String> = files_under(&axum, "")?
+        .into_keys()
+        .filter(|path| {
+            !path.starts_with("target/") && path != "Cargo.lock" && path != "Cargo.toml.template"
+        })
+        .collect();
+    let found = drift(&axum, &api, &paths)?;
+    assert!(
+        found.is_empty(),
+        "the monorepo's apps/api drifted from the axum template (make both copies the same):\n  {}",
+        found.join("\n  ")
+    );
+    Ok(())
+}
+
 /// The comparer names a changed file, a file one side lacks, and a file
 /// that differs only in line endings as no difference.
 #[test]
