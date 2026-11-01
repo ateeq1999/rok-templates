@@ -221,7 +221,7 @@ impl Auth<'_> {
     pub async fn invite(
         &self,
         body: &types::InviteUserDto,
-    ) -> Result<types::UserResponse, ApiError> {
+    ) -> Result<types::NewAccountResponse, ApiError> {
         let path = "/api/v1/auth/invitations";
         let call = self.client.call(Method::POST, path, true)?;
         call.json(body).json_answer().await
@@ -240,7 +240,7 @@ impl Auth<'_> {
     /// `GET /api/v1/auth/me`: the signed-in user, `200`.
     ///
     /// Sends the session's token.
-    pub async fn me(&self) -> Result<types::UserResponse, ApiError> {
+    pub async fn me(&self) -> Result<types::AccountResponse, ApiError> {
         let path = "/api/v1/auth/me";
         let call = self.client.call(Method::GET, path, true)?;
         call.json_answer().await
@@ -285,7 +285,7 @@ impl Auth<'_> {
     pub async fn register(
         &self,
         body: &types::CredentialsDto,
-    ) -> Result<types::UserResponse, ApiError> {
+    ) -> Result<types::NewAccountResponse, ApiError> {
         let path = "/api/v1/auth/register";
         let call = self.client.call(Method::POST, path, false)?;
         call.json(body).json_answer().await
@@ -312,7 +312,7 @@ impl Avatars<'_> {
     /// photo, `200`.
     ///
     /// Sends the session's token.
-    pub async fn remove(&self) -> Result<types::UserResponse, ApiError> {
+    pub async fn remove(&self) -> Result<types::AccountResponse, ApiError> {
         let path = "/api/v1/users/me/avatar";
         let call = self.client.call(Method::DELETE, path, true)?;
         call.json_answer().await
@@ -325,7 +325,7 @@ impl Avatars<'_> {
     pub async fn upload(
         &self,
         body: impl Into<reqwest::Body>,
-    ) -> Result<types::UserResponse, ApiError> {
+    ) -> Result<types::AccountResponse, ApiError> {
         let path = "/api/v1/users/me/avatar";
         let call = self.client.call(Method::PUT, path, true)?;
         call.bytes(body).json_answer().await
@@ -520,7 +520,7 @@ impl Users<'_> {
     /// `GET /api/v1/users/me`: the signed-in user, `200`.
     ///
     /// Sends the session's token.
-    pub async fn me(&self) -> Result<types::UserResponse, ApiError> {
+    pub async fn me(&self) -> Result<types::AccountResponse, ApiError> {
         let path = "/api/v1/users/me";
         let call = self.client.call(Method::GET, path, true)?;
         call.json_answer().await
@@ -532,7 +532,7 @@ impl Users<'_> {
     pub async fn update_me(
         &self,
         body: &types::UpdateProfileDto,
-    ) -> Result<types::UserResponse, ApiError> {
+    ) -> Result<types::AccountResponse, ApiError> {
         let path = "/api/v1/users/me";
         let call = self.client.call(Method::PATCH, path, true)?;
         call.json(body).json_answer().await

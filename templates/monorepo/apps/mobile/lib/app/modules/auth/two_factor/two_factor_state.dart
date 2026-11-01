@@ -15,7 +15,7 @@ final class TwoFactorLoading extends TwoFactorState {
 final class TwoFactorSuccess extends TwoFactorState {
   const TwoFactorSuccess({required this.token, required this.user});
   final String token;
-  final UserResponse user;
+  final AccountResponse user;
 }
 
 final class TwoFactorFailure extends TwoFactorState {

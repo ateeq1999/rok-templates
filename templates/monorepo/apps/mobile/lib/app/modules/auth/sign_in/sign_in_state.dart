@@ -16,7 +16,7 @@ final class SignInLoading extends SignInState {
 final class SignInSuccess extends SignInState {
   const SignInSuccess({required this.token, required this.user});
   final String token;
-  final UserResponse user;
+  final AccountResponse user;
 }
 
 /// The account has two-factor on: the code goes with [pendingToken].

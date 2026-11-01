@@ -11,7 +11,7 @@ sealed class SignInResult {
 /// Signed in: the session is saved and [user] is who it belongs to.
 final class SignedIn extends SignInResult {
   const SignedIn({required this.user, required this.token});
-  final UserResponse user;
+  final AccountResponse user;
   final String token;
 }
 
@@ -74,7 +74,7 @@ class AuthRepository {
 
   /// A new account; the API mails a link to verify its email before it
   /// signs in.
-  Future<UserResponse> signUp({
+  Future<NewAccountResponse> signUp({
     required String email,
     required String password,
   }) =>

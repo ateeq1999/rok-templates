@@ -26,7 +26,7 @@ class ProfileCubit extends Cubit<ProfileState> {
   final ImagePicker _imagePicker;
 
   /// The profile photo's URL, or `null` without one.
-  Uri? avatarUri(UserResponse user) => _userRepository.avatarUri(user);
+  Uri? avatarUri(AccountResponse user) => _userRepository.avatarUri(user);
 
   void loadFromAuthBloc() {
     final authState = _authBloc.state;
@@ -101,7 +101,7 @@ class ProfileCubit extends Cubit<ProfileState> {
     }
   }
 
-  void _changed(UserResponse user, String token) {
+  void _changed(AccountResponse user, String token) {
     _authBloc.add(AuthUserChanged(user: user, token: token));
     emit(ProfileLoaded(user));
   }

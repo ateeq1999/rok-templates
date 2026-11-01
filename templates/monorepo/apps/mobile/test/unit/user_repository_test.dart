@@ -52,7 +52,7 @@ void main() {
   test('avatarUri resolves the API\'s path on its origin', () {
     final repo = repository(userJson());
     final withAvatar =
-        UserResponse.fromJson(userJson(avatarUrl: '/api/v1/avatars/a.png'));
+        AccountResponse.fromJson(userJson(avatarUrl: '/api/v1/avatars/a.png'));
 
     expect(repo.avatarUri(withAvatar).toString(),
         '$apiOrigin/api/v1/avatars/a.png');

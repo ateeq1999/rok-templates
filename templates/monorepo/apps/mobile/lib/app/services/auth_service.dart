@@ -43,11 +43,11 @@ class AuthService implements Session {
     if (await getToken() == token) await signOut();
   }
 
-  Future<UserResponse?> getUser() async {
+  Future<AccountResponse?> getUser() async {
     final raw = await _storage.read(key: _userKey);
     if (raw == null) return null;
     try {
-      return UserResponse.fromJson(jsonDecode(raw) as Map<String, Object?>);
+      return AccountResponse.fromJson(jsonDecode(raw) as Map<String, Object?>);
     } on Object {
       return null;
     }
@@ -58,7 +58,7 @@ class AuthService implements Session {
     _statusController.add(AuthStatus.authenticated);
   }
 
-  Future<void> saveUser(UserResponse user) async {
+  Future<void> saveUser(AccountResponse user) async {
     await _storage.write(key: _userKey, value: jsonEncode(user.toJson()));
   }
 

@@ -14,7 +14,7 @@ final class ProfileLoading extends ProfileState {
 
 final class ProfileLoaded extends ProfileState {
   const ProfileLoaded(this.user);
-  final UserResponse user;
+  final AccountResponse user;
 }
 
 final class ProfileFailure extends ProfileState {

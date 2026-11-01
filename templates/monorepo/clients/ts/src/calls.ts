@@ -3,6 +3,7 @@
 import { request } from "./runtime"
 import type { RequestOptions } from "./runtime"
 import type {
+  AccountResponse,
   ApiKeyResponse,
   AuditLogEntryResponse,
   AuditLogListQuery,
@@ -22,6 +23,7 @@ import type {
   MediaResponse,
   MediaUploadQuery,
   MessageResponse,
+  NewAccountResponse,
   PaginatedResponse_AuditLogEntryResponse,
   PaginatedResponse_JobResponse,
   PaginatedResponse_MediaResponse,
@@ -261,7 +263,7 @@ export const api = {
       body: InviteUserDto,
       options?: RequestOptions
     ) =>
-      request<UserResponse>(
+      request<NewAccountResponse>(
         {
           method: "POST",
           path: "/api/v1/auth/invitations",
@@ -290,7 +292,7 @@ export const api = {
     me: (
       options?: RequestOptions
     ) =>
-      request<UserResponse>(
+      request<AccountResponse>(
         {
           method: "GET",
           path: "/api/v1/auth/me",
@@ -358,7 +360,7 @@ export const api = {
       body: CredentialsDto,
       options?: RequestOptions
     ) =>
-      request<UserResponse>(
+      request<NewAccountResponse>(
         {
           method: "POST",
           path: "/api/v1/auth/register",
@@ -394,7 +396,7 @@ export const api = {
     remove: (
       options?: RequestOptions
     ) =>
-      request<UserResponse>(
+      request<AccountResponse>(
         {
           method: "DELETE",
           path: "/api/v1/users/me/avatar",
@@ -411,7 +413,7 @@ export const api = {
       body: Blob,
       options?: RequestOptions
     ) =>
-      request<UserResponse>(
+      request<AccountResponse>(
         {
           method: "PUT",
           path: "/api/v1/users/me/avatar",
@@ -663,7 +665,7 @@ export const api = {
     me: (
       options?: RequestOptions
     ) =>
-      request<UserResponse>(
+      request<AccountResponse>(
         {
           method: "GET",
           path: "/api/v1/users/me",
@@ -677,7 +679,7 @@ export const api = {
       body: UpdateProfileDto,
       options?: RequestOptions
     ) =>
-      request<UserResponse>(
+      request<AccountResponse>(
         {
           method: "PATCH",
           path: "/api/v1/users/me",

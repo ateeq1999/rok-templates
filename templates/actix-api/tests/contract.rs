@@ -89,7 +89,41 @@ const KNOWN: &[(&str, &str)] = &[
         "GET /api/v1/audit-log: parameter `order` (query): served has it, target has not",
         "every generated list takes `order` (engine ADR 0016)",
     ),
+    (
+        "POST /api/v1/auth/register: response 201: target refers to `UserResponse`, served to `NewAccountResponse`",
+        NAMED_APART,
+    ),
+    (
+        "GET /api/v1/auth/me: response 200: target refers to `UserResponse`, served to `AccountResponse`",
+        NAMED_APART,
+    ),
+    (
+        "GET /api/v1/users/me: response 200: target refers to `UserResponse`, served to `AccountResponse`",
+        NAMED_APART,
+    ),
+    (
+        "PATCH /api/v1/users/me: response 200: target refers to `UserResponse`, served to `AccountResponse`",
+        NAMED_APART,
+    ),
+    (
+        "POST /api/v1/auth/invitations: response 201: target refers to `UserResponse`, served to `NewAccountResponse`",
+        NAMED_APART,
+    ),
+    (
+        "PUT /api/v1/users/me/avatar: response 200: target refers to `UserResponse`, served to `AccountResponse`",
+        NAMED_APART,
+    ),
+    (
+        "DELETE /api/v1/users/me/avatar: response 200: target refers to `UserResponse`, served to `AccountResponse`",
+        NAMED_APART,
+    ),
 ];
+
+/// Why the account routes' answers are not named `UserResponse`.
+const NAMED_APART: &str = "the `users` feature's `UserResponse` is generated from the table; the \
+     `account` and `auth` features may not import it, and their own copies under the same name \
+     would replace it in the document (utoipa keeps one schema per name), so they are \
+     `AccountResponse` and `NewAccountResponse`, of the same shape";
 
 /// The keywords that describe a schema rather than constrain it.
 const ANNOTATIONS: &[&str] = &[
@@ -515,13 +549,6 @@ async fn a_mismatch_breaks_the_contract_with_a_readable_list()
             "GET /api/v1/users/{id}: response 200: properties.email.type: target \"string\", served \"integer\"",
             "PATCH /api/v1/users/{id}: response 200: properties.email.type: target \"string\", served \"integer\"",
             "GET /api/v1/audit-log: operationId: target \"list\", served \"entries\"",
-            "POST /api/v1/auth/register: response 201: properties.email.type: target \"string\", served \"integer\"",
-            "GET /api/v1/auth/me: response 200: properties.email.type: target \"string\", served \"integer\"",
-            "GET /api/v1/users/me: response 200: properties.email.type: target \"string\", served \"integer\"",
-            "PATCH /api/v1/users/me: response 200: properties.email.type: target \"string\", served \"integer\"",
-            "POST /api/v1/auth/invitations: response 201: properties.email.type: target \"string\", served \"integer\"",
-            "PUT /api/v1/users/me/avatar: response 200: properties.email.type: target \"string\", served \"integer\"",
-            "DELETE /api/v1/users/me/avatar: response 200: properties.email.type: target \"string\", served \"integer\"",
         ]
     );
     Ok(())

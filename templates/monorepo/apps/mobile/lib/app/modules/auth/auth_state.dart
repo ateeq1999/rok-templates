@@ -14,7 +14,7 @@ final class AuthLoading extends AuthState {
 
 final class AuthAuthenticated extends AuthState {
   const AuthAuthenticated({required this.user, required this.token});
-  final UserResponse user;
+  final AccountResponse user;
   final String token;
 }
 

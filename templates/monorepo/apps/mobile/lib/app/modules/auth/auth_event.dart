@@ -12,7 +12,7 @@ final class AuthStarted extends AuthEvent {
 /// Fired after a successful sign-in, or when the signed-in user changes.
 final class AuthUserChanged extends AuthEvent {
   const AuthUserChanged({required this.user, required this.token});
-  final UserResponse user;
+  final AccountResponse user;
   final String token;
 }
 

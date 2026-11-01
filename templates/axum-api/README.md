@@ -568,8 +568,11 @@ features follow.
   carrying an older one is rejected.
 
 `tests/contract.rs` lists the differences that remain, each with its
-reason: `avatar_url` (uploads, on every `UserResponse`), and the
-`?permanent=` and list `sort`/`order` parameters every generated API has.
+reason: the `?permanent=` and list `sort`/`order` parameters every
+generated API has, and the account routes' answers, named
+`AccountResponse` and `NewAccountResponse` so they don't replace the
+`users` feature's `UserResponse` (utoipa keeps one schema per name;
+`tests/openapi_schemas.rs` fails when two collide).
 
 ## Shared with the actix template
 

@@ -924,7 +924,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UserResponse"
+                  "$ref": "#/components/schemas/NewAccountResponse"
                 }
               }
             }
@@ -1091,7 +1091,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UserResponse"
+                  "$ref": "#/components/schemas/AccountResponse"
                 }
               }
             }
@@ -1345,7 +1345,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UserResponse"
+                  "$ref": "#/components/schemas/NewAccountResponse"
                 }
               }
             }
@@ -2438,7 +2438,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UserResponse"
+                  "$ref": "#/components/schemas/AccountResponse"
                 }
               }
             }
@@ -2482,7 +2482,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UserResponse"
+                  "$ref": "#/components/schemas/AccountResponse"
                 }
               }
             }
@@ -2544,7 +2544,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UserResponse"
+                  "$ref": "#/components/schemas/AccountResponse"
                 }
               }
             }
@@ -2598,7 +2598,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/UserResponse"
+                  "$ref": "#/components/schemas/AccountResponse"
                 }
               }
             }
@@ -2944,6 +2944,70 @@
   },
   "components": {
     "schemas": {
+      "AccountResponse": {
+        "type": "object",
+        "description": "The signed-in account, as `/auth/me`, `/users/me` and the profile photo\nroutes answer it: the shape of the `users` feature's `UserResponse`,\nwhich this feature may not import. Its own name keeps the two schemas\napart in the contract (utoipa keeps one schema per name).",
+        "required": [
+          "id",
+          "email",
+          "has_password",
+          "role",
+          "is_active",
+          "email_verified",
+          "totp_enabled",
+          "created_at"
+        ],
+        "properties": {
+          "avatar_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The profile photo's public, cacheable URL,\n`/api/v1/avatars/<file>`, or `null` without one."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the account was created."
+          },
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The display name."
+          },
+          "email": {
+            "type": "string",
+            "description": "The email address."
+          },
+          "email_verified": {
+            "type": "boolean",
+            "description": "Whether the email address is verified."
+          },
+          "has_password": {
+            "type": "boolean",
+            "description": "Whether the account has a password (an invited one has none yet)."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The account's id."
+          },
+          "is_active": {
+            "type": "boolean",
+            "description": "Whether the account may sign in."
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role",
+            "description": "The role."
+          },
+          "totp_enabled": {
+            "type": "boolean",
+            "description": "Whether two-factor sign-in is on."
+          }
+        }
+      },
       "ApiKeyResponse": {
         "type": "object",
         "description": "An API key as the list answers it: never the key itself.",
@@ -3432,6 +3496,70 @@
           "message": {
             "type": "string",
             "description": "What happened."
+          }
+        }
+      },
+      "NewAccountResponse": {
+        "type": "object",
+        "description": "The account a sign-up or an invitation created: the shape of the `users`\nfeature's `UserResponse`, which this feature may not import. Its own\nname keeps the two schemas apart in the contract (utoipa keeps one\nschema per name).",
+        "required": [
+          "id",
+          "email",
+          "has_password",
+          "role",
+          "is_active",
+          "email_verified",
+          "totp_enabled",
+          "created_at"
+        ],
+        "properties": {
+          "avatar_url": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The profile photo's public, cacheable URL,\n`/api/v1/avatars/<file>`, or `null` without one."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the account was created."
+          },
+          "display_name": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The display name."
+          },
+          "email": {
+            "type": "string",
+            "description": "The email address."
+          },
+          "email_verified": {
+            "type": "boolean",
+            "description": "Whether the email address is verified."
+          },
+          "has_password": {
+            "type": "boolean",
+            "description": "Whether the account has a password (an invited one has none yet)."
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "The account's id."
+          },
+          "is_active": {
+            "type": "boolean",
+            "description": "Whether the account may sign in."
+          },
+          "role": {
+            "$ref": "#/components/schemas/Role",
+            "description": "The role."
+          },
+          "totp_enabled": {
+            "type": "boolean",
+            "description": "Whether two-factor sign-in is on."
           }
         }
       },
@@ -3990,7 +4118,7 @@
       },
       "UserResponse": {
         "type": "object",
-        "description": "A `users` row as the API answers it: the same shape as the `users`\nfeature's, which this feature may not import.",
+        "description": "A `users` row as the API answers it.",
         "required": [
           "id",
           "email",
@@ -4007,48 +4135,48 @@
               "string",
               "null"
             ],
-            "description": "The profile photo's public, cacheable URL,\n`/api/v1/avatars/<file>`, or `null` without one."
+            "description": "The `avatar_url` column."
           },
           "created_at": {
             "type": "string",
             "format": "date-time",
-            "description": "When the account was created."
+            "description": "The `created_at` column."
           },
           "display_name": {
             "type": [
               "string",
               "null"
             ],
-            "description": "The display name."
+            "description": "The `display_name` column."
           },
           "email": {
             "type": "string",
-            "description": "The email address."
+            "description": "The `email` column."
           },
           "email_verified": {
             "type": "boolean",
-            "description": "Whether the email address is verified."
+            "description": "The `email_verified` column."
           },
           "has_password": {
             "type": "boolean",
-            "description": "Whether the account has a password (an invited one has none yet)."
+            "description": "The `has_password` column."
           },
           "id": {
             "type": "string",
             "format": "uuid",
-            "description": "The account's id."
+            "description": "The `id` column."
           },
           "is_active": {
             "type": "boolean",
-            "description": "Whether the account may sign in."
+            "description": "The `is_active` column."
           },
           "role": {
             "$ref": "#/components/schemas/Role",
-            "description": "The role."
+            "description": "The `role` column."
           },
           "totp_enabled": {
             "type": "boolean",
-            "description": "Whether two-factor sign-in is on."
+            "description": "The `totp_enabled` column."
           }
         }
       },

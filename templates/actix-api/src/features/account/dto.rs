@@ -34,10 +34,12 @@ pub struct UpdateProfileDto {
     pub display_name: Option<Option<String>>,
 }
 
-/// A `users` row as the API answers it: the same shape as the `users`
-/// feature's, which this feature may not import.
+/// The signed-in account, as `/auth/me`, `/users/me` and the profile photo
+/// routes answer it: the shape of the `users` feature's `UserResponse`,
+/// which this feature may not import. Its own name keeps the two schemas
+/// apart in the contract (utoipa keeps one schema per name).
 #[derive(Debug, Clone, PartialEq, serde::Serialize, utoipa::ToSchema)]
-pub struct UserResponse {
+pub struct AccountResponse {
     /// The account's id.
     #[schema(value_type = uuid::Uuid)]
     pub id: UserId,
@@ -62,9 +64,9 @@ pub struct UserResponse {
     pub avatar_url: Option<String>,
 }
 
-impl From<User> for UserResponse {
+impl From<User> for AccountResponse {
     fn from(row: User) -> Self {
-        UserResponse {
+        AccountResponse {
             id: row.id,
             email: row.email,
             display_name: row.display_name,

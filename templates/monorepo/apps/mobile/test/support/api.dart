@@ -7,7 +7,7 @@ import 'package:http/testing.dart';
 /// The API's origin in tests; nothing listens there.
 const apiOrigin = 'http://api.test';
 
-/// A user as `apps/api` answers one (`UserResponse`).
+/// A user as `apps/api` answers one (`AccountResponse`).
 Map<String, Object?> userJson({
   String id = 'u-1',
   String email = 'ada@example.com',
@@ -30,8 +30,8 @@ Map<String, Object?> userJson({
     };
 
 /// The user [userJson] describes, as the client reads it.
-UserResponse testUser({bool totpEnabled = false}) =>
-    UserResponse.fromJson(userJson(totpEnabled: totpEnabled));
+AccountResponse testUser({bool totpEnabled = false}) =>
+    AccountResponse.fromJson(userJson(totpEnabled: totpEnabled));
 
 /// A JSON answer of `status`.
 http.Response json(Object? body, {int status = 200}) => http.Response(

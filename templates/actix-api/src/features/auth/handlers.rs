@@ -7,7 +7,7 @@ use actix_web::{HttpResponse, web};
 
 use super::dto::{
     ChangeEmailDto, ChangePasswordDto, CredentialsDto, ForgotPasswordDto, InviteUserDto,
-    LoginResponse, MessageResponse, ResetPasswordDto, UserResponse, VerifyEmailDto,
+    LoginResponse, MessageResponse, NewAccountResponse, ResetPasswordDto, VerifyEmailDto,
 };
 use super::service::AuthService;
 use crate::error::AppError;
@@ -23,7 +23,7 @@ use crate::shared::validation::ValidatedJson;
     operation_id = "register",
     request_body = CredentialsDto,
     responses(
-        (status = 201, description = "Account created; a verification email was sent", body = UserResponse),
+        (status = 201, description = "Account created; a verification email was sent", body = NewAccountResponse),
         (status = 400, description = "Password has appeared in a known breach (`breached_password`), or a malformed body", body = ErrorBody),
         (status = 409, description = "Email already registered", body = ErrorBody),
         (status = 422, description = "Not an email, or a password outside 8 to 128 characters", body = ErrorBody),
@@ -35,7 +35,7 @@ pub async fn register(
     body: ValidatedJson<CredentialsDto>,
 ) -> Result<HttpResponse, AppError> {
     let user = service.register(body.into_inner()).await?;
-    Ok(HttpResponse::Created().json(UserResponse::from(user)))
+    Ok(HttpResponse::Created().json(NewAccountResponse::from(user)))
 }
 
 /// `POST /api/v1/auth/login`: a session, `200`.
@@ -246,7 +246,7 @@ pub async fn confirm_change(
     operation_id = "invite",
     request_body = InviteUserDto,
     responses(
-        (status = 201, description = "Account created; a \"set your password\" link was emailed", body = UserResponse),
+        (status = 201, description = "Account created; a \"set your password\" link was emailed", body = NewAccountResponse),
         (status = 400, description = "A malformed body", body = ErrorBody),
         (status = 401, description = "No valid bearer token", body = ErrorBody),
         (status = 403, description = "The caller is not an admin", body = ErrorBody),
@@ -264,5 +264,5 @@ pub async fn invite(
     let user = service
         .invite(caller.0.id.into(), body.into_inner())
         .await?;
-    Ok(HttpResponse::Created().json(UserResponse::from(user)))
+    Ok(HttpResponse::Created().json(NewAccountResponse::from(user)))
 }

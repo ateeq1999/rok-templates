@@ -269,17 +269,17 @@ final class AuthApi {
   );
 
   /// `POST /api/v1/auth/invitations`: an admin invites someone, `201`.
-  Future<UserResponse> invite(
+  Future<NewAccountResponse> invite(
     InviteUserDto body, {
     RequestOptions? options,
-  }) => _transport.json<UserResponse>(
+  }) => _transport.json<NewAccountResponse>(
     Call(
       'POST',
       '/api/v1/auth/invitations',
       json: body.toJson(),
       secured: true,
     ),
-    (json) => UserResponse.fromJson(json as Map<String, Object?>),
+    (json) => NewAccountResponse.fromJson(json as Map<String, Object?>),
     options,
   );
 
@@ -298,15 +298,15 @@ final class AuthApi {
   );
 
   /// `GET /api/v1/auth/me`: the signed-in user, `200`.
-  Future<UserResponse> me({
+  Future<AccountResponse> me({
     RequestOptions? options,
-  }) => _transport.json<UserResponse>(
+  }) => _transport.json<AccountResponse>(
     Call(
       'GET',
       '/api/v1/auth/me',
       secured: true,
     ),
-    (json) => UserResponse.fromJson(json as Map<String, Object?>),
+    (json) => AccountResponse.fromJson(json as Map<String, Object?>),
     options,
   );
 
@@ -357,16 +357,16 @@ final class AuthApi {
   );
 
   /// `POST /api/v1/auth/register`: a new account, `201`.
-  Future<UserResponse> register(
+  Future<NewAccountResponse> register(
     CredentialsDto body, {
     RequestOptions? options,
-  }) => _transport.json<UserResponse>(
+  }) => _transport.json<NewAccountResponse>(
     Call(
       'POST',
       '/api/v1/auth/register',
       json: body.toJson(),
     ),
-    (json) => UserResponse.fromJson(json as Map<String, Object?>),
+    (json) => NewAccountResponse.fromJson(json as Map<String, Object?>),
     options,
   );
 }
@@ -392,31 +392,31 @@ final class AvatarsApi {
 
   /// `DELETE /api/v1/users/me/avatar`: removes the signed-in user's profile
   /// photo, `200`.
-  Future<UserResponse> remove({
+  Future<AccountResponse> remove({
     RequestOptions? options,
-  }) => _transport.json<UserResponse>(
+  }) => _transport.json<AccountResponse>(
     Call(
       'DELETE',
       '/api/v1/users/me/avatar',
       secured: true,
     ),
-    (json) => UserResponse.fromJson(json as Map<String, Object?>),
+    (json) => AccountResponse.fromJson(json as Map<String, Object?>),
     options,
   );
 
   /// `PUT /api/v1/users/me/avatar`: makes the raw body (a JPEG, PNG or WebP
   /// image) the signed-in user's profile photo, `200`.
-  Future<UserResponse> upload(
+  Future<AccountResponse> upload(
     Bytes body, {
     RequestOptions? options,
-  }) => _transport.json<UserResponse>(
+  }) => _transport.json<AccountResponse>(
     Call(
       'PUT',
       '/api/v1/users/me/avatar',
       bytes: body,
       secured: true,
     ),
-    (json) => UserResponse.fromJson(json as Map<String, Object?>),
+    (json) => AccountResponse.fromJson(json as Map<String, Object?>),
     options,
   );
 }
@@ -658,30 +658,30 @@ final class UsersApi {
   );
 
   /// `GET /api/v1/users/me`: the signed-in user, `200`.
-  Future<UserResponse> me({
+  Future<AccountResponse> me({
     RequestOptions? options,
-  }) => _transport.json<UserResponse>(
+  }) => _transport.json<AccountResponse>(
     Call(
       'GET',
       '/api/v1/users/me',
       secured: true,
     ),
-    (json) => UserResponse.fromJson(json as Map<String, Object?>),
+    (json) => AccountResponse.fromJson(json as Map<String, Object?>),
     options,
   );
 
   /// `PATCH /api/v1/users/me`: changes the signed-in user's profile, `200`.
-  Future<UserResponse> updateMe(
+  Future<AccountResponse> updateMe(
     UpdateProfileDto body, {
     RequestOptions? options,
-  }) => _transport.json<UserResponse>(
+  }) => _transport.json<AccountResponse>(
     Call(
       'PATCH',
       '/api/v1/users/me',
       json: body.toJson(),
       secured: true,
     ),
-    (json) => UserResponse.fromJson(json as Map<String, Object?>),
+    (json) => AccountResponse.fromJson(json as Map<String, Object?>),
     options,
   );
 

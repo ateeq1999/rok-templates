@@ -2,6 +2,82 @@
 
 import 'runtime.dart';
 
+/// The `AccountResponse` model.
+final class AccountResponse {
+  /// Makes one from its fields.
+  const AccountResponse({
+    this.avatarUrl,
+    required this.createdAt,
+    this.displayName,
+    required this.email,
+    required this.emailVerified,
+    required this.hasPassword,
+    required this.id,
+    required this.isActive,
+    required this.role,
+    required this.totpEnabled,
+  });
+
+  /// Reads one from its JSON.
+  factory AccountResponse.fromJson(Map<String, Object?> json) => AccountResponse(
+    avatarUrl: json['avatar_url'] as String?,
+    createdAt: json['created_at'] as String,
+    displayName: json['display_name'] as String?,
+    email: json['email'] as String,
+    emailVerified: json['email_verified'] as bool,
+    hasPassword: json['has_password'] as bool,
+    id: json['id'] as String,
+    isActive: json['is_active'] as bool,
+    role: Role.fromJson(json['role'] as String),
+    totpEnabled: json['totp_enabled'] as bool,
+  );
+
+  /// The profile photo's public, cacheable URL,
+  /// `/api/v1/avatars/<file>`, or `null` without one.
+  final String? avatarUrl;
+
+  /// When the account was created.
+  final String createdAt;
+
+  /// The display name.
+  final String? displayName;
+
+  /// The email address.
+  final String email;
+
+  /// Whether the email address is verified.
+  final bool emailVerified;
+
+  /// Whether the account has a password (an invited one has none yet).
+  final bool hasPassword;
+
+  /// The account's id.
+  final String id;
+
+  /// Whether the account may sign in.
+  final bool isActive;
+
+  /// The role.
+  final Role role;
+
+  /// Whether two-factor sign-in is on.
+  final bool totpEnabled;
+
+  /// Its JSON.
+  Map<String, Object?> toJson() => {
+    'avatar_url': ?avatarUrl,
+    'created_at': createdAt,
+    'display_name': ?displayName,
+    'email': email,
+    'email_verified': emailVerified,
+    'has_password': hasPassword,
+    'id': id,
+    'is_active': isActive,
+    'role': role.toJson(),
+    'totp_enabled': totpEnabled,
+  };
+}
+
 /// The `ApiKeyResponse` model.
 final class ApiKeyResponse {
   /// Makes one from its fields.
@@ -704,6 +780,82 @@ final class MessageResponse {
   };
 }
 
+/// The `NewAccountResponse` model.
+final class NewAccountResponse {
+  /// Makes one from its fields.
+  const NewAccountResponse({
+    this.avatarUrl,
+    required this.createdAt,
+    this.displayName,
+    required this.email,
+    required this.emailVerified,
+    required this.hasPassword,
+    required this.id,
+    required this.isActive,
+    required this.role,
+    required this.totpEnabled,
+  });
+
+  /// Reads one from its JSON.
+  factory NewAccountResponse.fromJson(Map<String, Object?> json) => NewAccountResponse(
+    avatarUrl: json['avatar_url'] as String?,
+    createdAt: json['created_at'] as String,
+    displayName: json['display_name'] as String?,
+    email: json['email'] as String,
+    emailVerified: json['email_verified'] as bool,
+    hasPassword: json['has_password'] as bool,
+    id: json['id'] as String,
+    isActive: json['is_active'] as bool,
+    role: Role.fromJson(json['role'] as String),
+    totpEnabled: json['totp_enabled'] as bool,
+  );
+
+  /// The profile photo's public, cacheable URL,
+  /// `/api/v1/avatars/<file>`, or `null` without one.
+  final String? avatarUrl;
+
+  /// When the account was created.
+  final String createdAt;
+
+  /// The display name.
+  final String? displayName;
+
+  /// The email address.
+  final String email;
+
+  /// Whether the email address is verified.
+  final bool emailVerified;
+
+  /// Whether the account has a password (an invited one has none yet).
+  final bool hasPassword;
+
+  /// The account's id.
+  final String id;
+
+  /// Whether the account may sign in.
+  final bool isActive;
+
+  /// The role.
+  final Role role;
+
+  /// Whether two-factor sign-in is on.
+  final bool totpEnabled;
+
+  /// Its JSON.
+  Map<String, Object?> toJson() => {
+    'avatar_url': ?avatarUrl,
+    'created_at': createdAt,
+    'display_name': ?displayName,
+    'email': email,
+    'email_verified': emailVerified,
+    'has_password': hasPassword,
+    'id': id,
+    'is_active': isActive,
+    'role': role.toJson(),
+    'totp_enabled': totpEnabled,
+  };
+}
+
 /// The `PaginatedResponseAuditLogEntryResponse` model.
 final class PaginatedResponseAuditLogEntryResponse {
   /// Makes one from its fields.
@@ -1182,35 +1334,34 @@ final class UserResponse {
     totpEnabled: json['totp_enabled'] as bool,
   );
 
-  /// The profile photo's public, cacheable URL,
-  /// `/api/v1/avatars/<file>`, or `null` without one.
+  /// The `avatar_url` column.
   final String? avatarUrl;
 
-  /// When the account was created.
+  /// The `created_at` column.
   final String createdAt;
 
-  /// The display name.
+  /// The `display_name` column.
   final String? displayName;
 
-  /// The email address.
+  /// The `email` column.
   final String email;
 
-  /// Whether the email address is verified.
+  /// The `email_verified` column.
   final bool emailVerified;
 
-  /// Whether the account has a password (an invited one has none yet).
+  /// The `has_password` column.
   final bool hasPassword;
 
-  /// The account's id.
+  /// The `id` column.
   final String id;
 
-  /// Whether the account may sign in.
+  /// The `is_active` column.
   final bool isActive;
 
-  /// The role.
+  /// The `role` column.
   final Role role;
 
-  /// Whether two-factor sign-in is on.
+  /// The `totp_enabled` column.
   final bool totpEnabled;
 
   /// Its JSON.

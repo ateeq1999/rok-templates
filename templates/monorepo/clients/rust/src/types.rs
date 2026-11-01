@@ -4,6 +4,34 @@
 
 use serde::{Deserialize, Serialize};
 
+/// The API's `AccountResponse`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AccountResponse {
+    /// The profile photo's public, cacheable URL,
+    /// `/api/v1/avatars/<file>`, or `null` without one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub avatar_url: Option<String>,
+    /// When the account was created.
+    pub created_at: String,
+    /// The display name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    /// The email address.
+    pub email: String,
+    /// Whether the email address is verified.
+    pub email_verified: bool,
+    /// Whether the account has a password (an invited one has none yet).
+    pub has_password: bool,
+    /// The account's id.
+    pub id: String,
+    /// Whether the account may sign in.
+    pub is_active: bool,
+    /// The role.
+    pub role: Role,
+    /// Whether two-factor sign-in is on.
+    pub totp_enabled: bool,
+}
+
 /// The API's `ApiKeyResponse`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ApiKeyResponse {
@@ -322,6 +350,34 @@ pub struct MessageResponse {
     pub message: String,
 }
 
+/// The API's `NewAccountResponse`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct NewAccountResponse {
+    /// The profile photo's public, cacheable URL,
+    /// `/api/v1/avatars/<file>`, or `null` without one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub avatar_url: Option<String>,
+    /// When the account was created.
+    pub created_at: String,
+    /// The display name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    /// The email address.
+    pub email: String,
+    /// Whether the email address is verified.
+    pub email_verified: bool,
+    /// Whether the account has a password (an invited one has none yet).
+    pub has_password: bool,
+    /// The account's id.
+    pub id: String,
+    /// Whether the account may sign in.
+    pub is_active: bool,
+    /// The role.
+    pub role: Role,
+    /// Whether two-factor sign-in is on.
+    pub totp_enabled: bool,
+}
+
 /// The API's `PaginatedResponse_AuditLogEntryResponse`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PaginatedResponseAuditLogEntryResponse {
@@ -529,28 +585,27 @@ pub struct UploadTicket {
 /// The API's `UserResponse`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UserResponse {
-    /// The profile photo's public, cacheable URL,
-    /// `/api/v1/avatars/<file>`, or `null` without one.
+    /// The `avatar_url` column.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub avatar_url: Option<String>,
-    /// When the account was created.
+    /// The `created_at` column.
     pub created_at: String,
-    /// The display name.
+    /// The `display_name` column.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
-    /// The email address.
+    /// The `email` column.
     pub email: String,
-    /// Whether the email address is verified.
+    /// The `email_verified` column.
     pub email_verified: bool,
-    /// Whether the account has a password (an invited one has none yet).
+    /// The `has_password` column.
     pub has_password: bool,
-    /// The account's id.
+    /// The `id` column.
     pub id: String,
-    /// Whether the account may sign in.
+    /// The `is_active` column.
     pub is_active: bool,
-    /// The role.
+    /// The `role` column.
     pub role: Role,
-    /// Whether two-factor sign-in is on.
+    /// The `totp_enabled` column.
     pub totp_enabled: bool,
 }
 

@@ -21,7 +21,7 @@ AuthService     (the client's Session: token + user in secure storage)
 
 ## Why these layers?
 
-- **ApiClient** is generated: typed calls, the models (`UserResponse`,
+- **ApiClient** is generated: typed calls, the models (`AccountResponse`,
   `LoginResponse`...) and `ApiException`. The App writes no HTTP code and no
   JSON mapping; a contract change reaches it through `rok gen`.
 - **Repository** says what the App does with the calls: signing in saves
