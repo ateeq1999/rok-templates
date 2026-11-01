@@ -220,8 +220,8 @@ mod tests {
     }
 
     /// A JS App's package is named after the App the catalog names: its
-    /// `package.json` declares `"name": "<app>"`, until init names the Apps
-    /// after the project (workspace ADR 0027).
+    /// `package.json` declares `"name": "<app>"`, which init renames
+    /// after the project ([`crate::rename`], workspace ADR 0027).
     #[test]
     fn a_js_apps_package_is_named_after_its_app() {
         let files =
@@ -241,8 +241,8 @@ mod tests {
     }
 
     /// A Flutter App's package is named after the App the catalog names:
-    /// its `pubspec.yaml` declares `name: <app>`, until init names the Apps
-    /// after the project (workspace ADR 0027).
+    /// its `pubspec.yaml` declares `name: <app>`, which init renames
+    /// after the project ([`crate::rename`], workspace ADR 0027).
     #[test]
     fn a_flutter_apps_package_is_named_after_its_app() {
         let files =
@@ -309,8 +309,8 @@ mod tests {
         }
     }
 
-    /// The desktop App's package is `desktop`, the name `cargo run -p
-    /// desktop` takes from the root.
+    /// The desktop App ships as the package `desktop`, which init renames
+    /// after the project ([`crate::rename`]).
     #[test]
     fn the_desktop_apps_package_is_named_desktop() {
         let manifest = files("monorepo")

@@ -47,7 +47,9 @@ configuration. [push-notifications.md](./push-notifications.md) adds it.
 
 ## 5. Deep links
 
-Default scheme is `myapp://`. Change it in three places:
+`rok init` named the deep-link scheme after the project (its letters and
+digits): `myapp://`. It is set in three places, so changing it later
+changes all three:
 
 1. `APP_SCHEME` (step 3)
 2. [android/app/src/main/AndroidManifest.xml](../android/app/src/main/AndroidManifest.xml) — `<data android:scheme="myapp"/>`

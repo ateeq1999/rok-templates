@@ -7,8 +7,14 @@
 //! Which name the grammar takes, and the write policy — copy when absent,
 //! skip files marked `@generated` — stay the engine's (`rok-data-sqlc`'s
 //! `init`), so the marker rules stay with the engine.
+//!
+//! A Monorepo template's Apps are named after the project at scaffold
+//! time: [`names`] derives each name from the project and its org,
+//! [`rename`] says where in the template's files each one goes.
 
 pub mod catalog;
+pub mod names;
+pub mod rename;
 
 /// A template file, as `build.rs` embeds it.
 #[derive(Debug)]
