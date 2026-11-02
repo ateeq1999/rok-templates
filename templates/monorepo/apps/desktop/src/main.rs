@@ -41,10 +41,13 @@ fn main() {
         .with_assets(rok_ui::Assets)
         .run(move |cx: &mut gpui::App| {
             rok_ui::init(cx);
-            cx.open_window(WindowOptions::default(), |window, cx| {
+            let opened = cx.open_window(WindowOptions::default(), |window, cx| {
                 desktop::shell::install_theme(window, cx);
                 cx.new(|_| Main { api, session })
-            })
-            .expect("the window opens");
+            });
+            if let Err(error) = opened {
+                eprintln!("the main window did not open: {error:#}");
+                std::process::exit(1);
+            }
         });
 }
