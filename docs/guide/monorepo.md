@@ -57,7 +57,7 @@ and the root `Cargo.toml` holds only the Rust members.
 | --- | --- | --- | --- |
 | `apps/api` | The `axum` template file for file (`tests/template_drift.rs` checks it), plus the contract's export (`examples/openapi.rs`) and the tests that drive it through `clients/rust` (`tests/client/`). Every other page of this guide is about it. | `cargo run -p my-shop-api` from the root | `cargo test -p my-shop-api` (with `DATABASE_URL`; without it the database tests print a note and pass) |
 | `apps/web` | TanStack Start (React, TypeScript, shadcn/ui), on `clients/ts`. | `bun install --frozen-lockfile`, then `bun run dev` in `apps/web` | `bun run typecheck`, `bun run test` |
-| `apps/desktop` | rok-ui's bloc-http starter on GPUI, imported at rok-ui 0.9.1. | `cargo run -p my-shop-desktop` from the root | `cargo test -p my-shop-desktop` |
+| `apps/desktop` | rok-ui's bloc-http starter on GPUI, imported at rok-ui 0.9.1, its data layer on `clients/rust`. | `cargo run -p my-shop-desktop` from the root | `cargo test -p my-shop-desktop` |
 | `apps/mobile` | Flutter (`flutter_bloc`, `go_router`) for iOS and Android, on `clients/dart`. | `flutter pub get`, then `flutter run` in `apps/mobile` | `flutter analyze`, `flutter test` |
 
 The API listens on `127.0.0.1:8080` (its `BIND_ADDR`), and every App calls
@@ -205,11 +205,16 @@ The mobile App (`apps/mobile`, also listed in its `docs/feature-flags.md`):
   (workspace ADR 0023). The Firebase files ship as placeholders.
 
 The desktop App (`apps/desktop`) is rok-ui's starter with its data layer
-on `clients/rust`: its repositories call the generated client (sign-in,
-the signed-in account, a page of users and one user), and a 422's broken
-rules reach its form fields. The starter's notes feature is gone, as the
-API serves no notes. Sign-up, the session kept in the OS keychain, and
-the users screens are the next steps of workspace ADR 0031.
+on `clients/rust`, not the starter's own HTTP code: its repositories call
+the generated client (sign-up, sign-in with a two-factor code when the
+account asks for one, the signed-in account, a page of users and one
+user), and a 422's broken rules reach its form fields. The session's token
+is kept in the OS keychain between launches (on Linux the kernel keyring,
+which forgets it when the machine restarts); signing out or a 401 deletes
+it. The signed-in shell is rok-ui's `AdaptiveScaffold` with the users list
+and a user's detail, the Rok theme and a light/dark toggle. The starter's
+notes feature is gone, as the API serves no notes; sign-up ends at "verify
+your email", since verifying happens through the mailed link.
 
 ## Names
 
