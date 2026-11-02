@@ -33,10 +33,13 @@ refuse a binary whose templates differ from this checkout.
 ```console
 $ git -C ../rok-data checkout "$(cat rok-data.pin)"
 $ (cd ../rok-data && cargo build -p rok-data-cli --config 'patch.crates-io.rok-templates.path="../rok-templates"')
-$ ROK_DATA_BIN=../rok-data/target/debug/rok-data ROK_DATA_PATH=../rok-data cargo test --test gates
+$ ROK_DATA_BIN=../rok-data/target/debug/rok-data ROK_DATA_PATH=../rok-data cargo test --test gates -- --test-threads=1
 ```
 
-Without `ROK_DATA_BIN` each gate prints why it skips and passes.
+Without `ROK_DATA_BIN` each gate prints why it skips and passes. Run them
+one at a time, as CI does: the projects they make share one target
+directory and package names (`shop-api`), so two at once overwrite each
+other's binaries (the monorepo's `openapi` example among them).
 `ROK_DATA_PATH` points the generated projects' `rok-data` dependency at
 the same checkout, so runtime and generator match.
 
