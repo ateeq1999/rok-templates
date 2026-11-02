@@ -39,6 +39,8 @@ pub fn App(api: Api, session: Session, cx: &mut Cx) -> impl IntoElement {
                 )
             })
             // rok-ui:blocs
+            // A token the keychain kept signs the user in at start.
+            .child(crate::features::auth::view::restored_session::RestoredSession::new())
             .child(routes::tree()),
     )
 }

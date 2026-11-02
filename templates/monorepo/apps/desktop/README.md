@@ -9,13 +9,19 @@ from `cargo rok-ui new desktop --template bloc --http` at rok-ui 0.9.1
   `api_client` crate), wired to the app's session; the repositories call
   it (`api.client().users().list(&query)`) and turn its errors into the
   `ApiError` blocs and forms read, a 422's broken rules kept by field.
+  `providers/token_store.rs` keeps the session's token in the OS keychain
+  (`keyring`) between launches: signing in saves it, signing out or a 401
+  deletes it. Tests keep it in memory (`MemoryTokenStore`) and never touch
+  the keychain.
 - `src/features/` — one module per feature: its business logic (`bloc/`,
   free of GPUI) and its views (`view/`).
 - `src/routes/` — thin route files; `build.rs` turns them into the
   `routes` module.
 - `tests/data/` — the repositories' tests, the client answered by a mock
   API on localhost.
-- `tests/features/` — each bloc's tests, against fake repositories.
+- `tests/features/` — each bloc's tests, against fake repositories; the
+  auth flows (`auth/auth_flows_test.rs`) also through the real repository,
+  the mock API and the in-memory token store.
 
 Never add HTTP calls or JSON models by hand: a call the client lacks is a
 change to `apps/api`, then `rok gen` from the root regenerates

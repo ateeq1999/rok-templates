@@ -2,7 +2,10 @@
 //!
 //! The API's address comes from `ROK_API_URL` (default [`API_URL`], `apps/api`'s `BIND_ADDR`).
 
+use std::sync::Arc;
+
 use desktop::data::providers::api::Api;
+use desktop::data::providers::token_store::KeychainTokenStore;
 use rok_ui::http::Session;
 use rok_ui::prelude::*;
 
@@ -24,14 +27,16 @@ impl Render for Main {
 }
 
 fn main() {
-    // The session holds the token; the API's client sends it, and a 401 expires the session.
-    // The token lives in memory: see `Session::persisted` to keep users signed in.
-    let session = Session::new();
     let base_url = std::env::var("ROK_API_URL")
         .ok()
         .filter(|url| !url.is_empty())
         .unwrap_or_else(|| API_URL.to_owned());
-    let api = Api::new(base_url, session.clone());
+    // The session holds the token; the API's client sends it, and a 401 expires the session.
+    // The OS keychain keeps it between launches, one entry per API address: signing in saves
+    // it, and signing out or a 401 deletes it.
+    let store = Arc::new(KeychainTokenStore::new(base_url.clone()));
+    let api = Api::kept(base_url, store);
+    let session = api.session().clone();
     Application::new()
         .with_assets(rok_ui::Assets)
         .run(move |cx: &mut gpui::App| {

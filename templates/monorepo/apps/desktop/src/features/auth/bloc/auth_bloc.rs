@@ -3,11 +3,17 @@
 use super::auth_event::AuthEvent;
 use super::auth_state::AuthState;
 use super::auth_state::AuthStatus;
+use crate::data::models::sign_in::SignIn;
+use crate::data::models::user::User;
 use crate::data::repositories::auth_repository::AuthRepository;
 use rok_ui::bloc::Bloc;
 use rok_ui::bloc::Concurrency;
 use rok_ui::bloc::Emitter;
+use rok_ui::http::ApiError;
 use std::sync::Arc;
+
+/// The code `apps/api` answers a pending sign-in with once it expired or was spent.
+const SPENT_SIGN_IN: &str = "invalid_token";
 
 /// Turns [`AuthEvent`]s into [`AuthState`]s, reading and writing through a [`AuthRepository`].
 pub struct AuthBloc {
@@ -22,6 +28,26 @@ impl AuthBloc {
     }
 }
 
+/// Shows `user` as signed in: no pending sign-in, no error.
+fn signed_in(emit: &Emitter<AuthState>, user: User) {
+    emit.emit(AuthState {
+        status: AuthStatus::Success,
+        user: Some(user),
+        ..AuthState::default()
+    });
+}
+
+/// Shows `error`, unless the call was cancelled.
+fn failed(emit: &Emitter<AuthState>, error: ApiError) {
+    if error.is_cancelled() {
+        return;
+    }
+    emit.update(|state| {
+        state.status = AuthStatus::Failure;
+        state.error = Some(error);
+    });
+}
+
 impl Bloc for AuthBloc {
     type Event = AuthEvent;
     type State = AuthState;
@@ -32,32 +58,61 @@ impl Bloc for AuthBloc {
 
     fn concurrency(&self, event: &AuthEvent) -> Concurrency {
         match event {
-            AuthEvent::SignInSubmitted { .. } => Concurrency::Droppable,
-            AuthEvent::SignOutRequested => Concurrency::Sequential,
-            AuthEvent::ProfileRequested => Concurrency::Sequential,
+            AuthEvent::SignUpSubmitted { .. }
+            | AuthEvent::SignInSubmitted { .. }
+            | AuthEvent::CodeSubmitted { .. } => Concurrency::Droppable,
+            AuthEvent::CodeCancelled
+            | AuthEvent::SignOutRequested
+            | AuthEvent::ProfileRequested => Concurrency::Sequential,
         }
     }
 
     async fn on(&self, event: AuthEvent, emit: &Emitter<AuthState>) {
         match event {
+            AuthEvent::SignUpSubmitted { email, password } => {
+                emit.update(|state| state.status = AuthStatus::Loading);
+                match self.repository.sign_up(email, password).await {
+                    Ok(email) => {
+                        emit.emit(AuthState {
+                            status: AuthStatus::Success,
+                            signed_up: Some(email),
+                            ..AuthState::default()
+                        });
+                    }
+                    Err(error) => failed(emit, error),
+                }
+            }
             AuthEvent::SignInSubmitted { email, password } => {
                 emit.update(|state| state.status = AuthStatus::Loading);
                 match self.repository.sign_in(email, password).await {
-                    Ok(value) => {
-                        emit.update(|state| {
-                            state.status = AuthStatus::Success;
-                            state.user = Some(value);
-                            state.error = None;
+                    Ok(SignIn::SignedIn(user)) => signed_in(emit, user),
+                    Ok(SignIn::CodeRequired(pending)) => {
+                        emit.emit(AuthState {
+                            pending: Some(pending),
+                            ..AuthState::default()
                         });
                     }
-                    Err(error) if error.is_cancelled() => {}
+                    Err(error) => failed(emit, error),
+                }
+            }
+            AuthEvent::CodeSubmitted { code } => {
+                let Some(pending) = emit.state().pending else {
+                    return;
+                };
+                emit.update(|state| state.status = AuthStatus::Loading);
+                match self.repository.verify_code(pending, code).await {
+                    Ok(user) => signed_in(emit, user),
                     Err(error) => {
-                        emit.update(|state| {
-                            state.status = AuthStatus::Failure;
-                            state.error = Some(error);
-                        });
+                        // A wrong code may be tried again; an expired or spent sign-in starts over.
+                        if error.code == SPENT_SIGN_IN {
+                            emit.update(|state| state.pending = None);
+                        }
+                        failed(emit, error);
                     }
                 }
+            }
+            AuthEvent::CodeCancelled => {
+                emit.emit(AuthState::default());
             }
             AuthEvent::SignOutRequested => {
                 emit.update(|state| state.status = AuthStatus::Loading);
@@ -68,32 +123,14 @@ impl Bloc for AuthBloc {
                             ..AuthState::default()
                         });
                     }
-                    Err(error) if error.is_cancelled() => {}
-                    Err(error) => {
-                        emit.update(|state| {
-                            state.status = AuthStatus::Failure;
-                            state.error = Some(error);
-                        });
-                    }
+                    Err(error) => failed(emit, error),
                 }
             }
             AuthEvent::ProfileRequested => {
                 emit.update(|state| state.status = AuthStatus::Loading);
                 match self.repository.me().await {
-                    Ok(value) => {
-                        emit.update(|state| {
-                            state.status = AuthStatus::Success;
-                            state.user = Some(value);
-                            state.error = None;
-                        });
-                    }
-                    Err(error) if error.is_cancelled() => {}
-                    Err(error) => {
-                        emit.update(|state| {
-                            state.status = AuthStatus::Failure;
-                            state.error = Some(error);
-                        });
-                    }
+                    Ok(user) => signed_in(emit, user),
+                    Err(error) => failed(emit, error),
                 }
             }
         }
