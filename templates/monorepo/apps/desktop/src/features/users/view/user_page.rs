@@ -15,7 +15,7 @@ pub fn UserPage(id: SharedString, cx: &mut Cx) -> impl IntoElement {
     let shown = cx.use_state(|| None::<SharedString>);
     if shown.get(cx).as_ref() != Some(&id) {
         shown.set(Some(id.clone()), cx);
-        bloc.add(UserEvent::Requested { id: id.to_string() });
+        bloc.add(UserEvent::Opened { id: id.to_string() });
     }
     PageFrame::new("User")
         .child(div().child(Link::new("back-to-users", "/users").child(Muted::new("← All users"))))

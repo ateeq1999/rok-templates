@@ -30,13 +30,13 @@ impl Bloc for UserBloc {
     fn concurrency(&self, event: &UserEvent) -> Concurrency {
         match event {
             // The user opened last wins.
-            UserEvent::Requested { .. } => Concurrency::Restartable,
+            UserEvent::Opened { .. } => Concurrency::Restartable,
         }
     }
 
     async fn on(&self, event: UserEvent, emit: &Emitter<UserState>) {
         match event {
-            UserEvent::Requested { id } => {
+            UserEvent::Opened { id } => {
                 // Another user's detail never shows under this id while it loads.
                 emit.emit(UserState {
                     status: UserStatus::Loading,

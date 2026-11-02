@@ -1,9 +1,9 @@
 //! `AuthRepository`: what the `auth` business logic reads and writes.
 
 use crate::data::models::sign_in::{PendingSignIn, SignIn};
-use crate::data::models::user::{Role, User};
+use crate::data::models::user::User;
 use crate::data::providers::api::{app_error, Api};
-use api_client::{AccountResponse, CredentialsDto, LoginResponse, VerifyTotpDto};
+use api_client::{CredentialsDto, LoginResponse, VerifyTotpDto};
 use rok_ui::bloc::BoxFuture;
 use rok_ui::http::ApiError;
 
@@ -128,26 +128,5 @@ impl AuthRepository for AuthRepositoryImpl {
                 .map(Into::into)
                 .map_err(app_error)
         })
-    }
-}
-
-impl From<AccountResponse> for User {
-    fn from(account: AccountResponse) -> Self {
-        Self {
-            id: account.id,
-            name: account.display_name.unwrap_or_default(),
-            email: account.email,
-            email_verified: account.email_verified,
-            role: account.role.into(),
-        }
-    }
-}
-
-impl From<api_client::Role> for Role {
-    fn from(role: api_client::Role) -> Self {
-        match role {
-            api_client::Role::User => Self::User,
-            api_client::Role::Admin => Self::Admin,
-        }
     }
 }

@@ -19,8 +19,7 @@ pub struct Api {
     session: Session,
     /// Writes the session's token to its store while any clone is alive ([`Api::kept`]):
     /// held, never read.
-    #[allow(dead_code)]
-    keeping: Option<Arc<Subscription>>,
+    _keeping: Option<Arc<Subscription>>,
 }
 
 impl Api {
@@ -30,7 +29,7 @@ impl Api {
     pub fn kept(base_url: impl Into<String>, store: Arc<dyn TokenStore>) -> Self {
         let (session, keeping) = token_store::keep(store);
         Self {
-            keeping: Some(Arc::new(keeping)),
+            _keeping: Some(Arc::new(keeping)),
             ..Self::new(base_url, session)
         }
     }
@@ -54,7 +53,7 @@ impl Api {
         Self {
             client,
             session,
-            keeping: None,
+            _keeping: None,
         }
     }
 

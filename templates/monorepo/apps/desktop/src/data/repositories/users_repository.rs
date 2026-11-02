@@ -3,7 +3,7 @@
 use crate::data::models::page::Page;
 use crate::data::models::user::{User, UserId};
 use crate::data::providers::api::{app_error, Api};
-use api_client::{PaginatedResponseUserResponse, UserResponse, UsersListQuery};
+use api_client::{PaginatedResponseUserResponse, UsersListQuery};
 use rok_ui::bloc::BoxFuture;
 use rok_ui::http::ApiError;
 
@@ -76,18 +76,6 @@ impl From<PaginatedResponseUserResponse> for Page<User> {
             page: u32::try_from(page.page).unwrap_or(1),
             per_page: u32::try_from(page.per_page).unwrap_or(0),
             total: u64::try_from(page.total).unwrap_or(0),
-        }
-    }
-}
-
-impl From<UserResponse> for User {
-    fn from(user: UserResponse) -> Self {
-        Self {
-            id: user.id,
-            name: user.display_name.unwrap_or_default(),
-            email: user.email,
-            email_verified: user.email_verified,
-            role: user.role.into(),
         }
     }
 }

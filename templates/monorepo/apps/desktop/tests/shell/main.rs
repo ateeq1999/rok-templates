@@ -8,7 +8,7 @@ use desktop::data::providers::api::Api;
 use desktop::data::providers::token_store::MemoryTokenStore;
 use gpui::{TestAppContext, VisualTestContext};
 use rok_ui::http::testing::MockServer;
-use rok_ui::http::{Method, Session};
+use rok_ui::http::Method;
 use rok_ui::prelude::*;
 use rok_ui::router;
 use serde_json::json;
@@ -60,12 +60,11 @@ fn api(role: &str) -> MockServer {
 /// The main window's view, as `main.rs` renders it.
 struct Main {
     api: Api,
-    session: Session,
 }
 
 impl Render for Main {
     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-        AppRoot::new().child(DesktopApp::new(self.api.clone(), self.session.clone()))
+        AppRoot::new().child(DesktopApp::new(self.api.clone()))
     }
 }
 
@@ -90,11 +89,7 @@ fn open_with<'a>(
     cx.update(|cx| Theme::set_global(Theme::from_preset(ThemePreset::Rok, mode), cx));
     cx.executor().allow_parking();
     let api = Api::kept(server.url(), Arc::new(store));
-    let session = api.session().clone();
-    let (_, window) = cx.add_window_view(move |_, _| Main {
-        api: api.clone(),
-        session: session.clone(),
-    });
+    let (_, window) = cx.add_window_view(move |_, _| Main { api: api.clone() });
     window.run_until_parked();
     window
 }

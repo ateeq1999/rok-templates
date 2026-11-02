@@ -6,7 +6,7 @@ use crate::data::models::user::UserId;
 #[derive(Clone, Debug)]
 pub enum UserEvent {
     /// The detail screen opened on the user `id`.
-    Requested {
+    Opened {
         /// The user's id.
         id: UserId,
     },

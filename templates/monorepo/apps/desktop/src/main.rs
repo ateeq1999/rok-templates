@@ -6,7 +6,6 @@ use std::sync::Arc;
 
 use desktop::data::providers::api::Api;
 use desktop::data::providers::token_store::KeychainTokenStore;
-use rok_ui::http::Session;
 use rok_ui::prelude::*;
 
 /// Where `apps/api` listens by default (its `BIND_ADDR`), when `ROK_API_URL` is unset.
@@ -14,15 +13,11 @@ const API_URL: &str = "http://127.0.0.1:8080";
 
 struct Main {
     api: Api,
-    session: Session,
 }
 
 impl Render for Main {
     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
-        AppRoot::new().child(desktop::app::App::new(
-            self.api.clone(),
-            self.session.clone(),
-        ))
+        AppRoot::new().child(desktop::app::App::new(self.api.clone()))
     }
 }
 
@@ -36,14 +31,13 @@ fn main() {
     // it, and signing out or a 401 deletes it.
     let store = Arc::new(KeychainTokenStore::new(base_url.clone()));
     let api = Api::kept(base_url, store);
-    let session = api.session().clone();
     Application::new()
         .with_assets(rok_ui::Assets)
         .run(move |cx: &mut gpui::App| {
             rok_ui::init(cx);
             let opened = cx.open_window(WindowOptions::default(), |window, cx| {
                 desktop::shell::install_theme(window, cx);
-                cx.new(|_| Main { api, session })
+                cx.new(|_| Main { api })
             });
             if let Err(error) = opened {
                 eprintln!("the main window did not open: {error:#}");

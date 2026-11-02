@@ -18,19 +18,19 @@ use crate::routes;
 
 /// The repositories, built once for the app's lifetime. They share `api` (and its session).
 #[allow(clippy::needless_pass_by_value)]
-fn repositories(api: Api, session: Session) -> Repositories {
+fn repositories(api: Api) -> Repositories {
     Repositories::new()
         .with::<dyn UsersRepository>(Arc::new(UsersRepositoryImpl::new(api.clone())))
         .with::<dyn AuthRepository>(Arc::new(AuthRepositoryImpl::new(api.clone())))
         // rok-ui:repositories
         // Views watch the session (see `shared::widgets::SessionGuard`).
-        .with::<Session>(Arc::new(session))
+        .with::<Session>(Arc::new(api.session().clone()))
 }
 
-/// Repositories, then blocs, then the routes.
+/// Repositories, then blocs, then the routes, all signed in as `api`'s session.
 #[component]
-pub fn App(api: Api, session: Session, cx: &mut Cx) -> impl IntoElement {
-    let repositories = cx.use_state(move || repositories(api, session)).get(cx);
+pub fn App(api: Api, cx: &mut Cx) -> impl IntoElement {
+    let repositories = cx.use_state(move || repositories(api)).get(cx);
     RepositoryProvider::from(repositories).child(
         BlocProvider::new()
             .with_bloc(|scope| {

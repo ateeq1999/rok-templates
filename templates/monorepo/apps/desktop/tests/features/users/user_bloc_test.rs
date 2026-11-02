@@ -16,7 +16,7 @@ fn bloc(repository: FakeUsersRepository) -> UserBloc {
 fn a_requested_user_is_the_user_the_repository_answers() {
     let states = test::run(
         bloc(FakeUsersRepository::with_users(3, 20)),
-        [UserEvent::Requested {
+        [UserEvent::Opened {
             id: "user-2".into(),
         }],
     );
@@ -31,7 +31,7 @@ fn a_requested_user_is_the_user_the_repository_answers() {
 fn an_unknown_user_is_not_found() {
     let states = test::run(
         bloc(FakeUsersRepository::with_users(3, 20)),
-        [UserEvent::Requested {
+        [UserEvent::Opened {
             id: "nobody".into(),
         }],
     );
@@ -47,10 +47,10 @@ fn the_previous_user_goes_while_the_next_loads() {
     let states = test::run_settled(
         bloc(FakeUsersRepository::with_users(3, 20)),
         [
-            UserEvent::Requested {
+            UserEvent::Opened {
                 id: "user-1".into(),
             },
-            UserEvent::Requested {
+            UserEvent::Opened {
                 id: "user-3".into(),
             },
         ],
