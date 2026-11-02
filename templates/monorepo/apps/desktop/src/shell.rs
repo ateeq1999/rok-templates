@@ -5,6 +5,8 @@
 
 use crate::features::auth::bloc::auth_bloc::AuthBloc;
 use crate::features::auth::bloc::auth_event::AuthEvent;
+use crate::shared::widgets::SIGN_IN_PATH;
+use rok_ui::http::Session;
 use rok_ui::prelude::*;
 use rok_ui::router;
 
@@ -29,9 +31,16 @@ fn selected(cx: &mut App) -> usize {
         .unwrap_or(0)
 }
 
-/// The shell around a signed-in page (`children`).
+/// The shell around a signed-in page (`children`). Signed out (at a start with no kept token,
+/// or once the session is gone), it shows nothing and sends the user to sign in.
 #[component]
 pub fn AppShell(#[children] children: Vec<AnyElement>, cx: &mut Cx) -> impl IntoElement {
+    if !cx.repository::<Session>().is_signed_in() {
+        // After this frame: the router's location cannot change while it renders.
+        cx.window
+            .defer(cx.app, |_, cx| router::replace(SIGN_IN_PATH, cx));
+        return div().into_any_element();
+    }
     let selected = selected(cx);
     let title = DESTINATIONS
         .get(selected)
@@ -71,4 +80,5 @@ pub fn AppShell(#[children] children: Vec<AnyElement>, cx: &mut Cx) -> impl Into
             }
         })
         .children(children)
+        .into_any_element()
 }

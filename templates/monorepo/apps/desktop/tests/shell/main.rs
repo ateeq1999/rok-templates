@@ -3,12 +3,14 @@
 
 use desktop::app::App as DesktopApp;
 use desktop::data::providers::api::Api;
+use desktop::data::providers::token_store::MemoryTokenStore;
 use gpui::{TestAppContext, VisualTestContext};
 use rok_ui::http::testing::MockServer;
 use rok_ui::http::{Method, Session};
 use rok_ui::prelude::*;
 use rok_ui::router;
 use serde_json::json;
+use std::sync::Arc;
 use std::time::Duration;
 
 const ID: &str = "0190c0de-0000-7000-8000-000000000002";
@@ -46,6 +48,10 @@ fn api() -> MockServer {
     server
         .on(Method::Get, &format!("/api/v1/users/{ID}"))
         .reply_json(200, &row(ID, "grace@example.com", Some("Grace")));
+    // The kept token's account, which the App asks for at start.
+    server
+        .on(Method::Get, "/api/v1/auth/me")
+        .reply_json(200, &row(ID, "grace@example.com", Some("Grace")));
     server
 }
 
@@ -61,17 +67,28 @@ impl Render for Main {
     }
 }
 
-/// The App, signed in, against `server`, in the Rok theme's `mode`.
+/// The App, signed in with a token kept from an earlier launch, against `server`, in the Rok
+/// theme's `mode`.
 fn open<'a>(
     cx: &'a mut TestAppContext,
     server: &MockServer,
     mode: ThemeMode,
 ) -> &'a mut VisualTestContext {
+    open_with(cx, server, mode, MemoryTokenStore::with_token("t0k3n"))
+}
+
+/// The App as `main.rs` builds it, its token kept in `store` (in memory: never the keychain).
+fn open_with<'a>(
+    cx: &'a mut TestAppContext,
+    server: &MockServer,
+    mode: ThemeMode,
+    store: MemoryTokenStore,
+) -> &'a mut VisualTestContext {
     cx.update(rok_ui::init);
     cx.update(|cx| Theme::set_global(Theme::from_preset(ThemePreset::Rok, mode), cx));
     cx.executor().allow_parking();
-    let session = Session::with_token("t0k3n");
-    let api = Api::new(server.url(), session.clone());
+    let api = Api::kept(server.url(), Arc::new(store));
+    let session = api.session().clone();
     let (_, window) = cx.add_window_view(move |_, _| Main {
         api: api.clone(),
         session: session.clone(),
@@ -151,4 +168,41 @@ fn the_app_bar_toggles_light_and_dark(cx: &mut TestAppContext) {
     });
     click(window, "theme-toggle");
     window.update(|_, cx| assert_eq!(cx.theme().mode, start));
+}
+
+/// Whether the location reaches `path` before long.
+fn lands_on(window: &mut VisualTestContext, path: &str) -> bool {
+    for _ in 0..200 {
+        window.run_until_parked();
+        if window.update(|_, cx| router::location(cx).path() == path) {
+            return true;
+        }
+        std::thread::sleep(Duration::from_millis(10));
+    }
+    false
+}
+
+#[gpui::test]
+fn a_signed_out_start_lands_on_sign_in(cx: &mut TestAppContext) {
+    let server = api();
+    let window = open_with(cx, &server, ThemeMode::Light, MemoryTokenStore::new());
+
+    assert!(lands_on(window, "/auth"), "no kept token: sign in first");
+    assert!(
+        window.debug_bounds("theme-toggle").is_none(),
+        "the shell stays hidden"
+    );
+}
+
+#[gpui::test]
+fn signing_out_from_the_shell_forgets_the_kept_token(cx: &mut TestAppContext) {
+    let server = api();
+    let store = MemoryTokenStore::with_token("t0k3n");
+    let window = open_with(cx, &server, ThemeMode::Light, store.clone());
+
+    assert!(shows(window, "sign-out"), "the shell renders, signed in");
+    click(window, "sign-out");
+
+    assert!(lands_on(window, "/auth"), "signing out goes to sign in");
+    assert_eq!(store.token(), None, "the kept token is gone");
 }

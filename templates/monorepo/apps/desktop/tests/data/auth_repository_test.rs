@@ -1,5 +1,6 @@
 //! `AuthRepositoryImpl`: signing in and out of `apps/api` through `clients/rust`.
 
+use desktop::data::models::sign_in::SignIn;
 use desktop::data::models::user::User;
 use desktop::data::providers::api::Api;
 use desktop::data::repositories::auth_repository::{AuthRepository, AuthRepositoryImpl};
@@ -12,6 +13,7 @@ use serde_json::json;
 
 const LOGIN: &str = "/api/v1/auth/login";
 const ME: &str = "/api/v1/auth/me";
+const VERIFY_CODE: &str = "/api/v1/auth/2fa/verify";
 
 /// The account `apps/api` answers `GET /auth/me` with.
 fn account() -> serde_json::Value {
@@ -47,11 +49,11 @@ fn signing_in_keeps_the_token_and_answers_the_account() {
 
     assert_eq!(
         user,
-        Ok(User {
+        Ok(SignIn::SignedIn(User {
             id: "0190c0de-0000-7000-8000-000000000001".into(),
             name: "Ada".into(),
             email: "ada@example.com".into(),
-        })
+        }))
     );
     assert_eq!(
         server.requests_to(LOGIN)[0].json(),
@@ -65,20 +67,33 @@ fn signing_in_keeps_the_token_and_answers_the_account() {
 }
 
 #[test]
-fn a_two_factor_account_is_not_signed_in() {
+fn a_two_factor_account_is_signed_in_by_its_code() {
     let server = MockServer::start();
     server.on(Method::Post, LOGIN).reply_json(
         200,
         &json!({"pending_token": "p3nd1ng", "requires_totp": true}),
     );
+    server.on(Method::Post, VERIFY_CODE).reply_json(
+        200,
+        &json!({"access_token": "t0k3n", "token_type": "Bearer", "expires_in": 900}),
+    );
+    server.on(Method::Get, ME).reply_json(200, &account());
     let session = Session::new();
     let repository = AuthRepositoryImpl::new(Api::new(server.url(), session.clone()));
 
-    let error = block_on(repository.sign_in("ada@example.com".into(), "correct horse".into()))
-        .expect_err("no session without the code");
+    let answer = block_on(repository.sign_in("ada@example.com".into(), "correct horse".into()));
+    let Ok(SignIn::CodeRequired(pending)) = answer else {
+        panic!("the code is not asked for: {answer:?}");
+    };
+    assert_eq!(session.token(), None, "no session without the code");
+    let user = block_on(repository.verify_code(pending, "123456".into())).expect("signed in");
 
-    assert_eq!(error.code, "totp_required");
-    assert_eq!(session.token(), None);
+    assert_eq!(user.email, "ada@example.com");
+    assert_eq!(
+        server.requests_to(VERIFY_CODE)[0].json(),
+        json!({"pending_token": "p3nd1ng", "code": "123456"})
+    );
+    assert_eq!(session.token().as_deref(), Some("t0k3n"));
 }
 
 #[test]

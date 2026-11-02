@@ -1,5 +1,6 @@
 //! `AuthBloc`: events in, states out, with a fake repository.
 
+use desktop::data::models::sign_in::{PendingSignIn, SignIn};
 use desktop::data::models::user::User;
 use desktop::data::repositories::auth_repository::AuthRepository;
 use desktop::features::auth::bloc::auth_bloc::AuthBloc;
@@ -14,7 +15,23 @@ use std::sync::Arc;
 struct FakeAuthRepository;
 
 impl AuthRepository for FakeAuthRepository {
-    fn sign_in(&self, _email: String, _password: String) -> BoxFuture<'_, Result<User, ApiError>> {
+    fn sign_up(&self, email: String, _password: String) -> BoxFuture<'_, Result<String, ApiError>> {
+        Box::pin(async { Ok(email) })
+    }
+
+    fn sign_in(
+        &self,
+        _email: String,
+        _password: String,
+    ) -> BoxFuture<'_, Result<SignIn, ApiError>> {
+        Box::pin(async { Ok(SignIn::SignedIn(User::default())) })
+    }
+
+    fn verify_code(
+        &self,
+        _pending: PendingSignIn,
+        _code: String,
+    ) -> BoxFuture<'_, Result<User, ApiError>> {
         Box::pin(async { Ok(User::default()) })
     }
 
@@ -40,6 +57,17 @@ fn sign_in_submitted() {
         states.last().map(|state| state.status),
         Some(AuthStatus::Success)
     );
+}
+
+#[test]
+fn a_code_without_a_pending_sign_in_is_ignored() {
+    let states = test::run(
+        AuthBloc::new(Arc::new(FakeAuthRepository)),
+        [AuthEvent::CodeSubmitted {
+            code: "123456".into(),
+        }],
+    );
+    assert!(states.is_empty(), "{states:?}");
 }
 
 #[test]

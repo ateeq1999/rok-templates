@@ -13,6 +13,10 @@ gpui = "=0.2.2"
 # The API's client, generated from its contract (`clients/rust`): a change
 # `rok gen` regenerates there breaks or flows through this App's build.
 api-client = { path = "../../clients/rust" }
+# The session's token, kept in the OS keychain between launches
+# (`src/data/providers/token_store.rs`). On Linux it is the kernel keyring,
+# which needs no system library but forgets the token when the machine restarts.
+keyring = { version = "3", default-features = false, features = ["windows-native", "apple-native", "linux-native"] }
 
 [dev-dependencies]
 gpui = { version = "=0.2.2", features = ["test-support"] }

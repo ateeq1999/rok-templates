@@ -4,17 +4,37 @@
 //! regenerates it from the API's contract. This file wires it to the app's [`Session`] and
 //! turns its errors into the [`ApiError`] blocs and forms read.
 
+use std::sync::Arc;
+
 use api_client::Client;
+use rok_ui::bloc::Subscription;
 use rok_ui::http::{ApiError, FieldDetails, FieldIssue, Session};
+
+use super::token_store::{self, TokenStore};
 
 /// The API's client, signed in as the app's [`Session`] says. Clones share both.
 #[derive(Clone, Debug)]
 pub struct Api {
     client: Client,
     session: Session,
+    /// Writes the session's token to its store while any clone is alive ([`Api::kept`]):
+    /// held, never read.
+    #[allow(dead_code)]
+    keeping: Option<Arc<Subscription>>,
 }
 
 impl Api {
+    /// The API at `base_url`, signed in with the token `store` kept from an earlier launch,
+    /// if any. Signing in saves the token there; signing out, or a 401 to it, deletes it.
+    #[must_use]
+    pub fn kept(base_url: impl Into<String>, store: Arc<dyn TokenStore>) -> Self {
+        let (session, keeping) = token_store::keep(store);
+        Self {
+            keeping: Some(Arc::new(keeping)),
+            ..Self::new(base_url, session)
+        }
+    }
+
     /// The API at `base_url` (such as `http://127.0.0.1:8080`), signed in if `session` is. A
     /// 401 to a call that sent the session's token expires `session`, which sends the user
     /// back to sign in.
@@ -31,13 +51,23 @@ impl Api {
                 expired.expire();
             }
         });
-        Self { client, session }
+        Self {
+            client,
+            session,
+            keeping: None,
+        }
     }
 
     /// The generated client: `api.client().users().list(&query)`.
     #[must_use]
     pub fn client(&self) -> &Client {
         &self.client
+    }
+
+    /// The session this API signs in as: views watch it.
+    #[must_use]
+    pub fn session(&self) -> &Session {
+        &self.session
     }
 
     /// Signs in with `token`: the client sends it, and the session holds it.
