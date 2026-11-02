@@ -60,6 +60,10 @@ Set `ROK_API_URL` to call it elsewhere:
 ROK_API_URL=http://127.0.0.1:9000 cargo run -p desktop
 ```
 
+An account signs in once its email is verified, and the users screens
+are the API's admin routes: the monorepo's README says how to verify one
+and make it an admin.
+
 ## Checking it
 
 ```sh

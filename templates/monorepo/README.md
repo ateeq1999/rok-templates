@@ -26,11 +26,14 @@ contract (workspace ADRs 0027 and 0031). The Apps `rok sqlc init
   member of the root workspace. The api App's `tests/client/` drive the
   API through it. Its `src/` is rok's; its `Cargo.toml` is yours.
 
-Start one:
+Start one, then generate the api's data layer and features (`src/db/`,
+the generated feature files), which the scaffold leaves to `rok gen`:
+`apps/api` does not build before it.
 
 ```sh
 rok init --template monorepo my-app
 cd my-app
+rok gen
 ```
 
 ## Regenerating
@@ -92,8 +95,26 @@ cargo run -p desktop
 ```
 
 It calls the API at `http://127.0.0.1:8080`; `ROK_API_URL` points it
-elsewhere. `cargo test -p desktop` is its check. On Linux, GPUI needs its
-system libraries first (`apps/desktop/README.md` lists them).
+elsewhere (`ROK_API_URL=http://127.0.0.1:9000 cargo run -p desktop`).
+`cargo build -p desktop --release` builds the binary alone, and `cargo
+test -p desktop` is its check (no test touches the API or the keychain).
+On Linux, GPUI needs its system libraries first (`apps/desktop/README.md`
+lists them).
+
+Sign up in the App, then verify the email: the API mails a link (with
+its default `MAIL_TRANSPORT=log` it logs the mail instead; `RUST_LOG=debug`
+shows the link), and the link's token goes to `POST
+/api/v1/auth/email/verify` (the web App's `/verify-email` page sends it).
+Then sign in. The App keeps the session's token in the OS keychain, one
+entry per API address, so it starts signed in next time; signing out, or
+the API refusing the token, deletes it. On Linux that is the kernel
+keyring, which forgets the token when the machine restarts.
+
+The users list and a user's detail are the API's admin routes: a plain
+account sees the API's `403` ("this needs the admin role"). Make an
+account an admin in the database (`UPDATE users SET role = 'admin' WHERE
+email = '...'`); the API reads the role on every request, so it applies
+at once.
 
 ## Running the mobile app
 
