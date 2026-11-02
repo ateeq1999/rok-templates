@@ -174,18 +174,30 @@ impl TokenStore for MemoryTokenStore {
 /// returned [`Subscription`] is dropped.
 ///
 /// A store that cannot be read starts signed out; one that cannot be written leaves the
-/// session in memory only, so the user signs in again at the next launch.
+/// session in memory only, so the user signs in again at the next launch. Either failure is
+/// logged to stderr with its reason (never the token), so a session that is not kept shows.
 pub fn keep(store: Arc<dyn TokenStore>) -> (Session, Subscription) {
     let session = match store.load() {
         Ok(Some(token)) => Session::with_token(token),
-        Ok(None) | Err(_) => Session::new(),
+        Ok(None) => Session::new(),
+        Err(error) => {
+            eprintln!("[session] the kept token was not read, starting signed out: {error}");
+            Session::new()
+        }
     };
     let saving = session.subscribe(move |state| {
         // Best effort: the session works without the store (see above).
-        let _ = match &state.token {
-            Some(token) => store.save(token),
-            None => store.clear(),
+        let written = match &state.token {
+            Some(token) => store
+                .save(token)
+                .map_err(|error| ("the token was not kept for the next launch", error)),
+            None => store
+                .clear()
+                .map_err(|error| ("the kept token was not deleted", error)),
         };
+        if let Err((what, error)) = written {
+            eprintln!("[session] {what}: {error}");
+        }
     });
     (session, saving)
 }
