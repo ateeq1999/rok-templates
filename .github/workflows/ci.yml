@@ -102,7 +102,7 @@ jobs:
         if: steps.pin.outputs.ready == 'true'
         with:
           toolchain: "1.94"
-          components: rustfmt
+          components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
         if: steps.pin.outputs.ready == 'true'
         with:

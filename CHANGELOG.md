@@ -8,6 +8,11 @@ are this file's `## [X.Y.Z]` section.
 
 ## [Unreleased]
 
+**Changed**
+
+- `rok-data.pin` is `v0.6.1`: the first 0.6 release of rok-data whose crates
+  all published (0.6.0 stopped before `rok-data-sqlc`).
+
 ## [0.6.0]
 
 The first release from this repository: everything that landed in

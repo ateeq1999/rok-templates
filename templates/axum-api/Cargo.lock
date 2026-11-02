@@ -2825,9 +2825,9 @@ dependencies = [
 
 [[package]]
 name = "rok-data"
-version = "0.5.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "194abd88a377e2bb8e522d40ccb087b3ab0d8803cf93bdb1e1853e2a8fcc2191"
+checksum = "1908de6475e207b475042f67e1de01163c75ad94645f82ef33d6449f131f7351"
 dependencies = [
  "rok-data-core",
  "rok-data-macros",
@@ -2835,9 +2835,9 @@ dependencies = [
 
 [[package]]
 name = "rok-data-core"
-version = "0.5.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "86bd2df7de410736be408357eb3e47c155fd25173d90c2edd332c13e41a4633e"
+checksum = "972f26553f7e64178a1def7481f6b51e155af5882c4b835623ea678029b15187"
 dependencies = [
  "async-stream",
  "futures-core",
@@ -2852,9 +2852,9 @@ dependencies = [
 
 [[package]]
 name = "rok-data-macros"
-version = "0.5.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c4c9dade39265ba6dd70191f4077ea9f0827df5cbd398bb0b3c669e7aeff55f4"
+checksum = "9f27cf8c0d28ac1e6627b42e27c8208078545097d043270366e82e815f3ecc2b"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
