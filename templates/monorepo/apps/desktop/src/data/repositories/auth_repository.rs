@@ -1,9 +1,8 @@
 //! `AuthRepository`: what the `auth` business logic reads and writes.
 
 use crate::data::models::user::User;
-use crate::data::providers::auth_api::AuthApi;
-use crate::data::providers::auth_api::SignInDto;
-use crate::data::providers::auth_api::UserDto;
+use crate::data::providers::api::{app_error, Api};
+use api_client::{AccountResponse, CredentialsDto, LoginResponse};
 use rok_ui::bloc::BoxFuture;
 use rok_ui::http::ApiError;
 
@@ -17,22 +16,22 @@ pub trait AuthRepository: Send + Sync {
     fn me(&self) -> BoxFuture<'_, Result<User, ApiError>>;
 }
 
-/// [`AuthRepository`] over a [`AuthApi`].
+/// [`AuthRepository`] over the [`Api`].
 #[derive(Debug)]
 pub struct AuthRepositoryImpl {
-    provider: AuthApi,
+    provider: Api,
 }
 
 impl AuthRepositoryImpl {
     /// A repository reading and writing through `provider`.
     #[must_use]
-    pub fn new(provider: AuthApi) -> Self {
+    pub fn new(provider: Api) -> Self {
         Self { provider }
     }
 
     /// The data source, for the methods you add.
     #[must_use]
-    pub fn provider(&self) -> &AuthApi {
+    pub fn provider(&self) -> &Api {
         &self.provider
     }
 }
@@ -40,36 +39,56 @@ impl AuthRepositoryImpl {
 impl AuthRepository for AuthRepositoryImpl {
     fn sign_in(&self, email: String, password: String) -> BoxFuture<'_, Result<User, ApiError>> {
         Box::pin(async move {
-            let value = self.provider.sign_in(SignInDto { email, password }).await?;
-            if let Some(session) = self.provider.client().session() {
-                session.set_token(value.token.clone());
-            }
-            Ok(value.user.into())
+            // Signing in sends no token, so its 401 (wrong credentials) never expires the session.
+            let answer = self
+                .provider
+                .client()
+                .auth()
+                .login(&CredentialsDto { email, password })
+                .await
+                .map_err(app_error)?;
+            let token = match answer {
+                LoginResponse::TokenResponse(token) => token.access_token,
+                LoginResponse::PendingToken(_) => {
+                    return Err(ApiError::new(
+                        0,
+                        "totp_required",
+                        "This account signs in with a two-factor code, which this app does not ask for.",
+                    ))
+                }
+            };
+            self.provider.sign_in(token);
+            self.me().await
         })
     }
 
     fn sign_out(&self) -> BoxFuture<'_, Result<(), ApiError>> {
         Box::pin(async move {
-            let result = self.provider.sign_out().await;
-            // Signed out locally even when the server call fails.
-            if let Some(session) = self.provider.client().session() {
-                session.clear();
-            }
-            result
+            // The API's sessions are bearer tokens it does not keep: signing out forgets ours.
+            self.provider.sign_out();
+            Ok(())
         })
     }
 
     fn me(&self) -> BoxFuture<'_, Result<User, ApiError>> {
-        Box::pin(async move { self.provider.me().await.map(Into::into) })
+        Box::pin(async move {
+            self.provider
+                .client()
+                .auth()
+                .me()
+                .await
+                .map(Into::into)
+                .map_err(app_error)
+        })
     }
 }
 
-impl From<UserDto> for User {
-    fn from(dto: UserDto) -> Self {
+impl From<AccountResponse> for User {
+    fn from(account: AccountResponse) -> Self {
         Self {
-            id: dto.id,
-            name: dto.name,
-            email: dto.email,
+            id: account.id,
+            name: account.display_name.unwrap_or_default(),
+            email: account.email,
         }
     }
 }

@@ -11,7 +11,6 @@ file_route! {
 fn Shell(#[children] children: Vec<AnyElement>) -> impl IntoElement {
     let links = [
         Link::to(&super::Index).exact(true).child("Home"),
-        Link::new("nav-notes", "/notes").child("Notes"),
         Link::new("nav-auth", "/auth").child("Auth"),
         // rok-ui:nav
     ];

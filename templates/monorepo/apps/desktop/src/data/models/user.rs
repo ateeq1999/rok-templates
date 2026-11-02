@@ -5,11 +5,11 @@
 pub struct User {
     /// `id`.
     pub id: UserId,
-    /// `name`.
+    /// `name`: the display name, empty when the user has none.
     pub name: String,
     /// `email`.
     pub email: String,
 }
 
-/// A `User`'s id.
-pub type UserId = u64;
+/// A `User`'s id: the API's, a UUID.
+pub type UserId = String;

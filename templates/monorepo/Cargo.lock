@@ -1832,10 +1832,11 @@ dependencies = [
 name = "desktop"
 version = "0.1.0"
 dependencies = [
+ "api-client",
  "gpui",
  "rok-ui",
  "rok-ui-build",
- "serde",
+ "serde_json",
 ]
 
 [[package]]

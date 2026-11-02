@@ -204,11 +204,12 @@ The mobile App (`apps/mobile`, also listed in its `docs/feature-flags.md`):
   ([Push notifications](recipes/push-notifications.md)), not a default
   (workspace ADR 0023). The Firebase files ship as placeholders.
 
-The desktop App (`apps/desktop`) is rok-ui's starter as imported: its
-sign-in and notes features still call that starter's own endpoints through
-its own HTTP layer, which `apps/api` does not serve. Moving it onto
-`clients/rust` (sign-up, sign-in, sign-out, the users screens) is the next
-step of workspace ADR 0031.
+The desktop App (`apps/desktop`) is rok-ui's starter with its data layer
+on `clients/rust`: its repositories call the generated client (sign-in,
+the signed-in account, a page of users and one user), and a 422's broken
+rules reach its form fields. The starter's notes feature is gone, as the
+API serves no notes. Sign-up, the session kept in the OS keychain, and
+the users screens are the next steps of workspace ADR 0031.
 
 ## Names
 

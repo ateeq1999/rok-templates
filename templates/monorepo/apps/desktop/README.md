@@ -4,20 +4,29 @@ A [rok-ui](https://github.com/ateeq1999/rok-ui) (GPUI) desktop app, imported
 from `cargo rok-ui new desktop --template bloc --http` at rok-ui 0.9.1
 (workspace ADR 0031). Its layers are rok-ui's BLoC structure:
 
-- `src/data/` — models, providers (the HTTP calls) and repositories.
+- `src/data/` — models, providers and repositories. The one provider,
+  `providers/api.rs`, is the API's generated client (`clients/rust`, the
+  `api_client` crate), wired to the app's session; the repositories call
+  it (`api.client().users().list(&query)`) and turn its errors into the
+  `ApiError` blocs and forms read, a 422's broken rules kept by field.
 - `src/features/` — one module per feature: its business logic (`bloc/`,
   free of GPUI) and its views (`view/`).
 - `src/routes/` — thin route files; `build.rs` turns them into the
   `routes` module.
+- `tests/data/` — the repositories' tests, the client answered by a mock
+  API on localhost.
 - `tests/features/` — each bloc's tests, against fake repositories.
+
+Never add HTTP calls or JSON models by hand: a call the client lacks is a
+change to `apps/api`, then `rok gen` from the root regenerates
+`clients/rust`, and this App's build follows it (or breaks where it must
+change).
 
 Its home is rok-data's `rok-templates` crate
 ([`crates/rok-templates/templates/monorepo/apps/desktop`](https://github.com/ateeq1999/rok-data/tree/main/crates/rok-templates/templates/monorepo/apps/desktop));
 [the monorepo
 guide](https://github.com/ateeq1999/rok-data/blob/main/crates/rok-templates/docs/guide/monorepo.md)
-describes the project around it. Its providers are still the starter's
-own HTTP calls, which `apps/api` does not serve; moving them onto the
-generated `clients/rust` is the next step of workspace ADR 0031.
+describes the project around it.
 
 ## Running it
 

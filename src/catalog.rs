@@ -325,6 +325,38 @@ mod tests {
         );
     }
 
+    /// The desktop App reaches the API only through the generated
+    /// `clients/rust` (workspace ADR 0031): its manifest depends on the
+    /// client by path, so a contract change `rok gen` regenerates breaks or
+    /// flows through its build, and no source of its calls HTTP by hand.
+    #[test]
+    fn the_desktop_app_calls_the_api_only_through_clients_rust() {
+        let files =
+            files("monorepo").unwrap_or_else(|| panic!("the monorepo template has no files"));
+        let manifest = files
+            .iter()
+            .find(|file| file.path == "apps/desktop/Cargo.toml.template")
+            .map(|file| String::from_utf8_lossy(file.bytes))
+            .unwrap_or_else(|| panic!("the desktop App has no manifest"));
+        assert!(
+            manifest.contains("\napi-client = { path = \"../../clients/rust\" }\n"),
+            "apps/desktop does not depend on clients/rust by path:\n{manifest}"
+        );
+        for file in files
+            .iter()
+            .filter(|file| file.path.starts_with("apps/desktop/src/"))
+        {
+            let text = String::from_utf8_lossy(file.bytes);
+            for by_hand in ["HttpClient", "http::Options", "reqwest"] {
+                assert!(
+                    !text.contains(by_hand),
+                    "`{}` calls HTTP by hand (`{by_hand}`)",
+                    file.path
+                );
+            }
+        }
+    }
+
     #[test]
     fn the_catalog_names_its_templates() {
         let names: Vec<&str> = names().collect();

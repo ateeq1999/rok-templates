@@ -6,13 +6,19 @@ edition = "2021"
 # rok-ui and gpui stay at the versions `cargo rok-ui new --template bloc --http`
 # (rok-ui 0.9.1) generated this App with (workspace ADR 0031).
 [dependencies]
+# Its `http` feature for `ApiError` (what blocs and forms read) and
+# `Session`; the requests themselves go through `api-client`.
 rok-ui = { version = "=0.9.1", features = ["router", "bloc", "http", "form", "typography", "empty"] }
 gpui = "=0.2.2"
-# The API's DTOs derive Serialize and Deserialize.
-serde = { version = "1", features = ["derive"] }
+# The API's client, generated from its contract (`clients/rust`): a change
+# `rok gen` regenerates there breaks or flows through this App's build.
+api-client = { path = "../../clients/rust" }
 
 [dev-dependencies]
 gpui = { version = "=0.2.2", features = ["test-support"] }
+# The repositories' tests answer the client from a mock API on localhost.
+rok-ui = { version = "=0.9.1", features = ["http-testing"] }
+serde_json = "1"
 
 [build-dependencies]
 rok-ui-build = { version = "=0.9.1" }

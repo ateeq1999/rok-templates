@@ -18,10 +18,10 @@ struct SignInSubmittedForm {
     password: String,
 }
 
-/// Where API errors from submitting the form are shown.
+/// Where API errors from submitting the form are shown. A 422's broken rules land on the
+/// fields the API names (`email`, `password`), which are this form's.
 fn server_errors() -> ServerErrorOptions {
     ServerErrorOptions::new()
-        .map("emailAddress", &SignInSubmittedForm::EMAIL)
         .bad_request_field(&SignInSubmittedForm::EMAIL)
         .unauthorized_field(&SignInSubmittedForm::PASSWORD)
 }

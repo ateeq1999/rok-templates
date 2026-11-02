@@ -10,8 +10,8 @@ contract (workspace ADRs 0027 and 0031). The Apps `rok sqlc init
   plain bun (no JS monorepo tool). It talks to `apps/api` through the
   generated `clients/ts`.
 - `apps/desktop/` — the desktop app: rok-ui's bloc-http starter (GPUI), a
-  member of the root workspace. It talks to `apps/api` through its own
-  HTTP layer today; its README is its reference.
+  member of the root workspace. It talks to `apps/api` through the
+  generated `clients/rust`; its README is its reference.
 - `apps/mobile/` — the mobile app: Flutter (`flutter_bloc`, `go_router`).
   It talks to `apps/api` through the generated `clients/dart`; what the API
   does not serve yet (organizations, magic link, admin, deleting the

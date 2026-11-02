@@ -13,6 +13,8 @@ one API contract (workspace ADRs 0027 and 0031).
   root workspace member); run it with `cargo run -p desktop` while
   `apps/api` runs, check it with `cargo test -p desktop`. Its business
   logic (`src/features/<f>/bloc/`) stays free of GPUI (`clippy.toml`).
+  It calls the API only through the generated `clients/rust`
+  (`api_client`): never add HTTP code or JSON models by hand.
 - `apps/mobile/` — the mobile app (Flutter, package `mobile`); its checks
   are `flutter analyze` and `flutter test`. It calls the API only through
   the generated `clients/dart` (`package:api_client`): never add HTTP code
