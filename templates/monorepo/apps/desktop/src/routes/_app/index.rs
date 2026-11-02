@@ -9,14 +9,12 @@ file_route! {
 #[component]
 fn Home() -> impl IntoElement {
     crate::shared::widgets::PageFrame::new("Welcome")
-        .child(P::new(
-            "You are signed in. The users the API holds are a click away.",
-        ))
+        .child(P::new("You are signed in. Your account is a click away."))
         .child(
-            div().child(
-                Button::new("open-users")
-                    .label("Browse users")
-                    .on_click(|_, _, cx| rok_ui::router::navigate("/users", cx)),
+            div().debug_selector(|| "open-account".into()).child(
+                Button::new("open-account")
+                    .label("My account")
+                    .on_click(|_, _, cx| rok_ui::router::navigate("/account", cx)),
             ),
         )
 }

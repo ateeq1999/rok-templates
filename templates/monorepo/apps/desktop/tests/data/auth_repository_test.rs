@@ -1,7 +1,7 @@
 //! `AuthRepositoryImpl`: signing in and out of `apps/api` through `clients/rust`.
 
 use desktop::data::models::sign_in::SignIn;
-use desktop::data::models::user::User;
+use desktop::data::models::user::{Role, User};
 use desktop::data::providers::api::Api;
 use desktop::data::repositories::auth_repository::{AuthRepository, AuthRepositoryImpl};
 use gpui::SharedString;
@@ -53,6 +53,8 @@ fn signing_in_keeps_the_token_and_answers_the_account() {
             id: "0190c0de-0000-7000-8000-000000000001".into(),
             name: "Ada".into(),
             email: "ada@example.com".into(),
+            email_verified: true,
+            role: Role::User,
         }))
     );
     assert_eq!(

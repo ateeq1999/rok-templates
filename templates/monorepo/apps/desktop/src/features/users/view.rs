@@ -1,5 +1,6 @@
-//! Presentation: the pages that read the blocs and add their events.
+//! Presentation: the pages that read the blocs and add their events, and the gate around them.
 
+pub mod admin_only;
 pub mod user_page;
 pub mod users_page;
 

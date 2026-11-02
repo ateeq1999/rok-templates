@@ -4,7 +4,7 @@ use crate::data::models::user::User;
 use crate::features::users::bloc::user_bloc::UserBloc;
 use crate::features::users::bloc::user_event::UserEvent;
 use crate::features::users::bloc::user_state::{UserState, UserStatus};
-use crate::shared::widgets::PageFrame;
+use crate::shared::widgets::{field, PageFrame};
 use rok_ui::bloc::BlocBuilder;
 use rok_ui::prelude::*;
 
@@ -54,18 +54,8 @@ fn detail(user: &User) -> impl IntoElement {
             .child(
                 CardContent::new()
                     .child(field("Email", user.email.clone()))
+                    .child(field("Role", user.role.as_str()))
                     .child(field("Id", user.id.clone())),
             ),
     )
-}
-
-/// A label over its value.
-fn field(label: &'static str, value: String) -> impl IntoElement {
-    div()
-        .flex()
-        .flex_col()
-        .gap_1()
-        .py_2()
-        .child(Muted::new(label))
-        .child(value)
 }

@@ -1,7 +1,7 @@
 //! `UsersRepositoryImpl`: the API's users, a page at a time, through `clients/rust`.
 
 use desktop::data::models::page::Page;
-use desktop::data::models::user::User;
+use desktop::data::models::user::{Role, User};
 use desktop::data::providers::api::Api;
 use desktop::data::repositories::users_repository::{UsersRepository, UsersRepositoryImpl};
 use rok_ui::http::testing::MockServer;
@@ -52,6 +52,8 @@ fn a_page_of_users_is_the_page_the_api_answers() {
                 id: ID.into(),
                 name: String::new(),
                 email: "grace@example.com".into(),
+                email_verified: true,
+                role: Role::User,
             }],
             page: 2,
             per_page: 20,
@@ -78,6 +80,8 @@ fn one_user_is_the_row_the_api_answers() {
             id: ID.into(),
             name: "Grace".into(),
             email: "grace@example.com".into(),
+            email_verified: true,
+            role: Role::User,
         })
     );
 }

@@ -86,6 +86,8 @@ impl From<UserResponse> for User {
             id: user.id,
             name: user.display_name.unwrap_or_default(),
             email: user.email,
+            email_verified: user.email_verified,
+            role: user.role.into(),
         }
     }
 }

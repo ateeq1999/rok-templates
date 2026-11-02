@@ -1,7 +1,7 @@
 //! A `UsersRepository` over a list in memory, paged as the API pages it.
 
 use desktop::data::models::page::Page;
-use desktop::data::models::user::{User, UserId};
+use desktop::data::models::user::{Role, User, UserId};
 use desktop::data::repositories::users_repository::UsersRepository;
 use rok_ui::bloc::BoxFuture;
 use rok_ui::http::ApiError;
@@ -39,6 +39,8 @@ pub fn user(n: u32) -> User {
         id: format!("user-{n}"),
         name: format!("User {n}"),
         email: format!("user{n}@example.com"),
+        email_verified: true,
+        role: Role::User,
     }
 }
 

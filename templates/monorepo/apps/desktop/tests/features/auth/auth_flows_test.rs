@@ -3,7 +3,7 @@
 
 use std::sync::Arc;
 
-use desktop::data::models::user::User;
+use desktop::data::models::user::{Role, User};
 use desktop::data::providers::api::Api;
 use desktop::data::providers::token_store::MemoryTokenStore;
 use desktop::data::repositories::auth_repository::AuthRepositoryImpl;
@@ -43,6 +43,8 @@ fn ada() -> User {
         id: "0190c0de-0000-7000-8000-000000000001".into(),
         name: "Ada".into(),
         email: EMAIL.into(),
+        email_verified: true,
+        role: Role::User,
     }
 }
 

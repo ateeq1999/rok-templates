@@ -19,6 +19,17 @@ pub fn PageFrame(title: SharedString, #[children] children: Vec<AnyElement>) -> 
         .children(children)
 }
 
+/// A label over its value, as a detail screen lists a record's fields.
+pub fn field(label: &'static str, value: impl Into<SharedString>) -> impl IntoElement {
+    div()
+        .flex()
+        .flex_col()
+        .gap_1()
+        .py_2()
+        .child(Muted::new(label))
+        .child(value.into())
+}
+
 /// Sends the user to [`SIGN_IN_PATH`] when the server expires their session (a 401), and
 /// home once they sign in. Render it once, in the root layout.
 #[component]

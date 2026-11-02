@@ -211,8 +211,9 @@ account asks for one, the signed-in account, a page of users and one
 user), and a 422's broken rules reach its form fields. The session's token
 is kept in the OS keychain between launches (on Linux the kernel keyring,
 which forgets it when the machine restarts); signing out or a 401 deletes
-it. The signed-in shell is rok-ui's `AdaptiveScaffold` with the users list
-and a user's detail, the Rok theme and a light/dark toggle. The starter's
+it. The signed-in shell is rok-ui's `AdaptiveScaffold` with My account
+(every user's own profile) and, for an admin, the users list and a user's
+detail, the Rok theme and a light/dark toggle. The starter's
 notes feature is gone, as the API serves no notes; sign-up ends at "verify
 your email", since verifying happens through the mailed link.
 

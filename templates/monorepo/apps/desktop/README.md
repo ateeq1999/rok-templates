@@ -15,24 +15,29 @@ from `cargo rok-ui new desktop --template bloc --http` at rok-ui 0.9.1
   the keychain.
 - `src/features/` — one module per feature: its business logic (`bloc/`,
   free of GPUI) and its views (`view/`).
-  `features/users` is the users list (paged as the API pages it) and a
-  user's detail, each read through its own bloc.
+  `features/auth` signs up, in and out and shows the signed-in user's
+  account (My account). `features/users` is the users list (paged as the
+  API pages it) and a user's detail, each read through its own bloc, behind
+  `AdminOnly`: the API serves them to an admin only.
 - `src/shell.rs` — the signed-in shell: rok-ui's `AdaptiveScaffold`
   (a bottom bar, a rail or a rail with labels, as wide as the window is),
   the Rok theme in the system's light or dark, and an app bar that toggles
   light and dark and signs out.
 - `src/routes/` — thin route files; `build.rs` turns them into the
   `routes` module. The signed-in pages live under `_app/` (no path
-  segment of its own), inside the shell: `/`, `/users`, `/users/:id`.
+  segment of its own), inside the shell: `/`, `/account`, and `/users`,
+  `/users/:id` (inside `_app/users.rs`, the admin gate). The navigation
+  shows Users to an admin only.
 - `tests/data/` — the repositories' tests, the client answered by a mock
   API on localhost.
 - `tests/features/` — each bloc's tests, against fake repositories; the
   auth flows (`auth/auth_flows_test.rs`) also through the real repository,
   the mock API and the in-memory token store.
 - `tests/shell/` — the App itself rendered in GPUI's test context, in light
-  and dark, its users screens answered by a mock API and its token kept in
-  memory: a signed-out start lands on sign-in, and the shell's sign-out
-  forgets the kept token.
+  and dark, its screens answered by a mock API and its token kept in
+  memory: a user reaches their account and is told the users need the
+  admin role, an admin reaches both, a signed-out start lands on sign-in,
+  and the shell's sign-out forgets the kept token.
 
 Never add HTTP calls or JSON models by hand: a call the client lacks is a
 change to `apps/api`, then `rok gen` from the root regenerates
@@ -60,9 +65,9 @@ Set `ROK_API_URL` to call it elsewhere:
 ROK_API_URL=http://127.0.0.1:9000 cargo run -p desktop
 ```
 
-An account signs in once its email is verified, and the users screens
-are the API's admin routes: the monorepo's README says how to verify one
-and make it an admin.
+An account signs in once its email is verified and sees My account; the
+users screens are the API's admin routes, shown to an admin only. The
+monorepo's README says how to verify an account and make it an admin.
 
 ## Checking it
 

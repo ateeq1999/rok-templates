@@ -110,9 +110,10 @@ entry per API address, so it starts signed in next time; signing out, or
 the API refusing the token, deletes it. On Linux that is the kernel
 keyring, which forgets the token when the machine restarts.
 
-The users list and a user's detail are the API's admin routes: a plain
-account sees the API's `403` ("this needs the admin role"). Make an
-account an admin in the database (`UPDATE users SET role = 'admin' WHERE
+Signed in, every account reaches My account (its email, display name,
+verified state and role). The users list and a user's detail are the
+API's admin routes, so the App shows them only to an admin; anyone else
+opening them is told they need the admin role. Make an account an admin in the database (`UPDATE users SET role = 'admin' WHERE
 email = '...'`); the API reads the role on every request, so it applies
 at once.
 
