@@ -20,7 +20,7 @@ $ rok init my-shop --template monorepo --org com.acme
 
 Each template's own `README.md` describes what it ships and which files
 are yours. [The
-guide](https://github.com/ateeq1999/rok-data/blob/main/crates/rok-templates/docs/guide/index.md)
+guide](docs/guide/index.md)
 explains the parts (the monorepo and its Apps, accounts, files, jobs,
 observability, security, deploying to AWS) and has recipes for growing
 them, push notifications for the mobile App among them. The actix and axum
