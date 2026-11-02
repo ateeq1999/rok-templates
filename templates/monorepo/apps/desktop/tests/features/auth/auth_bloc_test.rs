@@ -93,3 +93,29 @@ fn profile_requested() {
         Some(AuthStatus::Success)
     );
 }
+
+/// Events reach logs through `Debug` (rok-ui's `LogObserver`): a password or a code must not.
+#[test]
+fn an_event_never_shows_a_password_or_a_code() {
+    let events = [
+        AuthEvent::SignUpSubmitted {
+            email: "grace@example.com".into(),
+            password: "sign-up-s3cret".into(),
+        },
+        AuthEvent::SignInSubmitted {
+            email: "grace@example.com".into(),
+            password: "sign-in-s3cret".into(),
+        },
+        AuthEvent::CodeSubmitted {
+            code: "424242".into(),
+        },
+    ];
+
+    for event in events {
+        let shown = format!("{event:?}");
+        for secret in ["sign-up-s3cret", "sign-in-s3cret", "424242"] {
+            assert!(!shown.contains(secret), "{shown} shows a secret");
+        }
+        assert!(shown.contains("<redacted>"), "{shown} says what it hides");
+    }
+}
