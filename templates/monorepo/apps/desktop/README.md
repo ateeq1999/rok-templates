@@ -11,11 +11,20 @@ from `cargo rok-ui new desktop --template bloc --http` at rok-ui 0.9.1
   `ApiError` blocs and forms read, a 422's broken rules kept by field.
 - `src/features/` — one module per feature: its business logic (`bloc/`,
   free of GPUI) and its views (`view/`).
+  `features/users` is the users list (paged as the API pages it) and a
+  user's detail, each read through its own bloc.
+- `src/shell.rs` — the signed-in shell: rok-ui's `AdaptiveScaffold`
+  (a bottom bar, a rail or a rail with labels, as wide as the window is),
+  the Rok theme in the system's light or dark, and an app bar that toggles
+  light and dark and signs out.
 - `src/routes/` — thin route files; `build.rs` turns them into the
-  `routes` module.
+  `routes` module. The signed-in pages live under `_app/` (no path
+  segment of its own), inside the shell: `/`, `/users`, `/users/:id`.
 - `tests/data/` — the repositories' tests, the client answered by a mock
   API on localhost.
 - `tests/features/` — each bloc's tests, against fake repositories.
+- `tests/shell/` — the App itself rendered in GPUI's test context, in light
+  and dark, its users screens answered by a mock API.
 
 Never add HTTP calls or JSON models by hand: a call the client lacks is a
 change to `apps/api`, then `rok gen` from the root regenerates

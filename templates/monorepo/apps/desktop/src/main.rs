@@ -36,7 +36,8 @@ fn main() {
         .with_assets(rok_ui::Assets)
         .run(move |cx: &mut gpui::App| {
             rok_ui::init(cx);
-            cx.open_window(WindowOptions::default(), |_, cx| {
+            cx.open_window(WindowOptions::default(), |window, cx| {
+                desktop::shell::install_theme(window, cx);
                 cx.new(|_| Main { api, session })
             })
             .expect("the window opens");

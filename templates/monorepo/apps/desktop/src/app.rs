@@ -38,6 +38,16 @@ pub fn App(api: Api, session: Session, cx: &mut Cx) -> impl IntoElement {
                     scope.repository::<dyn AuthRepository>(),
                 )
             })
+            .with_bloc(|scope| {
+                crate::features::users::bloc::users_bloc::UsersBloc::new(
+                    scope.repository::<dyn UsersRepository>(),
+                )
+            })
+            .with_bloc(|scope| {
+                crate::features::users::bloc::user_bloc::UserBloc::new(
+                    scope.repository::<dyn UsersRepository>(),
+                )
+            })
             // rok-ui:blocs
             .child(routes::tree()),
     )
