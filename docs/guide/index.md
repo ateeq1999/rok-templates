@@ -5,7 +5,10 @@ ready for production: accounts, uploads, background jobs, logs, traces,
 metrics, a security baseline, a Docker image, a local stack, CI and an AWS
 deployment. `rok init --template monorepo` puts that axum API beside a
 web, a desktop and a mobile app, with the clients they call it through.
-This guide is about what the templates ship and how you grow them; how
+`rok init --template grpc` serves the axum template's schema over gRPC
+instead: tonic services and `.proto` files generated from it, health and
+reflection, and the axum template's configuration, data layer, jobs, mail,
+storage, telemetry and security, file for file. This guide is about what the templates ship and how you grow them; how
 rok-data-sqlc generates the API itself is
 [the engine's guide](../../../rok-data-sqlc/docs/guide/index.md).
 
@@ -23,6 +26,9 @@ The templates:
 - [The monorepo template](monorepo.md): the api, web, desktop and mobile
   Apps, the one contract, the TypeScript, Dart and Rust clients, the
   `rok gen` loop, and what is hidden and why.
+- [The gRPC template](../../templates/grpc-api/README.md): the server,
+  health and reflection, who is calling, the status mapping, your own
+  RPCs, and what it shares with the axum template.
 
 What the API does:
 

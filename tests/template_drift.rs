@@ -168,6 +168,70 @@ fn the_templates_share_their_framework_independent_files() -> Result<()> {
     Ok(())
 }
 
+/// The files `templates/grpc-api` holds the same copy of as `templates/axum-api`
+/// (workspace ADR 0030): the configuration, the data layer's sources and its
+/// framework-free generated files, the jobs, mail, storage, telemetry,
+/// metrics, shutdown and security, and the generated features' files no
+/// transport shows through. What differs is the transport's: the wiring,
+/// the error's answer, the caller, and the generated files that derive
+/// the OpenAPI schemas (`db/*/models.rs`, `dto.rs`), which gRPC has none of.
+const GRPC_SHARED: &[&str] = &[
+    "migrations",
+    "schema",
+    "queries",
+    "src/config.rs",
+    // The data layer's files no framework shows through.
+    "src/db/queries",
+    "src/db/pool.rs",
+    "src/db/nullable.rs",
+    "src/db/schema.rs",
+    "src/shared/jobs",
+    "src/shared/mail",
+    "src/shared/storage",
+    "src/shared/telemetry.rs",
+    "src/shared/metrics.rs",
+    "src/shared/settings.rs",
+    "src/shared/shutdown.rs",
+    "src/shared/security",
+];
+
+/// The files of a generated feature both the axum and the gRPC template
+/// hold: the scaffolded `service.rs` names no framework's wiring there.
+/// `service_api.rs` is left out while grpc-api's configuration can't keep
+/// `users.email` immutable (see its `rok-data-sqlc.toml`): its `update`
+/// then checks the email, which axum's never takes.
+const GRPC_FEATURE_FILES: &[&str] = &["model.rs", "repo.rs", "service.rs"];
+
+/// The paths, relative to a template, that [`GRPC_SHARED`] and the
+/// [`FEATURES`]' [`GRPC_FEATURE_FILES`] name.
+fn grpc_shared_paths() -> Vec<String> {
+    let mut paths: Vec<String> = GRPC_SHARED.iter().map(|path| (*path).to_owned()).collect();
+    for feature in FEATURES {
+        for file in GRPC_FEATURE_FILES {
+            paths.push(format!("src/features/{feature}/{file}"));
+        }
+    }
+    paths
+}
+
+#[test]
+fn the_grpc_template_shares_the_axum_templates_files() -> Result<()> {
+    let (axum, grpc) = (templates().join("axum-api"), templates().join("grpc-api"));
+    for path in grpc_shared_paths() {
+        assert!(
+            axum.join(&path).exists() && grpc.join(&path).exists(),
+            "`{path}` is listed as shared with grpc-api but a template lacks it"
+        );
+    }
+    let found = drift(&axum, &grpc, &grpc_shared_paths())?;
+    assert!(
+        found.is_empty(),
+        "grpc-api's files shared with axum-api drifted apart (make both copies the same):\n  {}",
+        found.join("\n  ")
+    );
+    Ok(())
+}
+
 /// The monorepo's api App is the axum template file for file (workspace
 /// ADR 0027): every file of `templates/axum-api` but its manifest and lock
 /// file (the monorepo's root holds the lock file, and init renames the

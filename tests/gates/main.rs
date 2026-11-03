@@ -23,6 +23,7 @@ mod actix_template;
 mod axum_template;
 mod dart_client;
 mod desktop_app;
+mod grpc_template;
 mod mobile_app;
 mod monorepo_template;
 mod web_app;

@@ -3,7 +3,8 @@
 `rok-templates` is one member repo of the rok toolchain (see
 `rok-workspace`, the folder around it). It holds the starter templates
 the rok-data engine's `init --template` writes — `actix-api`,
-`axum-api`, and `monorepo` (an axum API with web, mobile and desktop
+`axum-api`, `grpc-api` (tonic, sharing axum-api's transport-free files),
+and `monorepo` (an axum API with web, mobile and desktop
 Apps and generated clients) — embedded by `build.rs`, plus the catalog
 code that maps a template name to the files a project gets.
 
@@ -11,9 +12,10 @@ code that maps a template name to the files a project gets.
 
 | Change | Touch |
 | --- | --- |
-| A template's files | `templates/<template>/` (`actix-api` and `axum-api` are their own crates, excluded from this workspace) |
+| A template's files | `templates/<template>/` (`actix-api`, `axum-api` and `grpc-api` are their own crates, excluded from this workspace) |
 | Which files a project gets, renaming at init | `src/catalog.rs`, `src/rename.rs` (and their unit tests) |
-| A file both API templates share | both copies; `tests/template_drift.rs` keeps them identical |
+| A file both API templates share | both copies; `tests/template_drift.rs` keeps them identical (and `grpc-api`'s copy of the files it shares with `axum-api`) |
+| A `.proto` or tonic service of `grpc-api` | generated: its schema and `rok-data-sqlc.toml`, then regenerate; `build.rs` compiles `proto/` with protox, never `protoc` |
 | A template's generated files | regenerate, never edit: `ROK_DATA_SQLC_UPDATE_EXPECTED=1` with the gates (below) |
 | How `init` writes files (copy when absent, skip `@generated`) | not here: the rok-data engine's `init` |
 | A template guide | `docs/guide/` |

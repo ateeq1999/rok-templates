@@ -1,0 +1,2 @@
+ALTER TABLE "media" ADD COLUMN "completed_at" TIMESTAMPTZ DEFAULT now();
+ALTER TABLE "media" ADD COLUMN "expires_at" TIMESTAMPTZ;

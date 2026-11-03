@@ -8,6 +8,25 @@ are this file's `## [X.Y.Z]` section.
 
 ## [Unreleased]
 
+**Added**
+
+- The `grpc` template (`templates/grpc-api/`, workspace ADR 0030): the axum
+  template's schema generated with `framework = "grpc"` (engine ADR 0028),
+  a `.proto` per Resource under `proto/` and a tonic service per feature,
+  compiled by `build.rs` with protox, so no `protoc` is needed; the tonic
+  server, with `grpc.health.v1.Health` (`NOT_SERVING` while draining) and
+  server reflection outside the caller check; the axum template's
+  configuration, data layer sources, jobs, mail, storage, telemetry,
+  metrics, shutdown and security, which `template_drift` holds identical;
+  and tests that call the services in process (CRUD against PostgreSQL
+  when `DATABASE_URL` is set). The gRPC stack is pinned exactly (tonic,
+  tonic-health, tonic-reflection, tonic-prost, tonic-types and
+  tonic-prost-build 0.14.9, prost 0.14.4, protox 0.10.0). The caller check
+  (`app/auth.rs`) puts no caller yet, so every call that needs one is
+  `UNAUTHENTICATED`.
+- A `grpc_template` gate: drift against generation, rustfmt, clippy and the
+  template's tests, with `PROTOC` naming no program.
+
 **Changed**
 
 - `rok-data.pin` is `v0.8.0` (the release carrying `framework = "grpc"`),

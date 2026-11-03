@@ -71,6 +71,11 @@ pub const TEMPLATES: &[Template] = &[
         apps: &[],
     },
     Template {
+        name: "grpc",
+        dir: "grpc-api",
+        apps: &[],
+    },
+    Template {
         name: "monorepo",
         dir: "monorepo",
         apps: MONOREPO_APPS,
@@ -405,5 +410,14 @@ mod tests {
         let names: Vec<&str> = names().collect();
         assert!(names.contains(&"actix"), "the catalog lost `actix`");
         assert!(names.contains(&"axum"), "the catalog lost `axum`");
+    }
+
+    /// `--template grpc` is the tonic API (workspace ADR 0030), a
+    /// single-app template.
+    #[test]
+    fn grpc_names_the_grpc_api_template() {
+        let grpc = template("grpc").unwrap_or_else(|| panic!("the catalog names no `grpc`"));
+        assert_eq!(grpc.dir, "grpc-api");
+        assert!(apps("grpc").is_empty(), "the grpc template is a single app");
     }
 }

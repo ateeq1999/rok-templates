@@ -3,6 +3,8 @@
 //! the crate by `build.rs` so `init` works from `cargo install`.
 //!
 //! - `axum` and `actix`: a complete API on one web framework.
+//! - `grpc`: the axum API's data served over gRPC (tonic; workspace ADR 0030),
+//!   sharing the axum template's transport-free files.
 //! - `monorepo`: one backend and three apps sharing one API contract
 //!   (workspace ADRs 0027 and 0031) — the axum API (`apps/api`), a web app
 //!   (`apps/web`, TanStack Start), a desktop app (`apps/desktop`, rok-ui)
@@ -57,8 +59,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn both_templates_are_embedded_with_their_manifest() {
-        for dir in ["actix-api", "axum-api"] {
+    fn the_api_templates_are_embedded_with_their_manifest() {
+        for dir in ["actix-api", "axum-api", "grpc-api"] {
             let embedded = find(dir).unwrap_or_else(|| panic!("`{dir}` is not embedded"));
             assert!(
                 embedded
