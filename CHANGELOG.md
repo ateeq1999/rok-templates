@@ -10,6 +10,11 @@ are this file's `## [X.Y.Z]` section.
 
 **Changed**
 
+- `rok-data.pin` is `v0.8.0` (the release carrying `framework = "grpc"`),
+  and the templates move to rok-data 0.8: their manifests, the READMEs
+  that quote them, their lockfiles (exactly rok-data, rok-data-core and
+  rok-data-macros move) and their generated files (only each
+  `db/mod.rs`'s dependency hint).
 - `rok-data.pin` is `v0.7.0`, and the templates move to rok-data 0.7: their
   manifests, the READMEs that quote them, their lockfiles (exactly
   rok-data, rok-data-core and rok-data-macros move) and their generated
