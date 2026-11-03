@@ -20,6 +20,7 @@ are yours.
 build.rs          compiles proto/ with protox (no protoc) into messages,
                   servers and clients, and the descriptors reflection serves
 proto/            generated <table>.proto files; add your own beside them
+                  (user_events.proto, the streaming example, is one)
 src/
 ├─ lib.rs         declares every module `pub`: the application is a library
 ├─ main.rs        starts the server through the library. Nothing else.
@@ -35,6 +36,8 @@ src/
 │                 validation are generated)
 └─ features/
    ├─ mod.rs        `mod generated; pub use generated::*;` plus hand-written features
+   ├─ user_events/  hand-written: the streaming example, UserEventsService.Subscribe
+   │                fed by LISTEN/NOTIFY (mod, grpc, model, repo, service: all yours)
    ├─ generated.rs  generated: declares the features, includes the compiled
    │                package (`proto`) and holds `routes`
    └─ <feature>/

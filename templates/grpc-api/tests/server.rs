@@ -80,6 +80,7 @@ async fn reflection_lists_the_services() -> TestResult {
     for name in [
         "grpc_api.v1.UsersService",
         "grpc_api.v1.AuditLogEntryService",
+        "grpc_api.v1.UserEventsService",
         "grpc.health.v1.Health",
         "grpc.reflection.v1.ServerReflection",
     ] {

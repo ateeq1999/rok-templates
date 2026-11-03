@@ -44,8 +44,9 @@ grpcurl -plaintext localhost:8080 grpc.health.v1.Health/Check
 
 `src/app/routes.rs` builds what the server serves:
 
-- the generated features' services (`features::routes`), behind the
-  caller check of `src/app/auth.rs`;
+- the generated features' services (`features::routes`) and the
+  hand-written `UserEventsService` (see [Your own RPCs](#your-own-rpcs)),
+  behind the caller check of `src/app/auth.rs`;
 - `grpc.health.v1.Health` (`tonic-health`): `SERVING` for the server
   (`""`), `NOT_SERVING` while it drains;
 - server reflection (`tonic-reflection`, `grpc.reflection.v1` and
@@ -88,6 +89,43 @@ same package (`grpc_api.v1`), importing the generated messages
 `proto/`; implement its service in a hand-written feature and add it in
 `src/app/routes.rs`. Streaming is never generated.
 
+The template carries one, as the example: `UserEventsService.Subscribe`
+(`proto/user_events.proto`, the `user_events` feature), a server-streaming
+RPC that sends an admin a `UserEvent` each time a user changes. Once
+`src/app/auth.rs` checks bearer tokens:
+
+```sh
+grpcurl -plaintext -H 'authorization: Bearer ...' \
+  localhost:8080 grpc_api.v1.UserEventsService/Subscribe
+```
+
+- **Where the events come from.** PostgreSQL `LISTEN`/`NOTIFY` on the
+  `user_events` channel, the payload a user's id:
+  `NOTIFY user_events, '<user id>'`. `UserEventsService::publish` sends one
+  (`repo::publish` on a transaction sends it on commit), and so may
+  anything sharing the database: the axum API, a job, `psql`, or a trigger
+  you add in a migration of your own, such as
+  `PERFORM pg_notify('user_events', NEW.id::text)` after an update of
+  `users`. The template adds no trigger: its migrations are the axum
+  template's, byte for byte. The generated `users` service publishes
+  nothing either; to publish from it, call `publish` from your own code
+  or add that trigger.
+- **What an event holds.** The id, and the user as it is when the event is
+  sent (read once per subscriber), or no user once it is gone. A payload
+  that is no id is logged and skipped.
+- **One connection per subscriber.** Each subscription listens on a pool
+  connection of its own (`sqlx::postgres::PgListener`) until the client
+  hangs up, which drops it: size `DB_MAX_CONNECTIONS` for your
+  subscribers, or fan one listener out to many in a feature of your own.
+- **Slow subscribers and lost connections.** Events wait in a queue of 16;
+  a subscriber that falls that far behind is ended with
+  `RESOURCE_EXHAUSTED` rather than left to pile notifications up in
+  PostgreSQL. A lost database connection ends the stream with
+  `UNAVAILABLE`, since the notifications sent meanwhile are gone. Either
+  way the client subscribes again and re-reads what it shows.
+- **Shutdown.** A stream is a call in flight: the server waits for it up to
+  `SHUTDOWN_GRACE_SECS`, then drops it.
+
 ## Dependencies
 
 The template's `Cargo.toml` has them; the gRPC stack is pinned exactly,
@@ -127,6 +165,7 @@ sqlx = { version = "0.9", features = ["runtime-tokio", "postgres", "derive", "uu
 subtle = "2"
 thiserror = "2"
 tokio = { version = "1", features = ["macros", "net", "rt", "rt-multi-thread", "signal", "sync", "time"] }
+tokio-stream = "=0.1.19"
 tonic = "=0.14.9"
 tonic-health = "=0.14.9"
 tonic-prost = "=0.14.9"
@@ -145,7 +184,6 @@ tonic-prost-build = "=0.14.9"
 
 [dev-dependencies]
 hyper-util = { version = "=0.1.21", features = ["tokio"] }
-tokio-stream = "=0.1.19"
 tower = { version = "=0.5.3", features = ["util"] }
 
 [lints.rust]
@@ -182,10 +220,12 @@ the caller put in place by a stand-in for `app/auth.rs`.
 - **Generated** (first line `@generated`; `rok sqlc g` rewrites them, never
   edit them): `proto/<table>.proto`, `src/db/`, `src/shared/{grpc,
   pagination,response,validation}.rs`, and every file of `src/features/`
-  but `mod.rs` and each feature's `service.rs`.
+  but `mod.rs`, each feature's `service.rs` and the hand-written
+  `user_events` feature.
 - **Yours**: `rok-data-sqlc.toml`, `schema/`, `queries/`, `build.rs`,
   `src/{lib,main,config,error}.rs`, `src/app/`, `src/shared/` but the
   generated files, `src/features/mod.rs`, each feature's `service.rs`,
+  `src/features/user_events/` and `proto/user_events.proto`,
   `tests/`, and this README.
 - **Generated**: `migrations/` is the history — `rok gen --migration`
   stages its pairs; never edit those files.

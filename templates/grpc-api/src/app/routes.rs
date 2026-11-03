@@ -1,10 +1,11 @@
 // Scaffolded once by rok-data-sqlc; this file is yours. It is never regenerated. See docs/guide/architecture.md.
 
 //! [`routes`]: every service the server serves. The generated features'
-//! services (`features::routes`) sit behind the caller check
-//! ([`authenticate`]); `grpc.health.v1.Health` (`tonic-health`) and server
-//! reflection (`tonic-reflection`, v1 and v1alpha) sit beside them, outside
-//! it, so a load balancer's probe and `grpcurl` need no credentials.
+//! services (`features::routes`) and the hand-written ones (`user_events`)
+//! sit behind the caller check ([`authenticate`]); `grpc.health.v1.Health`
+//! (`tonic-health`) and server reflection (`tonic-reflection`, v1 and
+//! v1alpha) sit beside them, outside it, so a load balancer's probe and
+//! `grpcurl` need no credentials.
 
 use tonic::service::Routes;
 use tonic_health::pb::health_server::HealthServer;
@@ -13,6 +14,7 @@ use tonic_reflection::server::{Builder, Error};
 
 use super::{AppState, authenticate};
 use crate::features;
+use crate::features::proto::user_events_service_server::UserEventsServiceServer;
 
 /// The descriptors of `proto/` (and their imports), as `build.rs` encodes
 /// them: what reflection answers with.
@@ -28,7 +30,8 @@ pub const FILE_DESCRIPTOR_SET: &[u8] =
 ///
 /// When the embedded descriptors don't decode: a build bug.
 pub fn routes(state: &AppState, health: HealthReporter) -> Result<Routes, Error> {
-    let api = features::routes(&state.pool);
+    let user_events = features::user_events::UserEventsService::new(state.pool.clone());
+    let api = features::routes(&state.pool).add_service(UserEventsServiceServer::new(user_events));
     services(authenticate(api, state), health)
 }
 

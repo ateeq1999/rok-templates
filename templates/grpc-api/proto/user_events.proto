@@ -1,0 +1,32 @@
+// Scaffolded once by rok-data-sqlc; this file is yours. It is never regenerated. See docs/guide/architecture.md.
+
+// Hand-written, not generated: rok-data-sqlc never rewrites or removes this
+// file. It is the example of an RPC of your own: a server-streaming one,
+// importing the generated `User` message (`users.proto`). Its service is
+// the `user_events` feature (`src/features/user_events/`), added in
+// `src/app/routes.rs`.
+
+syntax = "proto3";
+
+package grpc_api.v1;
+
+import "users.proto";
+
+message SubscribeUserEventsRequest {}
+
+// A user changed: `NOTIFY user_events, '<user id>'` named it.
+message UserEvent {
+  // The id the notification named.
+  string user_id = 1;
+  // The user as it is now; left out once the user is gone (deleted).
+  User user = 2;
+}
+
+service UserEventsService {
+  // One event per `NOTIFY user_events, '<user id>'`, for as long as the
+  // client stays subscribed. Admins only, as `UsersService` is. A
+  // subscriber that falls behind is ended with `RESOURCE_EXHAUSTED`, and
+  // one whose database connection drops with `UNAVAILABLE`: notifications
+  // may have been missed, so subscribe again and re-read what you show.
+  rpc Subscribe(SubscribeUserEventsRequest) returns (stream UserEvent);
+}

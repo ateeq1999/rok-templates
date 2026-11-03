@@ -24,6 +24,17 @@ are this file's `## [X.Y.Z]` section.
   tonic-prost-build 0.14.9, prost 0.14.4, protox 0.10.0). The caller check
   (`app/auth.rs`) puts no caller yet, so every call that needs one is
   `UNAUTHENTICATED`.
+- The `grpc` template's streaming example: `UserEventsService.Subscribe`, a
+  hand-written server-streaming RPC (`proto/user_events.proto`, importing
+  the generated `User`) in a hand-written `user_events` feature behind the
+  caller check, admins only. Each `NOTIFY user_events, '<user id>'` is one
+  event (the user as it is now, or the id alone once it is gone): the
+  service publishes with `pg_notify`, and any process sharing the database
+  may too; no migration is added. Each subscriber listens on a connection
+  of its own (`PgListener`) through a bounded queue: hanging up drops the
+  listener, falling 16 events behind ends the stream with
+  `RESOURCE_EXHAUSTED`, a lost connection with `UNAVAILABLE`. tokio-stream
+  (=0.1.19) moves from the dev-dependencies to the dependencies.
 - A `grpc_template` gate: drift against generation, rustfmt, clippy and the
   template's tests, with `PROTOC` naming no program.
 

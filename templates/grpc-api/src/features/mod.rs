@@ -7,3 +7,7 @@
 
 mod generated;
 pub use generated::*;
+
+/// Hand-written: `UserEventsService.Subscribe`, a server-streaming RPC fed
+/// by `LISTEN`/`NOTIFY`.
+pub mod user_events;

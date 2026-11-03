@@ -18,6 +18,7 @@ use grpc_api::config::Config;
 use grpc_api::db::schema::SCHEMA_SQL;
 use grpc_api::db::types::Role;
 use grpc_api::features;
+use grpc_api::features::proto::user_events_service_server::UserEventsServiceServer;
 use grpc_api::shared::auth::{AuthUser, Credential};
 use hyper_util::rt::TokioIo;
 use sqlx::postgres::{PgConnectOptions, PgPoolOptions};
@@ -100,7 +101,9 @@ fn scope(mut request: Request<()>) -> Result<Request<()>, Status> {
 /// instead of `app::authenticate`, the health service reporting through
 /// `health`.
 pub fn scoped(pool: &PgPool, health: HealthReporter) -> Result<Routes, Box<dyn std::error::Error>> {
+    let user_events = features::user_events::UserEventsService::new(pool.clone());
     let api = features::routes(pool)
+        .add_service(UserEventsServiceServer::new(user_events))
         .into_axum_router()
         .layer(InterceptorLayer::new(scope));
     Ok(app::services(Routes::from(api), health)?)
