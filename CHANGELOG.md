@@ -21,9 +21,19 @@ are this file's `## [X.Y.Z]` section.
   and tests that call the services in process (CRUD against PostgreSQL
   when `DATABASE_URL` is set). The gRPC stack is pinned exactly (tonic,
   tonic-health, tonic-reflection, tonic-prost, tonic-types and
-  tonic-prost-build 0.14.9, prost 0.14.4, protox 0.10.0). The caller check
-  (`app/auth.rs`) puts no caller yet, so every call that needs one is
-  `UNAUTHENTICATED`.
+  tonic-prost-build 0.14.9, prost 0.14.4, protox 0.10.0).
+- The `grpc` template's caller check (`app/auth.rs`, a tower layer in
+  front of the API's services): it accepts the axum template's bearer
+  tokens (the same `JWT_SECRET`, `JWT_SECRET_PREVIOUS` and claims; the
+  account's `token_version`, activity and role from the database) and its
+  API keys (`authorization: Bearer rok_…` or `x-api-key`; a `read` key
+  calls only the RPCs named in `READS`, `Get` and `List`), and puts the
+  `AuthUser` in the request's extensions. Invalid credentials are
+  `UNAUTHENTICATED` (a `read` key on a write `PERMISSION_DENIED`); a call
+  with none reaches the services without a caller, so the generated ones
+  answer `UNAUTHENTICATED`. Health and reflection stay outside it. `tower`
+  0.5.3 becomes a dependency, pinned exactly (the lockfile already carried
+  it). `tests/auth.rs` calls through it with real tokens and API keys.
 - The `grpc` template's streaming example: `UserEventsService.Subscribe`, a
   hand-written server-streaming RPC (`proto/user_events.proto`, importing
   the generated `User`) in a hand-written `user_events` feature behind the

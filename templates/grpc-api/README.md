@@ -66,11 +66,34 @@ The generated services read the caller, an `AuthUser`
 (`src/shared/auth.rs`, the axum template's type), from the request's
 extensions (`shared/grpc.rs`): no caller is `UNAUTHENTICATED`, a caller
 who is not an admin on an admin-only service (`[api.access]`)
-`PERMISSION_DENIED`. `src/app/auth.rs` is where the bearer token (the
-axum API's JWT, same secret and claims) or the API key is checked and the
-caller put there; it checks nothing yet, so every call that needs a caller
-is `UNAUTHENTICATED`. Login, registration and two-factor sign-in stay on
-the HTTP API.
+`PERMISSION_DENIED`. `src/app/auth.rs` (a tower layer, since it reads the
+database) puts it there, checking the metadata as the axum template's
+extractor checks the headers:
+
+- `authorization: Bearer <jwt>`: the axum API's session token, verified
+  with the same `JWT_SECRET` (and `JWT_SECRET_PREVIOUS` while it is
+  rotated out) and the same claims, then its account loaded: an expired
+  or forged token, a deleted or disabled account, or a token older than
+  the account's last `token_version` bump is `UNAUTHENTICATED`. The role
+  comes from the database.
+- `authorization: Bearer rok_…` or `x-api-key: rok_…`: an API key the axum
+  API made. An unknown, revoked or expired key is `UNAUTHENTICATED`; a
+  `read` key may call only the reads (`Get` and `List`, the RPC names in
+  `auth.rs`'s `READS`: add your own read-only RPCs there), anything else
+  is `PERMISSION_DENIED`.
+- Neither: the call reaches the service without a caller, and each
+  generated service answers `UNAUTHENTICATED`.
+
+```sh
+grpcurl -plaintext -H "authorization: Bearer $TOKEN" \
+  -d '{"id": "…"}' localhost:8080 grpc_api.v1.UsersService/Get
+```
+
+This API verifies credentials and never issues them: login, registration,
+two-factor sign-in and making API keys stay on the HTTP API. Neither
+template is multi-tenant, so the caller check sets no tenant; a
+tenant-scoped service's `shared::grpc::tenant` reads the one you insert
+beside the caller in `auth.rs`.
 
 ## Errors
 
@@ -172,6 +195,7 @@ tonic-prost = "=0.14.9"
 tonic-reflection = "=0.14.9"
 tonic-types = "=0.14.9"
 totp-rs = { version = "5", features = ["otpauth"] }
+tower = "=0.5.3"
 tracing = "0.1"
 tracing-opentelemetry = { version = "0.33", default-features = false }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }

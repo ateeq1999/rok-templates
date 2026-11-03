@@ -60,6 +60,7 @@ under `src/` may be named `utils`, `helpers` or `common`.
 | A business rule | the feature's `service.rs`, overriding a `service_api.rs` default | `grpc.rs`, repo |
 | A new RPC on a Resource, or a field | the schema and `rok-data-sqlc.toml` (`[api]`), then `rok sqlc g` | generated files |
 | An RPC of your own | a hand-written `proto/<name>.proto` importing the generated messages, its service in a hand-written feature, added in `app/routes.rs` | the generated `.proto` |
+| A read-only RPC of your own (a `read` API key may call it) | its name in `app/auth.rs`'s `READS` | the service |
 | SQL query | the truth in `schema/` and `rok sqlc g`, or `queries/<feature>.sql` | service, `grpc.rs` |
 | New DB table or column | `schema/000N_name.sql`, then `rok sqlc g` | anywhere else |
 | Error case | a variant in `error.rs` | feature folder |
