@@ -37,7 +37,8 @@ are this file's `## [X.Y.Z]` section.
 - The `grpc` template's streaming example: `UserEventsService.Subscribe`, a
   hand-written server-streaming RPC (`proto/user_events.proto`, importing
   the generated `User`) in a hand-written `user_events` feature behind the
-  caller check, admins only. Each `NOTIFY user_events, '<user id>'` is one
+  caller check, admins only; it is a read (`READS`), so an admin's `read`
+  API key subscribes. Each `NOTIFY user_events, '<user id>'` is one
   event (the user as it is now, or the id alone once it is gone): the
   service publishes with `pg_notify`, and any process sharing the database
   may too; no migration is added. Each subscriber listens on a connection

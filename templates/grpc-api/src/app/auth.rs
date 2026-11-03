@@ -44,8 +44,9 @@ use crate::shared::security::api_key::{self, Presented};
 use crate::shared::telemetry;
 
 /// The RPCs a `read` API key may call, by method name: the generated
-/// reads. Name your own read-only RPCs here; every other RPC is a write.
-pub const READS: &[&str] = &["Get", "List"];
+/// reads and `UserEventsService.Subscribe`. Name your own read-only RPCs
+/// here; every other RPC is a write.
+pub const READS: &[&str] = &["Get", "List", "Subscribe"];
 
 /// `api` behind the caller check, over the state's JWT keys and pool.
 #[must_use]

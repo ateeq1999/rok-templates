@@ -78,9 +78,9 @@ extractor checks the headers:
   comes from the database.
 - `authorization: Bearer rok_…` or `x-api-key: rok_…`: an API key the axum
   API made. An unknown, revoked or expired key is `UNAUTHENTICATED`; a
-  `read` key may call only the reads (`Get` and `List`, the RPC names in
-  `auth.rs`'s `READS`: add your own read-only RPCs there), anything else
-  is `PERMISSION_DENIED`.
+  `read` key may call only the reads (`Get`, `List` and the example's
+  `Subscribe`, the RPC names in `auth.rs`'s `READS`: add your own
+  read-only RPCs there), anything else is `PERMISSION_DENIED`.
 - Neither: the call reaches the service without a caller, and each
   generated service answers `UNAUTHENTICATED`.
 
@@ -114,8 +114,8 @@ same package (`grpc_api.v1`), importing the generated messages
 
 The template carries one, as the example: `UserEventsService.Subscribe`
 (`proto/user_events.proto`, the `user_events` feature), a server-streaming
-RPC that sends an admin a `UserEvent` each time a user changes. Once
-`src/app/auth.rs` checks bearer tokens:
+RPC that sends an admin a `UserEvent` each time a user changes. It is a
+read: a `read` API key may call it (`app/auth.rs`'s `READS`).
 
 ```sh
 grpcurl -plaintext -H 'authorization: Bearer ...' \
