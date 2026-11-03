@@ -61,7 +61,13 @@ The `Dockerfile` builds the image production runs: dependencies cached in
 a layer of their own, the binary on distroless as a non-root user, JSON
 logs. `.github/workflows/ci.yml` checks every change: formatting, clippy,
 the tests against PostgreSQL, `rok sqlc g --check` and `check-arch`,
-`cargo deny`, and the image build.
+`cargo deny`, and the image build. CI gets `rok` from its release, not by
+building it: the workflow downloads the `x86_64-unknown-linux-musl`
+archive of the rok release `ROK_VERSION` pins from
+[rok-v2](https://github.com/ateeq1999/rok-v2/releases), checks it against
+its `.sha256` and puts `rok` on the PATH. A rok release links the
+rok-data of its minor (rok 0.8.x, rok-data 0.8): move `ROK_VERSION` with
+the `rok-data` version in `Cargo.toml`.
 
 ### Deploying to AWS
 

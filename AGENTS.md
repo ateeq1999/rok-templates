@@ -47,7 +47,10 @@ the same checkout, so runtime and generator match.
 
 Moving the pin is how an engine change to generated template code
 reaches the templates: bump `rok-data.pin`, regenerate with
-`ROK_DATA_SQLC_UPDATE_EXPECTED=1`, and review the diff.
+`ROK_DATA_SQLC_UPDATE_EXPECTED=1`, and review the diff. A new minor also
+moves `ROK_VERSION` in every template workflow to a rok release of that
+minor (`tests/ci_rok_version.rs` checks): template CI downloads that
+`rok` release instead of building it.
 
 ## Rules
 

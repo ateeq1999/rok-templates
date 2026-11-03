@@ -18,7 +18,11 @@ _Avoid_: package, service (that is a microservice), project
 
 **Capability**:
 A cross-cutting part of a template that every API feature can use, such as mail, storage, rate limiting, jobs or metrics; it ships in the template, is inert until configured, and is the user's once scaffolded.
-_Avoid_: feature (that is an API feature), plugin, add-on, module
+_Avoid_: feature (that is an API feature), plugin, add-on, Module (that is a product surface)
+
+**Module**:
+A ready-made product surface of a Template — its routes, data and screens across the Apps, such as API keys, the media library or TOTP — that can be left out when the project is created.
+_Avoid_: feature (that is an API feature), Capability (that has no routes or screens and always ships), component, add-on
 
 **Service**:
 One independently deployed backend of a services Template, with its own database, reached by other Services over gRPC and by Events.
@@ -41,7 +45,7 @@ A marked place in a Template's code or configuration where an Integration's code
 _Avoid_: hook, slot, injection site, extension point
 
 **Blueprint**:
-A saved choice of a Template, its Integrations and its init options, named by an id, from which new projects are created alike.
+A saved choice of a Template, its Integrations, the Modules it leaves out and its init options, named by an id, from which new projects are created alike.
 _Avoid_: preset (that is the engine's), template id, recipe, starter config
 
 **Shared file**:

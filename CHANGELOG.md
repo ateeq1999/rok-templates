@@ -49,6 +49,18 @@ are this file's `## [X.Y.Z]` section.
 - A `grpc_template` gate: drift against generation, rustfmt, clippy and the
   template's tests, with `PROTOC` naming no program.
 
+**Fixed**
+
+- The templates' CI (actix-api, axum-api and the monorepo's API App)
+  installs `rok` from its release: it downloads the
+  `x86_64-unknown-linux-musl` archive of the rok release the workflow's
+  `ROK_VERSION` pins (0.8.0) from rok-v2's GitHub releases, checks it
+  against its `.sha256` and puts `rok` on the PATH. It ran `cargo install
+  rok-data-cli --locked`, which built from source on every run and
+  installs no `rok`, so the generated-code and architecture checks failed.
+  `tests/ci_rok_version.rs` checks every template workflow pins the same
+  rok release, of the rok-data minor in `rok-data.pin`.
+
 **Changed**
 
 - `rok-data.pin` is `v0.8.0` (the release carrying `framework = "grpc"`),
