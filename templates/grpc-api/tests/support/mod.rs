@@ -1,6 +1,6 @@
 //! What the gRPC tests share: the server on one end of an in-process pipe
 //! and a channel to it on the other, a stand-in for the caller check, and
-//! a PostgreSQL schema of the test's own.
+//! a `PostgreSQL` schema of the test's own.
 //!
 //! The tests that reach the data layer need `DATABASE_URL`; without it they
 //! print a note and pass. Each one creates a fresh schema holding the

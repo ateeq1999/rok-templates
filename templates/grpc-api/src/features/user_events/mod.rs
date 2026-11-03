@@ -1,7 +1,7 @@
 // Scaffolded once by rok-data-sqlc; this file is yours. It is never regenerated. See docs/guide/architecture.md.
 
 //! The `user_events` feature: `UserEventsService.Subscribe`
-//! (`proto/user_events.proto`), a server-streaming RPC fed by PostgreSQL
+//! (`proto/user_events.proto`), a server-streaming RPC fed by `PostgreSQL`
 //! `LISTEN`/`NOTIFY`. Each `NOTIFY user_events, '<user id>'`, sent by
 //! anyone sharing the database ([`UserEventsService::publish`], a trigger,
 //! another process), is one event to every subscriber. Hand-written in the

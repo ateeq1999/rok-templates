@@ -10,7 +10,7 @@ use sqlx::postgres::PgListener;
 use super::model::UserId;
 use crate::error::AppError;
 
-/// The PostgreSQL channel the events travel on: `NOTIFY user_events,
+/// The `PostgreSQL` channel the events travel on: `NOTIFY user_events,
 /// '<user id>'` (or `SELECT pg_notify('user_events', '<user id>')`).
 pub const CHANNEL: &str = "user_events";
 

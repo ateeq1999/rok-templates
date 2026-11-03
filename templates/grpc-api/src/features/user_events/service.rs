@@ -16,7 +16,7 @@ use crate::error::AppError;
 
 /// How many deliveries wait for a subscriber that reads slowly. One that
 /// falls this far behind is ended with [`Delivery::FellBehind`]: waiting for
-/// it would leave the notifications to pile up in PostgreSQL's queue.
+/// it would leave the notifications to pile up in `PostgreSQL`'s queue.
 pub const BUFFER: usize = 16;
 
 /// What a subscriber receives, in order. Only [`Changed`](Self::Changed)
