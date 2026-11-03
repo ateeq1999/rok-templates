@@ -45,8 +45,10 @@ fn rok_data_bin() -> Result<PathBuf> {
 
 fn check_generator() -> Result<PathBuf> {
     let bin = PathBuf::from(std::env::var_os("ROK_DATA_BIN").context("ROK_DATA_BIN is not set")?);
-    // `init` copies the embedded templates; one file it copies verbatim
-    // tells whether they are this checkout's.
+    // `init` copies the embedded templates; the files it copies verbatim
+    // tell whether they are this checkout's. The lockfile is among them: a
+    // binary built before a lockfile change embeds the old one, and the
+    // gates' `--locked` builds would fail far from the cause.
     let project = tempfile::TempDir::new()?;
     let output = Command::new(&bin)
         .args(["sqlc", "init", "--template", "axum"])
@@ -59,14 +61,17 @@ fn check_generator() -> Result<PathBuf> {
         bin.display(),
         String::from_utf8_lossy(&output.stderr)
     );
-    let copied = std::fs::read(project.path().join("AGENTS.md"))?;
-    let here = std::fs::read(common::template_dir("axum-api").join("AGENTS.md"))?;
-    ensure!(
-        copied == here,
-        "{} embeds templates other than this checkout's; build it with \
-         --config 'patch.crates-io.rok-templates.path=\"…/rok-templates\"' (see tests/gates/main.rs)",
-        bin.display()
-    );
+    for file in ["AGENTS.md", "Cargo.lock"] {
+        let copied = std::fs::read(project.path().join(file))?;
+        let here = std::fs::read(common::template_dir("axum-api").join(file))?;
+        ensure!(
+            copied == here,
+            "{} embeds templates other than this checkout's (its axum-api {file} differs); \
+             build it again with --config 'patch.crates-io.rok-templates.path=\"…/rok-templates\"' \
+             (see tests/gates/main.rs)",
+            bin.display()
+        );
+    }
     Ok(bin)
 }
 

@@ -10,6 +10,16 @@ are this file's `## [X.Y.Z]` section.
 
 **Changed**
 
+- `rok-data.pin` is `v0.7.0`, and the templates move to rok-data 0.7: their
+  manifests, the READMEs that quote them, their lockfiles (exactly
+  rok-data, rok-data-core and rok-data-macros move) and their generated
+  files (only each `db/mod.rs`'s dependency hint).
+- The gates also refuse a generator whose embedded axum `Cargo.lock`
+  differs from this checkout's: one built before a lockfile change made
+  the `--locked` builds fail far from the cause.
+
+**Changed**
+
 - `rok-data.pin` is `v0.6.1`: the first 0.6 release of rok-data whose crates
   all published (0.6.0 stopped before `rok-data-sqlc`).
 
