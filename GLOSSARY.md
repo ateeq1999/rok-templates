@@ -16,6 +16,10 @@ _Avoid_: workspace (that is Cargo's), full-stack template, project template
 One member of a Monorepo template, such as the API, the web app or the mobile app.
 _Avoid_: package, service (that is a microservice), project
 
+**Client**:
+Code generated from the API contract in one App's language, through which that App calls the API; it lives in the App that calls it.
+_Avoid_: SDK, API wrapper, stub (that is gRPC's)
+
 **Capability**:
 A cross-cutting part of a template that every API feature can use, such as mail, storage, rate limiting, jobs or metrics; it ships in the template, is inert until configured, and is the user's once scaffolded.
 _Avoid_: feature (that is an API feature), plugin, add-on, Module (that is a product surface)
