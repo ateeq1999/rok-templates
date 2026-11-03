@@ -13,7 +13,7 @@ env:
   CARGO_TERM_COLOR: always
   # The rok release the generated-code check runs: its minor is the
   # rok-data minor the project's crates use (rok 0.7.x links rok-data 0.7).
-  ROK_VERSION: "0.7.0"
+  ROK_VERSION: "0.8.0"
 
 jobs:
   check:

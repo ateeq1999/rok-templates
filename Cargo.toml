@@ -1,6 +1,6 @@
 [package]
 name = "rok-templates"
-description = "The project templates `rok init --template` writes, and their catalog: actix-web and axum APIs, and a monorepo of an axum API with web, desktop and mobile apps"
+description = "The project templates `rok init --template` writes, and their catalog: actix-web, axum and gRPC (tonic) APIs, and a monorepo of an axum API with web, desktop and mobile apps"
 version = "0.6.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
@@ -10,7 +10,7 @@ homepage = "https://github.com/ateeq1999/rok-templates"
 authors = ["The rok-data Contributors"]
 readme = "README.md"
 documentation = "https://docs.rs/rok-templates"
-keywords = ["template", "axum", "actix-web", "monorepo", "starter"]
+keywords = ["template", "axum", "actix-web", "grpc", "monorepo"]
 categories = ["development-tools", "web-programming"]
 # Ship what `build.rs` embeds, not a build or an install of a template
 # made in place: the same paths `build.rs` leaves out (`tests/package.rs`
@@ -79,4 +79,4 @@ todo = "warn"
 # Its own workspace: the templates' crates build with their own Cargo.lock
 # and dependency set, so cargo must not treat this crate as their root.
 [workspace]
-exclude = ["templates/actix-api", "templates/axum-api"]
+exclude = ["templates/actix-api", "templates/axum-api", "templates/grpc-api"]

@@ -7,6 +7,7 @@ The project templates `rok init --template` (and the legacy `rok sqlc init
 | --- | --- |
 | `axum` | a complete axum API (`templates/axum-api/`): its schema, migrations, hand-written account flows and generated API features |
 | `actix` | the same API on actix-web (`templates/actix-api/`) |
+| `grpc` | the same data, served over gRPC (`templates/grpc-api/`): tonic services and `.proto` files generated from the axum schema, health and reflection, and the axum template's config, data layer, jobs, mail, storage, telemetry and security |
 | `monorepo` | one backend and three apps on one API contract (`templates/monorepo/`): the axum API (`apps/api`), a TanStack Start web app (`apps/web`), a rok-ui desktop app (`apps/desktop`), a Flutter mobile app (`apps/mobile`), and the TypeScript, Dart and Rust clients generated from the API's OpenAPI document (`clients/`) |
 
 You don't depend on this crate yourself. Install the CLI and start a
@@ -24,9 +25,10 @@ guide](docs/guide/index.md)
 explains the parts (the monorepo and its Apps, accounts, files, jobs,
 observability, security, deploying to AWS) and has recipes for growing
 them, push notifications for the mobile App among them. The actix and axum
-templates share their framework-independent files byte for byte, and the
+templates share their framework-independent files byte for byte, the grpc
+template shares its transport-free files with the axum one, and the
 monorepo's `apps/api` is the axum template file for file;
-`tests/template_drift.rs` checks both.
+`tests/template_drift.rs` checks all three.
 
 This crate is the only source of the monorepo's web and mobile Apps
 (workspace ADR 0027): the starters they were imported from

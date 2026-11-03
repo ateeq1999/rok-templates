@@ -1,0 +1,13 @@
+DROP TRIGGER users_touch_updated_at ON users;
+DROP FUNCTION touch_updated_at();
+DROP INDEX IF EXISTS "users_email_key";
+ALTER TABLE "api_keys" DROP CONSTRAINT "api_keys_user_id_fkey";
+ALTER TABLE "media" DROP CONSTRAINT "media_owner_id_fkey";
+ALTER TABLE "audit_log" DROP CONSTRAINT "audit_log_target_user_id_fkey";
+ALTER TABLE "audit_log" DROP CONSTRAINT "audit_log_actor_user_id_fkey";
+DROP TABLE "api_keys";
+DROP TABLE "media";
+DROP TABLE "audit_log";
+DROP TABLE "users";
+DROP TYPE "api_key_scope";
+DROP TYPE "role";
