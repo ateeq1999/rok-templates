@@ -88,8 +88,9 @@ async fn reflection_lists_the_services() -> TestResult {
     Ok(())
 }
 
-/// The API's services sit behind the caller check, which names no caller
-/// yet: a call without credentials is `UNAUTHENTICATED`.
+/// The API's services sit behind the caller check: a call without
+/// credentials reaches them without a caller, and is `UNAUTHENTICATED`
+/// (`tests/auth.rs` checks the credentials themselves).
 #[tokio::test]
 async fn a_call_without_credentials_is_unauthenticated() -> TestResult {
     let mut users = UsersServiceClient::new(application().await?);

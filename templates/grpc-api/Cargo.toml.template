@@ -47,6 +47,8 @@ tonic-prost = "=0.14.9"
 tonic-reflection = "=0.14.9"
 tonic-types = "=0.14.9"
 totp-rs = { version = "5", features = ["otpauth"] }
+# The caller check (`app/auth.rs`) is a tower layer: it reads the database.
+tower = "=0.5.3"
 tracing = "0.1"
 tracing-opentelemetry = { version = "0.33", default-features = false }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
