@@ -56,10 +56,10 @@ impl UsersRpc for UsersService {
         let message = request.into_inner();
         let id = read(message.id, "id")?;
         let input = validated(UpdateUserDto {
-            email: read(message.email, "email")?,
             display_name: read_change(message.display_name, "display_name")?,
             role: read(message.role, "role")?,
             is_active: read(message.is_active, "is_active")?,
+            email: None,
         })?;
         let row = UsersServiceApi::update(self, id, input).await?;
         Ok(Response::new(proto::User::try_from(row)?))

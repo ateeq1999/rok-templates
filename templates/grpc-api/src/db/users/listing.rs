@@ -2,12 +2,9 @@
 
 //! What the API's list endpoint reads: a page of rows matching `q`, sorted by
 //! one of the [`UserSort`] keys.
-//!
-//! The `unique` checks of a create or update body: whether another row
-//! already has its values.
 
 use super::super::search::{Direction, Sort};
-use super::models::{User, UserId};
+use super::models::User;
 use rok_data::Model;
 
 /// The columns `GET /api/v1/users?sort=` takes, in `snake_case`.
@@ -74,32 +71,4 @@ impl User {
         }
         query.order_by(User::ID)
     }
-}
-
-/// Returns whether a row other than `except` has this `email`, ignoring case:
-/// the `unique` check of a create or update body.
-/// Soft-deleted rows are left out.
-pub async fn email_taken<'e, E>(
-    executor: E,
-    email: &str,
-    except: Option<UserId>,
-) -> Result<bool, rok_data::Error>
-where
-    E: rok_data::Executor<'e>,
-{
-    rok_data::raw(
-        r#"
-        SELECT EXISTS (
-            SELECT 1
-            FROM users
-            WHERE lower(email) = lower($1)
-                AND deleted_at IS NULL
-                AND id IS DISTINCT FROM $2
-        )
-        "#,
-    )
-    .bind(email)
-    .bind(except)
-    .scalar(executor)
-    .await
 }

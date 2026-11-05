@@ -266,10 +266,7 @@ changes:
 - `List` pages by number (`page`, `per_page`) and answers `items`,
   `total`, `page` and `per_page`, as the HTTP list does;
 - there is no OpenAPI document (`openapi` stays off), so the data layer's
-  rows derive no schemas;
-- `users.email` is not immutable here: rok-data 0.8.0's gRPC service
-  doesn't fill an immutable column's field, so `Update` takes an `email`
-  an admin may set, until the engine does.
+  rows derive no schemas.
 
 ## Shared with the axum template
 
@@ -277,5 +274,6 @@ changes:
 `src/shared/mail/`, `src/shared/storage/`, `src/shared/security/`,
 `src/shared/{telemetry,metrics,settings,shutdown}.rs`, the data layer's
 `queries/`, `pool.rs`, `nullable.rs` and `schema.rs`, and each feature's
-`model.rs`, `repo.rs` and `service.rs` are the axum template's, byte for
-byte. This repository checks that they stay so (`template_drift`).
+`model.rs`, `repo.rs`, `service.rs` and `service_api.rs` are the axum
+template's, byte for byte. This repository checks that they stay so
+(`template_drift`).
