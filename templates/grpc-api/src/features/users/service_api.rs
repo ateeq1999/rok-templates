@@ -7,11 +7,9 @@ use sqlx::{PgConnection, PgPool};
 
 use super::dto::{ListUsersQuery, UpdateUserDto, UserSort};
 use super::model::{User, UserId};
-use super::repo;
 use crate::db::search::{Direction, Sort};
 use crate::error::AppError;
 use crate::shared::response::PaginatedResponse;
-use crate::shared::validation::FieldFailures;
 
 /// The `users` feature's operations, called by its handlers. Every method but
 /// [`pool`](Self::pool) has a default over the data layer: override one in
@@ -57,14 +55,6 @@ pub trait UsersServiceApi {
         id: UserId,
         input: UpdateUserDto,
     ) -> Result<User, AppError> {
-        let mut failures = FieldFailures::default();
-        if let Some(email) = &input.email {
-            let taken = repo::email_taken(&mut *conn, email, Some(id)).await?;
-            if taken {
-                failures.taken("email");
-            }
-        }
-        failures.into_result()?;
         let row = User::patch(&mut *conn, id, input.into()).await;
         row.map_err(or_not_found)
     }

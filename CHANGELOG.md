@@ -63,6 +63,15 @@ are this file's `## [X.Y.Z]` section.
 
 **Changed**
 
+- `rok-data.pin` is `v0.8.1`, the release whose gRPC services compile with
+  an `[api.immutable]` column. The templates' lockfiles move to the
+  published 0.8.1 runtime (exactly rok-data, rok-data-core and
+  rok-data-macros move); their manifests keep `"0.8"`. The `grpc` template
+  takes back the axum template's `[api.immutable] users = ["email"]`: its
+  `UpdateUser` message no longer has an `email`, an update naming one is
+  refused, and its generated `users/service_api.rs` is the axum template's
+  again, which `template_drift` now holds identical. The note on the
+  workaround leaves its README and `rok-data-sqlc.toml`.
 - `rok-data.pin` is `v0.8.0` (the release carrying `framework = "grpc"`),
   and the templates move to rok-data 0.8: their manifests, the READMEs
   that quote them, their lockfiles (exactly rok-data, rok-data-core and

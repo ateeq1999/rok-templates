@@ -19,15 +19,6 @@ pub type ListUsersQuery = ListQuery<UserSort>;
 #[derive(Debug, Clone, Default, PartialEq, serde::Deserialize, rok_data::Input)]
 #[serde(default)]
 pub struct UpdateUserDto {
-    /// The new value of the `email` column.
-    ///
-    /// Transforms: `trim`, `toLowerCase`.
-    /// Rules: `email`.
-    #[rok(
-        transform(trim, lowercase),
-        validate(email(message = "email must be an email address"))
-    )]
-    pub email: Option<String>,
     /// The new value of the `display_name` column.
     ///
     /// Transforms: `trim`.
@@ -38,17 +29,34 @@ pub struct UpdateUserDto {
     pub role: Option<types::Role>,
     /// The new value of the `is_active` column.
     pub is_active: Option<bool>,
+    /// The `email` column is immutable: naming it, even as `null`, is a `422`.
+    #[serde(deserialize_with = "present")]
+    #[rok(validate(custom(function = immutable, code = "immutable", message = "`email` can't be changed")))]
+    pub email: Option<serde_json::Value>,
 }
 
 impl From<UpdateUserDto> for UpdateUser {
     fn from(dto: UpdateUserDto) -> Self {
         UpdateUser {
-            email: dto.email,
             display_name: dto.display_name,
             role: dto.role,
             is_active: dto.is_active,
+            email: None,
         }
     }
+}
+
+/// Deserializes a field that is present, `null` included, as `Some`.
+fn present<'de, D>(deserializer: D) -> Result<Option<serde_json::Value>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    serde::Deserialize::deserialize(deserializer).map(Some)
+}
+
+/// Rejects a field naming an immutable column: no update changes one.
+fn immutable(_: &serde_json::Value) -> Result<(), String> {
+    Err("the column can't be changed".to_owned())
 }
 
 /// `DELETE /api/v1/users/{id}`'s query string: `?permanent=true` deletes the row for good.

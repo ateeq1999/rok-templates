@@ -196,11 +196,9 @@ const GRPC_SHARED: &[&str] = &[
 ];
 
 /// The files of a generated feature both the axum and the gRPC template
-/// hold: the scaffolded `service.rs` names no framework's wiring there.
-/// `service_api.rs` is left out while grpc-api's configuration can't keep
-/// `users.email` immutable (see its `rok-data-sqlc.toml`): its `update`
-/// then checks the email, which axum's never takes.
-const GRPC_FEATURE_FILES: &[&str] = &["model.rs", "repo.rs", "service.rs"];
+/// hold: the scaffolded `service.rs` names no framework's wiring there, nor
+/// does the generated `service_api.rs`.
+const GRPC_FEATURE_FILES: &[&str] = &["model.rs", "repo.rs", "service.rs", "service_api.rs"];
 
 /// The paths, relative to a template, that [`GRPC_SHARED`] and the
 /// [`FEATURES`]' [`GRPC_FEATURE_FILES`] name.
