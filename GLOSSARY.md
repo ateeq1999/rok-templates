@@ -28,6 +28,10 @@ _Avoid_: feature (that is an API feature), plugin, add-on, Module (that is a pro
 A ready-made product surface of a Template — its routes, data and screens across the Apps, such as API keys, the media library or TOTP — that can be left out when the project is created.
 _Avoid_: feature (that is an API feature), Capability (that has no routes or screens and always ships), component, add-on
 
+**Guard**:
+A named authorization rule a project writes once and a handler requires by type, refusing the call before its body is read.
+_Avoid_: policy, permission (that is a role's), middleware
+
 **Service**:
 One independently deployed backend of a services Template, with its own database, reached by other Services over gRPC and by Events.
 _Avoid_: microservice, App (that is a monorepo member), the service layer (a feature's `service.rs`)
