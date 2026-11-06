@@ -70,7 +70,7 @@ building it: the workflow downloads the `x86_64-unknown-linux-musl`
 archive of the rok release `ROK_VERSION` pins from
 [rok-v2](https://github.com/ateeq1999/rok-v2/releases), checks it against
 its `.sha256` and puts `rok` on the PATH. A rok release links the
-rok-data of its minor (rok 0.8.x, rok-data 0.8): move `ROK_VERSION` with
+rok-data of its minor (rok 0.9.x, rok-data 0.9): move `ROK_VERSION` with
 the `rok-data` version in `Cargo.toml`.
 
 ### Deploying to AWS
@@ -460,7 +460,7 @@ opentelemetry_sdk = { version = "0.32", default-features = false, features = ["t
 qrcode = { version = "0.14", default-features = false, features = ["svg"] }
 rand = "0.10"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
-rok-data = { version = "0.8", features = ["chrono", "json", "uuid"] }
+rok-data = { version = "0.9", features = ["chrono", "json", "uuid"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_path_to_error = "0.1"
@@ -569,7 +569,10 @@ features follow.
   hand-written `media` feature, and
   `auth_tokens` (single-use tokens), `totp_recovery_codes` (two-factor's
   recovery codes) for the account flows, and `jobs` (the job queue);
-  none has a generated API (`[api] exclude`).
+  none has a generated API (`[api] exclude`). `[api] include` is the
+  allowlist alternative, naming the tables to serve instead (set one, not
+  both); with `exclude`, a table added to the schema is served, and
+  `rok gen` announces it once (`now serving ...`).
 - `token_version` is bumped to sign an account out everywhere: a token
   carrying an older one is rejected.
 

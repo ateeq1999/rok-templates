@@ -152,7 +152,7 @@ pub struct CreateApiKeyDto {
     pub expires_in_days: Option<Option<i64>>,
     /// What the key is for, 1 to 100 characters after trimming.
     pub name: String,
-    /// The `scope` property.
+    /// `read` (default): safe HTTP methods only. `write`: everything an API key may do.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "crate::nullable")]
     pub scope: Option<Option<ApiKeyScope>>,
@@ -250,7 +250,7 @@ pub struct InviteUserDto {
     pub display_name: Option<Option<String>>,
     /// The invitee's email address.
     pub email: String,
-    /// The `role` property.
+    /// The invitee's role; `user` when left out.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "crate::nullable")]
     pub role: Option<Option<Role>>,
@@ -559,7 +559,7 @@ pub struct UpdateUserDto {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "crate::nullable")]
     pub is_active: Option<Option<bool>>,
-    /// The `role` property.
+    /// The new value of the `role` column.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     #[serde(deserialize_with = "crate::nullable")]
     pub role: Option<Option<Role>>,

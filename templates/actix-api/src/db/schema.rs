@@ -2,7 +2,8 @@
 
 //! The schema the code was generated from.
 
-/// Verbatim snapshot of the input schema; never executed.
+/// The input schema's statements, each as written, in an order that loads
+/// into an empty database: the tests run it to create the schema.
 pub const SCHEMA_SQL: &str = r#"-- The schema of the target API (api-starter-axum's OpenAPI document), as
 -- far as generation covers it. `users` and `audit_log` have API features;
 -- `media` and `api_keys` belong to the hand-written `media` and `api_keys`

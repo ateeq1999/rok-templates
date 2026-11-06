@@ -4,7 +4,7 @@
 
 Generated from the API's `openapi.json` by `rok gen` (and `rok init`); never edit its `src/` by hand — change the API, then `rok gen` re-exports the document and regenerates them. `Cargo.toml` is yours: the generated code needs `reqwest` (with `json`), `serde` (with `derive`) and `serde_json`.
 
-- `client.<tag>().<operation>(...)`: one typed `async` call per operation, path parameters first, then the body, then the query.
+- `client.<tag>().<operation>(...)`: one typed `async` call per operation, path parameters first, then the body, then the query, then the headers (`if_match`).
 - The API's types (serde) sit beside `Client`; a property that may be left out is an `Option`, one that may also be `null` an `Option<Option<_>>`.
 - `ApiError` (`status`, `code`, `message`, `details` of `FieldIssue`s on a `422`) is what every failure returns.
 - `Client::new(base_url)`, then `set_token(Some(token))` after signing in: the session's bearer token goes to the operations that need it, and a `401` to one of them calls the `on_unauthorized` handler (unless the call is made through `keep_session()`). Clones share the session.

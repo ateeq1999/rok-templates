@@ -4,7 +4,7 @@
 
 Generated from the API's `openapi.json` by `rok gen` (and `rok init`); never edit these files by hand — change the API, then `rok gen` re-exports the document and regenerates them.
 
-- `api.<tag>.<operation>(...)`: one typed call per operation, path parameters first, then the body, then the query, then `RequestOptions`.
+- `api.<tag>.<operation>(...)`: one typed call per operation, path parameters first, then the body, then the query, then `RequestOptions` with the operation's headers (`{ ifMatch }`).
 - `queries.<tag>.<operation>(...)`: `queryOptions` for every `GET`; `mutations.<tag>.<operation>()`: `mutationOptions` for the others; `keys.<tag>`: the prefix of a tag's query keys, to invalidate them.
 - `ApiError` (`status`, `code`, `message`, `details` of `FieldIssue`s on a `422`) is what every failure rejects with.
 - `configure({ baseUrl, token, onUnauthorized })` once, at start-up: the session's bearer token goes to the operations that need it, and a `401` to one of them calls `onUnauthorized`.

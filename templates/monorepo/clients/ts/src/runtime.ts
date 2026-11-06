@@ -76,12 +76,15 @@ export type RequestOptions = {
 }
 
 type QueryValue = string | number | boolean | null | undefined
+type HeaderValue = string | number | boolean | null | undefined
 
 /** One call, as the generated operations describe it. */
 export type Call = {
   method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE"
   path: string
   query?: { [name: string]: QueryValue }
+  /** The operation's header parameters; `undefined` ones are not sent. */
+  headers?: { [name: string]: HeaderValue }
   json?: unknown
   blob?: Blob
   /** Whether the operation carries the bearer auth marker. */
@@ -98,6 +101,17 @@ function buildUrl(path: string, query?: Call["query"]) {
   }
   const qs = params.toString()
   return `${config.baseUrl}${path}${qs ? `?${qs}` : ""}`
+}
+
+/**
+ * A header parameter's value as sent. `If-Match` and `If-None-Match` hold
+ * entity tags, so a bare version (`3`) is quoted (`"3"`); an `ETag` as
+ * the API answered it, or `*`, is sent as it is.
+ */
+function headerValue(name: string, value: string | number | boolean) {
+  const text = String(value)
+  const tag = /^if-(none-)?match$/i.test(name)
+  return tag && text !== "*" && !/^(W\/)?"/.test(text) ? `"${text}"` : text
 }
 
 /**
@@ -146,6 +160,10 @@ export async function request<T>(
     headers["Content-Type"] = call.blob.type || "application/octet-stream"
   } else if (call.json !== undefined) {
     headers["Content-Type"] = "application/json"
+  }
+  for (const [name, value] of Object.entries(call.headers ?? {})) {
+    if (value !== undefined && value !== null)
+      headers[name] = headerValue(name, value)
   }
   if (options.headers) Object.assign(headers, options.headers)
 
