@@ -153,6 +153,7 @@ final class Call {
     this.method,
     this.path, {
     this.query = const {},
+    this.headers = const {},
     this.json,
     this.bytes,
     this.secured = false,
@@ -167,6 +168,9 @@ final class Call {
   /// The query; `null` values are left out.
   final Map<String, Object?> query;
 
+  /// The operation's header parameters; `null` values are left out.
+  final Map<String, Object?> headers;
+
   /// The JSON body, if any.
   final Object? json;
 
@@ -175,6 +179,18 @@ final class Call {
 
   /// Whether the operation carries the bearer auth marker.
   final bool secured;
+}
+
+/// A header parameter's value as sent. `If-Match` and `If-None-Match`
+/// hold entity tags, so a bare version (`3`) is quoted (`"3"`); an `ETag`
+/// as the API answered it, or `*`, is sent as it is.
+String _headerValue(String name, String value) {
+  final tag = RegExp(
+    r'^if-(none-)?match$',
+    caseSensitive: false,
+  ).hasMatch(name);
+  final quoted = value == '*' || RegExp(r'^(W/)?"').hasMatch(value);
+  return tag && !quoted ? '"$value"' : value;
 }
 
 /// Used only when the server sent no message of its own (a proxy
@@ -272,6 +288,9 @@ final class Transport {
     } else if (call.json case final json?) {
       request.body = jsonEncode(json);
       headers['Content-Type'] = 'application/json';
+    }
+    for (final MapEntry(:key, :value) in call.headers.entries) {
+      if (value != null) headers[key] = _headerValue(key, '$value');
     }
     request.headers
       ..addAll(headers)

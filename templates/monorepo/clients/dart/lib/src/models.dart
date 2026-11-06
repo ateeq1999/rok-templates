@@ -302,6 +302,7 @@ final class CreateApiKeyDto {
   /// What the key is for, 1 to 100 characters after trimming.
   final String name;
 
+  /// `read` (default): safe HTTP methods only. `write`: everything an API key may do.
   final Nullable<ApiKeyScope>? scope;
 
   /// Its JSON.
@@ -570,6 +571,7 @@ final class InviteUserDto {
   /// The invitee's email address.
   final String email;
 
+  /// The invitee's role; `user` when left out.
   final Nullable<Role>? role;
 
   /// Its JSON.
@@ -1247,6 +1249,7 @@ final class UpdateUserDto {
   /// The new value of the `is_active` column.
   final Nullable<bool>? isActive;
 
+  /// The new value of the `role` column.
   final Nullable<Role>? role;
 
   /// Its JSON.

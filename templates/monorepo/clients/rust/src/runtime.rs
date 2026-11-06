@@ -273,6 +273,29 @@ impl Call {
         self
     }
 
+    /// Sends the header `name: value`. `If-Match` and `If-None-Match`
+    /// hold entity tags, so a bare version (`3`) is quoted (`"3"`); an
+    /// `ETag` as the API answered it, or `*`, is sent as it is.
+    pub fn header(mut self, name: &str, value: &str) -> Call {
+        let tag =
+            name.eq_ignore_ascii_case("if-match") || name.eq_ignore_ascii_case("if-none-match");
+        let quoted = value == "*" || value.starts_with('"') || value.starts_with("W/\"");
+        self.builder = if tag && !quoted {
+            self.builder.header(name, format!("\"{value}\""))
+        } else {
+            self.builder.header(name, value)
+        };
+        self
+    }
+
+    /// Sends the header `name: value` when there is a value.
+    pub fn optional_header(self, name: &str, value: Option<&str>) -> Call {
+        match value {
+            Some(value) => self.header(name, value),
+            None => self,
+        }
+    }
+
     /// Sends `body` as JSON.
     pub fn json<B: Serialize + ?Sized>(mut self, body: &B) -> Call {
         self.builder = self.builder.json(body);

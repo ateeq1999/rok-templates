@@ -81,6 +81,7 @@ export type CreateApiKeyDto = {
   expires_in_days?: number | null
   /** What the key is for, 1 to 100 characters after trimming. */
   name: string
+  /** `read` (default): safe HTTP methods only. `write`: everything an API key may do. */
   scope?: null | ApiKeyScope
 }
 
@@ -143,6 +144,7 @@ export type InviteUserDto = {
   display_name?: string | null
   /** The invitee's email address. */
   email: string
+  /** The invitee's role; `user` when left out. */
   role?: null | Role
 }
 
@@ -391,6 +393,7 @@ export type UpdateUserDto = {
   display_name?: string | null
   /** The new value of the `is_active` column. */
   is_active?: boolean | null
+  /** The new value of the `role` column. */
   role?: null | Role
 }
 

@@ -10,7 +10,7 @@ dependencies:
     path: ../../clients/dart
 ```
 
-- `ApiClient(baseUrl: ..., session: ...)`: one per App. `api.<tag>.<operation>(...)` is one typed method per operation: path parameters first, then the body, then the query by name, then `options` (`RequestOptions`).
+- `ApiClient(baseUrl: ..., session: ...)`: one per App. `api.<tag>.<operation>(...)` is one typed method per operation: path parameters first, then the body, then the query and the headers (`ifMatch:`) by name, then `options` (`RequestOptions`).
 - Every model has `fromJson` and `toJson`; a `oneOf` is a sealed class to `switch` over. A request's optional, nullable field takes `Nullable(value)`: `Nullable(null)` clears it, leaving it out keeps it.
 - `Session` gives the bearer token the secured operations send; a `401` to one of them calls its `expired` (unless the call says `keepSession`).
 - `ApiException` (`status`, `code`, `message`, and a `422`'s `details` of `FieldIssue`s by field) is what every failure throws.
