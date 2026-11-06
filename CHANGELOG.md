@@ -8,6 +8,11 @@ are this file's `## [X.Y.Z]` section.
 
 ## [Unreleased]
 
+## [0.7.0]
+
+The `grpc` template, the templates on rok-data 0.8.1, and their CI
+installing the `rok` release.
+
 **Added**
 
 - The `grpc` template (`templates/grpc-api/`, workspace ADR 0030): the axum
