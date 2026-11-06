@@ -142,7 +142,13 @@ jobs:
       - name: Build the generator against this checkout
         if: steps.pin.outputs.ready == 'true'
         working-directory: rok-data
-        run: cargo build -p rok-data-cli --config "patch.crates-io.rok-templates.path='$GITHUB_WORKSPACE/rok-templates'"
+        # rok-data at the pin asks for the rok-templates it was released
+        # with; a patch of another version is silently ignored, so ask for
+        # this checkout's version before patching it in.
+        run: |
+          version=$(grep -m1 '^version = ' "$GITHUB_WORKSPACE/rok-templates/Cargo.toml" | cut -d'"' -f2)
+          sed -i "s/^rok-templates = .*/rok-templates = \"=$version\"/" Cargo.toml
+          cargo build -p rok-data-cli --config "patch.crates-io.rok-templates.path='$GITHUB_WORKSPACE/rok-templates'"
       - name: Run the gates
         if: steps.pin.outputs.ready == 'true'
         working-directory: rok-templates
