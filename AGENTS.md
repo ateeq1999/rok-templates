@@ -38,6 +38,11 @@ $ (cd ../rok-data && cargo build -p rok-data-cli --config 'patch.crates-io.rok-t
 $ ROK_DATA_BIN=../rok-data/target/debug/rok-data ROK_DATA_PATH=../rok-data cargo test --test gates -- --test-threads=1
 ```
 
+When this checkout's version is newer than the rok-templates the pinned
+rok-data asks for (a rok-templates release ahead of rok-data's), Cargo
+ignores the patch and builds the published templates; first set rok-data's
+`rok-templates = "=<this version>"` (CI does, and restore it afterwards).
+
 Without `ROK_DATA_BIN` each gate prints why it skips and passes. Run them
 one at a time, as CI does: the projects they make share one target
 directory and package names (`shop-api`), so two at once overwrite each
