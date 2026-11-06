@@ -44,6 +44,10 @@ _Avoid_: BFF, proxy, edge
 A typed, versioned record that something happened, published by one Service on its own transaction and delivered at least once to the Services that consume it.
 _Avoid_: message (that is the broker's), notification, job (that is work, not a fact)
 
+**Topic**:
+A named stream of notices an App's server publishes and its signed-in clients subscribe to, scoped to a tenant, so a screen refreshes on news instead of polling.
+_Avoid_: event (that is a Service's), channel, room
+
 **Integration**:
 Code that picks a vendor or an opt-in dependency — a tracing exporter, a cache, a message broker — placed into a project at its Integration points by a command, and the user's once placed.
 _Avoid_: plugin, add-on, Capability (that ships built in), feature (that is an API feature)
