@@ -34,6 +34,8 @@ What the API does:
 
 - [Accounts and sign-in](auth.md): sign-up, sign-in, the password and
   email flows, two-factor sign-in, API keys, sessions, mail.
+- [Guards](guards.md): authorization rules written once and required by
+  type (`Allowed<Finance>`), with a recipe for roles at a resource.
 - [Files and storage](files.md): uploads, direct uploads, profile photos,
   the storage port, S3.
 - [Jobs and schedules](jobs.md): background work on PostgreSQL, scheduled

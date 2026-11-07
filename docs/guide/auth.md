@@ -231,6 +231,10 @@ promotion or demotion applies at once. So `AuthUser` needs the pool as app
 data, `web::Data<PgPool>`, which `app::configure` registers (under axum,
 the `PgPool` and the JWT keys in the request's extensions, which `app::router` puts there, so one extractor serves the generated and the hand-written routes).
 
+A rule beyond "signed in" or "admin" (finance staff, a member of the
+partner in the path) is a [Guard](guards.md): `Allowed<G>` beside
+`AuthUser`, refusing before the body is read.
+
 ## Settings
 
 `src/config.rs` reads them, and `.env.example` lists them:

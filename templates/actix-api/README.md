@@ -332,6 +332,28 @@ IP (`429` past it). A flow refusing a well-formed request answers `400`
 with `invalid_token`, `wrong_password` or `breached_password`; a body of the
 wrong shape answers `422`.
 
+### Guards
+
+A rule beyond "signed in" (`AuthUser`) or "admin" (`AdminUser`) is a
+`Guard` (`src/shared/security/guard.rs`): written once, on a unit struct,
+and required by type with `Allowed<G>` (`src/shared/auth.rs`). It answers
+`403` before the body is read, and hands the handler its grant, how the
+caller was let in:
+
+```rust
+pub async fn update(
+    Allowed(access): Allowed<PartnerAccess>,
+    ValidatedJson(body): ValidatedJson<UpdatePartner>,
+) -> Result<HttpResponse, AppError>
+```
+
+`_: Allowed<Finance>` for a yes or no. The template ships the trait and
+the extractor, no rules: the guide's
+[Guards](https://github.com/ateeq1999/rok-templates/blob/main/docs/guide/guards.md)
+page has a recipe (staff roles, a member's role at a partner from the
+path, and a guard generic over the kind of partner), each rule backed by
+one read query in `queries/shared/`.
+
 ## Uploads
 
 `/api/v1/media` holds each signed-in user's files (the hand-written

@@ -22,22 +22,29 @@
 //! Reading from the extensions, not the router's state, lets the same
 //! extractors serve the generated routes (stateless, `features::router`)
 //! and the hand-written ones (`Router<AppState>`).
+//!
+//! [`Allowed`] goes further: it runs a [`Guard`], an authorization rule
+//! written once, and hands the handler its grant. It reads the
+//! [`AppState`], so it serves the hand-written routes.
 
 use std::sync::Arc;
 
-use axum::extract::{FromRequestParts, OriginalUri};
+use axum::extract::{FromRef, FromRequestParts, OriginalUri};
 use axum::http::request::Parts;
 use axum::http::{HeaderMap, header};
 use sqlx::PgPool;
 use uuid::Uuid;
 
+use crate::app::AppState;
 use crate::db::queries::session::{SessionStateRow, session_state};
 pub use crate::db::types::Role;
 use crate::error::AppError;
 pub use crate::shared::security::api_key::Credential;
 use crate::shared::security::api_key::{self, Presented};
+pub use crate::shared::security::guard::{Guard, require};
 pub use crate::shared::security::jwt::{Claims, JwtKeys};
 use crate::shared::telemetry;
+use crate::shared::validation::Path;
 
 /// A signed-in caller with a live, active account. Take it in a handler to
 /// require one.
@@ -107,6 +114,51 @@ impl<S: Send + Sync> FromRequestParts<S> for AdminUser {
             Role::Admin => Ok(AdminUser(user)),
             Role::User => Err(AppError::Forbidden("this needs the admin role".to_owned())),
         }
+    }
+}
+
+/// A caller the guard `G` let in, and its grant: how it was let in. Take
+/// it in a handler to require the rule, ahead of the body extractor (the
+/// last argument), so a caller who is refused gets the `403` before the
+/// body is read:
+///
+/// ```text
+/// Allowed(access): Allowed<PartnerAccess>   // the grant, matched on
+/// _: Allowed<Finance>                       // a yes or no
+/// ```
+///
+/// It reads the caller as [`AuthUser`] does (none is a `401`), `G`'s path
+/// parameters as `Path<G::Path>` does (a malformed one is a `400`), then
+/// asks `G` ([`require`]): a refusal is a `403`.
+pub struct Allowed<G: Guard>(pub G::Grant);
+
+impl<G: Guard> Allowed<G> {
+    /// The grant.
+    #[must_use]
+    pub fn into_inner(self) -> G::Grant {
+        self.0
+    }
+}
+
+impl<G: Guard<Grant: std::fmt::Debug>> std::fmt::Debug for Allowed<G> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("Allowed").field(&self.0).finish()
+    }
+}
+
+impl<G, S> FromRequestParts<S> for Allowed<G>
+where
+    G: Guard,
+    AppState: FromRef<S>,
+    S: Send + Sync,
+{
+    type Rejection = AppError;
+
+    async fn from_request_parts(parts: &mut Parts, state: &S) -> Result<Self, AppError> {
+        let caller = AuthUser::from_request_parts(parts, state).await?;
+        let Path(path) = Path::<G::Path>::from_request_parts(parts, state).await?;
+        let grant = require::<G>(&caller, &AppState::from_ref(state), &path).await?;
+        Ok(Allowed(grant))
     }
 }
 

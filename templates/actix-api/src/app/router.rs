@@ -60,8 +60,9 @@ pub fn app(
         .wrap(TracingLogger::<RequestSpan>::new())
 }
 
-/// Mounts the whole application on `cfg`: the pool, the JWT keys, the mail
-/// outbox and templates as app data, every feature's service,
+/// Mounts the whole application on `cfg`: the state itself (which
+/// `Allowed` hands its guard), the pool, the JWT keys, the mail outbox and
+/// templates as app data, every feature's service,
 /// `/health/live` and `/health/ready`, the `OpenAPI` document at
 /// `/api-docs/openapi.json` with Swagger UI at `/docs/`, and every feature's
 /// routes: the hand-written `account`, `two_factor` and `auth` first, so
@@ -69,7 +70,8 @@ pub fn app(
 /// doesn't swallow `/auth/me` or `/auth/2fa`. [`app`] wraps it in the
 /// middleware.
 pub fn configure(cfg: &mut web::ServiceConfig, state: &AppState) {
-    cfg.app_data(web::Data::new(state.pool.clone()))
+    cfg.app_data(web::Data::new(state.clone()))
+        .app_data(web::Data::new(state.pool.clone()))
         .app_data(state.keys.clone())
         .app_data(state.outbox.clone())
         .app_data(state.templates.clone());

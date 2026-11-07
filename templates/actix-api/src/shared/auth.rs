@@ -18,21 +18,31 @@
 //! a deleted or disabled account, are a `401`; a `read` key on a method
 //! that isn't safe, and any key on `/api/v1/auth` or `/api/v1/api-keys`, a
 //! `403`. [`AuthUser::credential`] says which one the caller sent.
+//!
+//! [`Allowed`] goes further: it runs a [`Guard`], an authorization rule
+//! written once, and hands the handler its grant, holding the request's
+//! body back until the guard has let the caller in.
 
 use std::future::Future;
 use std::pin::Pin;
+use std::task::{Context, Poll};
 
 use actix_web::dev::Payload;
+use actix_web::error::PayloadError;
 use actix_web::http::header;
 use actix_web::{FromRequest, HttpRequest, web};
+use futures_util::Stream;
 use sqlx::PgPool;
+use tokio::sync::oneshot;
 use uuid::Uuid;
 
+use crate::app::AppState;
 use crate::db::queries::session::{SessionStateRow, session_state};
 pub use crate::db::types::Role;
 use crate::error::AppError;
 pub use crate::shared::security::api_key::Credential;
 use crate::shared::security::api_key::{self, Presented};
+pub use crate::shared::security::guard::{Guard, require};
 pub use crate::shared::security::jwt::{Claims, JwtKeys};
 use crate::shared::telemetry;
 
@@ -97,6 +107,93 @@ impl FromRequest for AdminUser {
                 Role::User => Err(AppError::Forbidden("this needs the admin role".to_owned())),
             }
         })
+    }
+}
+
+/// A caller the guard `G` let in, and its grant: how it was let in. Take
+/// it in a handler to require the rule, ahead of the body extractor, so a
+/// caller who is refused gets the `403` before the body is read:
+///
+/// ```text
+/// Allowed(access): Allowed<PartnerAccess>   // the grant, matched on
+/// _: Allowed<Finance>                       // a yes or no
+/// ```
+///
+/// It reads the caller as [`AuthUser`] does (none is a `401`), `G`'s path
+/// parameters as `web::Path<G::Path>` does (a malformed one is a `400`),
+/// then asks `G` ([`require`]): a refusal is a `403`. actix-web polls a
+/// handler's extractors together, so `Allowed` holds back the body the
+/// extractors after it read until `G` has let the caller in; refused, the
+/// body is never read.
+pub struct Allowed<G: Guard>(pub G::Grant);
+
+impl<G: Guard> Allowed<G> {
+    /// The grant.
+    #[must_use]
+    pub fn into_inner(self) -> G::Grant {
+        self.0
+    }
+}
+
+impl<G: Guard<Grant: std::fmt::Debug>> std::fmt::Debug for Allowed<G> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("Allowed").field(&self.0).finish()
+    }
+}
+
+impl<G: Guard + 'static> FromRequest for Allowed<G> {
+    type Error = actix_web::Error;
+    type Future = Pin<Box<dyn Future<Output = Result<Self, actix_web::Error>>>>;
+
+    fn from_request(req: &HttpRequest, payload: &mut Payload) -> Self::Future {
+        let caller = AuthUser::from_request(req, payload);
+        let path = web::Path::<G::Path>::extract(req);
+        let state = req.app_data::<web::Data<AppState>>().cloned();
+        let (open, gate) = oneshot::channel();
+        *payload = held_back(payload.take(), gate);
+        Box::pin(async move {
+            let caller = caller.await?;
+            let path = path.await?.into_inner();
+            let state = state.ok_or_else(|| {
+                AppError::Internal("`AppState` is not registered as app data".into())
+            })?;
+            let grant = require::<G>(&caller, &state, &path).await?;
+            // Let in: the extractors after this one may read the body.
+            open.send(()).ok();
+            Ok(Allowed(grant))
+        })
+    }
+}
+
+/// `payload`, read only once `gate` opens. Should it close instead (the
+/// guard refused, and the handler won't be called), it reads as empty.
+fn held_back(payload: Payload, gate: oneshot::Receiver<()>) -> Payload {
+    Payload::Stream {
+        payload: Box::pin(HeldBack {
+            gate: Some(gate),
+            payload,
+        }),
+    }
+}
+
+/// The body [`held_back`] makes.
+struct HeldBack {
+    gate: Option<oneshot::Receiver<()>>,
+    payload: Payload,
+}
+
+impl Stream for HeldBack {
+    type Item = Result<web::Bytes, PayloadError>;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        if let Some(gate) = self.gate.as_mut() {
+            match Pin::new(gate).poll(cx) {
+                Poll::Pending => return Poll::Pending,
+                Poll::Ready(Ok(())) => self.gate = None,
+                Poll::Ready(Err(_)) => return Poll::Ready(None),
+            }
+        }
+        Pin::new(&mut self.payload).poll_next(cx)
     }
 }
 

@@ -95,6 +95,14 @@ template is multi-tenant, so the caller check sets no tenant; a
 tenant-scoped service's `shared::grpc::tenant` reads the one you insert
 beside the caller in `auth.rs`.
 
+A rule beyond "signed in" or "admin" is a `Guard`
+(`src/shared/security/guard.rs`, the axum template's): written once, and
+checked in your own RPC with
+`require::<PartnerAccess>(&caller(&request)?, &state, &path).await?`,
+which gives its grant or answers `PERMISSION_DENIED`. The guide's
+[Guards](https://github.com/ateeq1999/rok-templates/blob/main/docs/guide/guards.md)
+page has a recipe.
+
 ## Errors
 
 `src/error.rs`'s `AppError` is the axum template's, without the HTTP

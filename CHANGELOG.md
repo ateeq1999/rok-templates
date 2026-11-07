@@ -8,6 +8,23 @@ are this file's `## [X.Y.Z]` section.
 
 ## [Unreleased]
 
+**Added**
+
+- Guards: authorization rules written once. The security Capability's
+  `Guard` trait (`shared/security/guard.rs`, a Shared file of every API
+  template) names a rule's grant, its path parameters and its refusal;
+  `Allowed<G>` (`shared/auth.rs`, axum, actix and the monorepo's API) runs
+  it ahead of the body and hands the handler the grant
+  (`Allowed(access): Allowed<PartnerAccess>`, `_: Allowed<Finance>`),
+  answering `403` before the body is read. Under actix-web, which polls a
+  handler's extractors together, `Allowed` holds the body back until the
+  guard lets the caller in; `app::configure` registers the `AppState` as
+  app data for it. `require::<G>` answers the same outside HTTP (the gRPC
+  template). The guide's Guards page has a recipe in Karibu Pass's shape
+  (a staff role, a member's role or staff at a partner from the path, and
+  `PartnerAccess<Organizer>`), each rule one read in `queries/shared/`;
+  a gate adds it to an axum project, generates it and drives it.
+
 **Changed**
 
 - The templates move to rok-data 0.9. `rok-data.pin` is v0.9.0; the
