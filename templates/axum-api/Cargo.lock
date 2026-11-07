@@ -217,6 +217,7 @@ dependencies = [
  "bytes",
  "chrono",
  "croner",
+ "dotenvy",
  "governor",
  "hmac 0.13.0",
  "http-body-util",

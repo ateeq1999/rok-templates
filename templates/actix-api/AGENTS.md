@@ -18,6 +18,7 @@ yours: rok sqlc writes them once and never touches them again.
 src/
 ├─ lib.rs         declares every module `pub`: the application is a library
 ├─ main.rs        starts the server through the library. Nothing else.
+├─ bin/seed.rs    the development seed (`app::seed`): local accounts to sign in with
 ├─ app/           the ONLY wiring: state.rs (AppState), router.rs (routes and
 │                 middleware), run.rs (the server and what runs beside it),
 │                 ports.rs (the ports features declare, implemented)
@@ -62,7 +63,7 @@ rules below follow them.
 | Error case | a variant in `error.rs` | feature folder |
 | Code two features need | `shared/` | one feature |
 | Call to an outside system | `shared/<name>.rs` behind a trait | service directly |
-| Env variable | `config.rs` | `std::env` anywhere else |
+| Env variable | `config.rs` (a debug build reads `.env` too) | `std::env` anywhere else |
 | Background or slow work | a job (`shared/jobs/`) enqueued by `service.rs` on its transaction, registered in `app/run.rs` | request path |
 | Writing another feature's data | a port (trait) declared in your `service.rs`, implemented in `app/ports.rs` with the other service's `_in` method | that feature's files |
 | Register a hand-written feature | `features/mod.rs` and `app/router.rs` | — |

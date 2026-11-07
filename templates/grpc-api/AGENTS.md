@@ -24,6 +24,7 @@ proto/            generated <table>.proto files; add your own beside them
 src/
 ├─ lib.rs         declares every module `pub`: the application is a library
 ├─ main.rs        starts the server through the library. Nothing else.
+├─ bin/seed.rs    the development seed (`app::seed`): local accounts to sign in with
 ├─ app/           the ONLY wiring: state.rs (AppState), routes.rs (the
 │                 services, health and reflection), auth.rs (the caller
 │                 check in front of the API), run.rs (the server and what
@@ -65,7 +66,7 @@ under `src/` may be named `utils`, `helpers` or `common`.
 | New DB table or column | `schema/000N_name.sql`, then `rok sqlc g` | anywhere else |
 | Error case | a variant in `error.rs` | feature folder |
 | Who is calling | `app/auth.rs` puts the `AuthUser` in the request's extensions | a service |
-| Env variable | `config.rs` | `std::env` anywhere else |
+| Env variable | `config.rs` (a debug build reads `.env` too) | `std::env` anywhere else |
 | Background or slow work | a job (`shared/jobs/`), registered in `app/run.rs` | request path |
 
 ## The six rules

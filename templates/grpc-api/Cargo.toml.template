@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.94"
 publish = false
+# `cargo run` starts the server; `cargo run --bin seed` seeds local accounts.
+default-run = "grpc-api"
 
 # What the skeleton and the generated code need: `rok-data-sqlc.toml`'s hints,
 # the generated `src/db/mod.rs`'s, and the gRPC stack, pinned exactly (tonic
@@ -16,6 +18,8 @@ base64 = "0.22"
 bytes = "1"
 chrono = { version = "0.4", features = ["serde"] }
 croner = "4"
+# Local development's `.env`, read by debug builds only (`config::load_env_file`).
+dotenvy = "=0.15.7"
 hmac = "0.13"
 infer = { version = "0.22", default-features = false }
 jsonwebtoken = { version = "11", features = ["rust_crypto"] }

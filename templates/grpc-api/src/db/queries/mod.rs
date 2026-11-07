@@ -8,5 +8,6 @@ pub mod auth;
 pub mod jobs;
 pub mod media;
 pub mod queue;
+pub mod seed;
 pub mod session;
 pub mod two_factor;

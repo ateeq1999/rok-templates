@@ -22,16 +22,25 @@ rate limit, webhooks and OIDC sign-in.
 
 ## Running it
 
-You need PostgreSQL and Rust 1.94 or newer.
+You need PostgreSQL (or Docker) and Rust 1.94 or newer.
 
-1. Create a database and apply `migrations/` to it — `rok migrate up` (the
-   workspace CLI), or `psql -f` on each `migrations/*.up.sql` in order (the
-   `.down.sql` of each rolls it back).
-2. Set `DATABASE_URL`, `JWT_SECRET`, at least 32 bytes (`openssl rand
-   -base64 48`), and `TOTP_ENCRYPTION_KEY`, 32 bytes in base64 (`openssl
-   rand -base64 32`). `.env.example` lists every setting; `src/config.rs` reads
-   them from the environment.
-3. `cargo run`. The API is under `/api/v1`, health at `/health/live` and
+1. `cp .env.example .env`. A debug build (`cargo run`, `cargo test`, the
+   seed) reads `.env` itself; a release build reads only the real
+   environment. It holds `DATABASE_URL`, `JWT_SECRET` (at least 32 bytes;
+   `openssl rand -base64 48`) and `TOTP_ENCRYPTION_KEY` (32 bytes in
+   base64; `openssl rand -base64 32`), the example's for local development
+   only. `.env.example` lists every setting; `src/config.rs` reads them.
+2. Start PostgreSQL (`docker compose up -d postgres`, on the host port
+   `POSTGRES_PORT`, 5432 unless `.env` says otherwise; `DATABASE_URL`
+   follows it) and apply `migrations/` to it: `rok migrate up` (the
+   workspace CLI, which reads `.env` too), or `psql -f` on each
+   `migrations/*.up.sql` in order (the `.down.sql` of each rolls it back).
+3. `cargo run --bin seed` makes a verified admin (`admin@example.com`) and
+   a verified ordinary user (`user@example.com`) and prints their
+   passwords, new on every run; `cargo run --bin seed -- --promote <email>`
+   makes an existing account an admin. Sign-in still needs a verified email
+   (`REQUIRE_VERIFIED_EMAIL=true`); the seeded accounts have one.
+4. `cargo run`. The API is under `/api/v1`, health at `/health/live` and
    `/health/ready`, the OpenAPI document at `/api-docs/openapi.json` and
    Swagger UI at `/docs/`.
 
@@ -43,13 +52,15 @@ http://localhost:8025).
 
 ```console
 $ docker compose up --build
-$ DATABASE_URL=postgres://app:app@localhost:5432/app rok migrate up
+$ rok migrate up        # DATABASE_URL from .env
+$ cargo run --bin seed  # accounts to sign in with
 ```
 
 The API is at http://localhost:8080, `/metrics` at :9090. Migrations are
 applied by `rok migrate up`, once, so its journal knows them. A Postgres
-of your own on 5432 (or anything on the other ports) collides: change the
-left side of that service's `ports`. With traces and metrics, Jaeger at
+of your own on 5432 collides: set `POSTGRES_PORT` in `.env` (anything on
+the other ports: change the left side of that service's `ports`). With
+traces and metrics, Jaeger at
 http://localhost:16686, Prometheus at :9091 and Grafana at
 http://localhost:3000 (the *API* dashboard):
 
@@ -444,6 +455,7 @@ base64 = "0.22"
 bytes = "1"
 chrono = { version = "0.4", features = ["serde"] }
 croner = "4"
+dotenvy = "=0.15.7"
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
 governor = { version = "0.10", default-features = false, features = ["std"] }
 hmac = "0.13"
