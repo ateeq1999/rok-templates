@@ -4,6 +4,8 @@ version = "0.1.0"
 edition = "2024"
 rust-version = "1.94"
 publish = false
+# `cargo run` starts the server; `cargo run --bin seed` seeds local accounts.
+default-run = "actix-api"
 
 # What the skeleton and the generated code need: `rok-data-sqlc.toml`'s hints and
 # the generated `src/db/mod.rs`'s.
@@ -17,6 +19,8 @@ base64 = "0.22"
 bytes = "1"
 chrono = { version = "0.4", features = ["serde"] }
 croner = "4"
+# Local development's `.env`, read by debug builds only (`config::load_env_file`).
+dotenvy = "=0.15.7"
 futures-util = { version = "0.3", default-features = false, features = ["std"] }
 governor = { version = "0.10", default-features = false, features = ["std"] }
 hmac = "0.13"

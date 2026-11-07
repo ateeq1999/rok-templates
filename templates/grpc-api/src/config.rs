@@ -50,6 +50,7 @@
 
 use std::env;
 use std::net::SocketAddr;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use crate::db::pool::PoolSettings;
@@ -114,6 +115,41 @@ const DEFAULT_MEDIA_UPLOAD_URL_TTL_SECS: u64 = 900;
 
 /// Seconds a download URL works when `MEDIA_DOWNLOAD_URL_TTL_SECS` is not set.
 const DEFAULT_MEDIA_DOWNLOAD_URL_TTL_SECS: u64 = 300;
+
+/// In a debug build, sets the variables of the first `.env` file in `dir`
+/// or a directory above it, local development's settings (`.env.example`
+/// lists them), leaving every variable already set as it is. A value may
+/// name an earlier one, as `${POSTGRES_PORT}` in `DATABASE_URL`. A release
+/// build reads only the real environment and no file. Returns the file
+/// read, if any: `main.rs` and the tests' support call it before reading a
+/// setting.
+///
+/// # Errors
+///
+/// A `.env` file that can't be read or parsed.
+pub fn load_env_file_from(dir: &Path) -> Result<Option<PathBuf>, dotenvy::Error> {
+    if !cfg!(debug_assertions) {
+        return Ok(None);
+    }
+    let Some(file) = dir
+        .ancestors()
+        .map(|dir| dir.join(".env"))
+        .find(|file| file.is_file())
+    else {
+        return Ok(None);
+    };
+    dotenvy::from_path(&file)?;
+    Ok(Some(file))
+}
+
+/// [`load_env_file_from`] the current directory.
+///
+/// # Errors
+///
+/// A `.env` file that can't be read or parsed, or no current directory.
+pub fn load_env_file() -> Result<Option<PathBuf>, dotenvy::Error> {
+    load_env_file_from(&env::current_dir().map_err(dotenvy::Error::Io)?)
+}
 
 /// How the process logs and traces, read from the environment: `main.rs`
 /// starts tracing with it before [`Config::from_env`].

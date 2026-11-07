@@ -1,7 +1,8 @@
 // Scaffolded once by rok-data-sqlc; this file is yours. It is never regenerated. See docs/guide/architecture.md.
 
 //! Starts the server. Nothing else: the modules are declared in `lib.rs`,
-//! wiring lives in `app/`, settings in `config.rs`.
+//! wiring lives in `app/`, settings in `config.rs` (and, in a debug
+//! build, `.env`).
 
 use std::process::ExitCode;
 
@@ -10,6 +11,11 @@ use actix_api::{app, config};
 
 #[actix_web::main]
 async fn main() -> ExitCode {
+    // A debug build reads `.env` first (local development's settings); a
+    // release build only the real environment.
+    if let Err(err) = config::load_env_file() {
+        return failed(&format!(".env: {err}"));
+    }
     // Logs and traces first (`RUST_LOG`, `LOG_FORMAT`, `OTEL_*`), so
     // everything after is traced.
     let telemetry = match config::log_settings()

@@ -27,9 +27,14 @@ clients (`tonic-prost-build`).
 1. Create a database and apply `migrations/` to it — `rok migrate up` (the
    workspace CLI), or `psql -f` on each `migrations/*.up.sql` in order. They
    are the axum template's: one database can serve both APIs.
-2. Set `DATABASE_URL`, `JWT_SECRET` (the axum API's, at least 32 bytes) and
-   `TOTP_ENCRYPTION_KEY` (32 bytes in base64). `.env.example` lists the
-   settings; `src/config.rs` reads them from the environment.
+2. `cp .env.example .env` and set `DATABASE_URL`, `JWT_SECRET` (the axum
+   API's, at least 32 bytes) and `TOTP_ENCRYPTION_KEY` (32 bytes in
+   base64). A debug build (`cargo run`, `cargo test`, the seed) reads
+   `.env` itself; a release build reads only the real environment.
+   `.env.example` lists the settings; `src/config.rs` reads them.
+   `cargo run --bin seed` makes a verified admin and a verified ordinary
+   user and prints their passwords (sign in on the axum API; the tokens
+   work here); `-- --promote <email>` makes an existing account an admin.
 3. `cargo run`. The server listens on `BIND_ADDR` (default
    `0.0.0.0:8080`). Ctrl+C or `SIGTERM` stops it gracefully: the health
    service answers `NOT_SERVING` for `SHUTDOWN_DELAY_SECS`, calls in flight
@@ -94,6 +99,14 @@ two-factor sign-in and making API keys stay on the HTTP API. Neither
 template is multi-tenant, so the caller check sets no tenant; a
 tenant-scoped service's `shared::grpc::tenant` reads the one you insert
 beside the caller in `auth.rs`.
+
+A rule beyond "signed in" or "admin" is a `Guard`
+(`src/shared/security/guard.rs`, the axum template's): written once, and
+checked in your own RPC with
+`require::<PartnerAccess>(&caller(&request)?, &state, &path).await?`,
+which gives its grant or answers `PERMISSION_DENIED`. The guide's
+[Guards](https://github.com/ateeq1999/rok-templates/blob/main/docs/guide/guards.md)
+page has a recipe.
 
 ## Errors
 
@@ -164,6 +177,7 @@ base64 = "0.22"
 bytes = "1"
 chrono = { version = "0.4", features = ["serde"] }
 croner = "4"
+dotenvy = "=0.15.7"
 hmac = "0.13"
 infer = { version = "0.22", default-features = false }
 jsonwebtoken = { version = "11", features = ["rust_crypto"] }

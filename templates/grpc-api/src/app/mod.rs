@@ -5,10 +5,12 @@
 //! the caller check in front of the API's ([`auth`]), and the server and
 //! what runs beside it ([`run`]). Each part is one file; add a
 //! capability's wiring to the part it belongs to.
+//! [`seed`] makes local accounts to sign in with (`cargo run --bin seed`).
 
 mod auth;
 mod routes;
 mod run;
+pub mod seed;
 mod state;
 
 pub use auth::authenticate;

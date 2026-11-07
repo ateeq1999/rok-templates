@@ -194,6 +194,76 @@ fn axum_template_passes_its_checks_and_tests() -> Result<()> {
     starts_only_when_configured(dir)
 }
 
+/// The guide's guards recipe (`docs/guide/guards.md`), added to a project
+/// made from the template as a user would: its tables in `schema/`, its
+/// reads in `queries/shared/access.sql`, the guards in `src/shared/guards.rs`,
+/// and a test driving them on routes. The project still generates, passes
+/// `check-arch` and the lint gate, and the test passes (against PostgreSQL
+/// when `ROK_DATA_SQLC_TEST_DATABASE_URL` is set; it compiles either way).
+#[test]
+fn axum_template_guards_recipe_compiles_and_holds() -> Result<()> {
+    if crate::generator_missing() {
+        return Ok(());
+    }
+    let project = materialize()?;
+    let dir = project.path();
+    if let Some(reason) = common::generated_code_skip_reason(dir) {
+        eprintln!("{reason}");
+        return Ok(());
+    }
+    let recipe: &[(&str, &str)] = &[
+        (
+            "schema/0006_partners.sql",
+            include_str!("guards/schema.sql"),
+        ),
+        (
+            "queries/shared/access.sql",
+            include_str!("guards/access.sql"),
+        ),
+        ("src/shared/guards.rs", include_str!("guards/guards.rs")),
+        ("tests/guards_recipe.rs", include_str!("guards/recipe.rs")),
+    ];
+    for (path, text) in recipe {
+        let path = dir.join(path);
+        std::fs::create_dir_all(path.parent().context("a parent")?)?;
+        std::fs::write(path, text.replace("\r\n", "\n"))?;
+    }
+    edit(
+        dir,
+        "src/shared/mod.rs",
+        "pub mod health;\n",
+        "pub mod guards;\npub mod health;\n",
+    )?;
+    edit(
+        dir,
+        "rok-data-sqlc.toml",
+        "exclude = [\"media\",",
+        "exclude = [\"partners\", \"partner_members\", \"staff_members\", \"media\",",
+    )?;
+    rok_data_sqlc(dir, &["g"])?;
+    rok_data_sqlc(dir, &["check-arch"])?;
+    cargo_clean(
+        dir,
+        &["clippy", "--quiet", "--all-targets", "--", "-D", "warnings"],
+        None,
+    )?;
+    let database = std::env::var("ROK_DATA_SQLC_TEST_DATABASE_URL").ok();
+    cargo_clean(
+        dir,
+        &["test", "--quiet", "--test", "guards_recipe"],
+        database.as_deref(),
+    )
+}
+
+/// Replaces `from` with `to` in the project file `path`, which must hold it.
+fn edit(dir: &Path, path: &str, from: &str, to: &str) -> Result<()> {
+    let path = dir.join(path);
+    let text = std::fs::read_to_string(&path)?.replace("\r\n", "\n");
+    ensure!(text.contains(from), "{} holds no `{from}`", path.display());
+    std::fs::write(&path, text.replacen(from, to, 1))?;
+    Ok(())
+}
+
 /// Started without its settings, the server names every one missing, a
 /// readable line each, no `Debug` dump, and exits non-zero.
 fn starts_only_when_configured(dir: &Path) -> Result<()> {

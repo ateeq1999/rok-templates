@@ -52,6 +52,8 @@ pub struct Database {
 impl Database {
     /// A fresh schema, or `None` (and a note) when `DATABASE_URL` is not set.
     pub async fn fresh() -> Result<Option<Database>, Box<dyn std::error::Error>> {
+        // `DATABASE_URL` may come from `.env`, as the server's does.
+        axum_api::config::load_env_file()?;
         let Ok(url) = std::env::var("DATABASE_URL") else {
             eprintln!("skipping: DATABASE_URL is not set");
             return Ok(None);

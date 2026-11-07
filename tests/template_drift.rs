@@ -35,6 +35,8 @@ const SHARED: &[&str] = &[
     // The ports features declare for each other, implemented: the wiring's
     // one framework-free part.
     "src/app/ports.rs",
+    // The development seed (`cargo run --bin seed`): the database alone.
+    "src/app/seed.rs",
     // Logs and traces: the subscriber, `traceparent`, the caller on the span.
     "src/shared/telemetry.rs",
     // The metrics: their names, the exporter, the pool sampler.
@@ -171,9 +173,10 @@ fn the_templates_share_their_framework_independent_files() -> Result<()> {
 /// The files `templates/grpc-api` holds the same copy of as `templates/axum-api`
 /// (workspace ADR 0030): the configuration, the data layer's sources and its
 /// framework-free generated files, the jobs, mail, storage, telemetry,
-/// metrics, shutdown and security, and the generated features' files no
-/// transport shows through. What differs is the transport's: the wiring,
-/// the error's answer, the caller, and the generated files that derive
+/// metrics, shutdown and security, the development seed, and the
+/// generated features' files no transport shows through. What differs is
+/// the transport's: the wiring, the error's answer, the caller, and the
+/// generated files that derive
 /// the OpenAPI schemas (`db/*/models.rs`, `dto.rs`), which gRPC has none of.
 const GRPC_SHARED: &[&str] = &[
     "migrations",
@@ -193,6 +196,7 @@ const GRPC_SHARED: &[&str] = &[
     "src/shared/settings.rs",
     "src/shared/shutdown.rs",
     "src/shared/security",
+    "src/app/seed.rs",
 ];
 
 /// The files of a generated feature both the axum and the gRPC template

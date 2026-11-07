@@ -8,7 +8,39 @@ are this file's `## [X.Y.Z]` section.
 
 ## [Unreleased]
 
+**Added**
+
+- Guards: authorization rules written once. The security Capability's
+  `Guard` trait (`shared/security/guard.rs`, a Shared file of every API
+  template) names a rule's grant, its path parameters and its refusal;
+  `Allowed<G>` (`shared/auth.rs`, axum, actix and the monorepo's API) runs
+  it ahead of the body and hands the handler the grant
+  (`Allowed(access): Allowed<PartnerAccess>`, `_: Allowed<Finance>`),
+  answering `403` before the body is read. Under actix-web, which polls a
+  handler's extractors together, `Allowed` holds the body back until the
+  guard lets the caller in; `app::configure` registers the `AppState` as
+  app data for it. `require::<G>` answers the same outside HTTP (the gRPC
+  template). The guide's Guards page has a recipe in Karibu Pass's shape
+  (a staff role, a member's role or staff at a partner from the path, and
+  `PartnerAccess<Organizer>`), each rule one read in `queries/shared/`;
+  a gate adds it to an axum project, generates it and drives it.
+- Local setup that works on the first run. The APIs load `.env` with
+  dotenvy (`=0.15.7`) in debug builds only (`config::load_env_file`; a
+  release build reads only the real environment), and their test support
+  does before reading `DATABASE_URL`. A `seed` binary (`cargo run --bin
+  seed`: `app/seed.rs`, a Shared file, and `queries/seed.sql`) makes a
+  verified admin and a verified ordinary user and prints new passwords for
+  them; `--promote <email>` makes an existing account an admin.
+  `REQUIRE_VERIFIED_EMAIL` stays `true`, and `default-run` keeps
+  `cargo run` the server.
+
 **Changed**
+
+- `compose.yaml` publishes PostgreSQL on `${POSTGRES_PORT:-5432}`, and
+  `.env.example` sets `POSTGRES_PORT` and builds `DATABASE_URL` from it,
+  against compose's `app` database (the axum template's and the Monorepo
+  API's named a stale `actix_api` one), with a local-development
+  `TOTP_ENCRYPTION_KEY`, so the API starts from a copied `.env`.
 
 - The templates move to rok-data 0.9. `rok-data.pin` is v0.9.0; the
   templates' rok-data dependency is `"0.9"` (manifests and the READMEs

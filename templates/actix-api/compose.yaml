@@ -1,8 +1,13 @@
 # Local development: the API with PostgreSQL, Floci (the AWS emulator: S3
 # for uploads) and Mailpit (every mail sent, at http://localhost:8025).
 #
+#   cp .env.example .env    # POSTGRES_PORT: the host port PostgreSQL is on
 #   docker compose up --build
-#   DATABASE_URL=postgres://app:app@localhost:5432/app rok migrate up
+#   rok migrate up          # DATABASE_URL from .env
+#   cargo run --bin seed    # a verified admin and user to sign in with
+#
+# Compose reads `.env` too: `POSTGRES_PORT` (default 5432) moves PostgreSQL
+# on the host when 5432 is taken, and `DATABASE_URL` there follows it.
 #
 # The migrations are applied once, by `rok migrate up`, so its journal knows
 # them; the API answers once they are in. With traces and metrics (Jaeger
@@ -55,7 +60,7 @@ services:
       POSTGRES_PASSWORD: app
       POSTGRES_DB: app
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres:/var/lib/postgresql/data
     healthcheck:

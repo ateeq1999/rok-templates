@@ -231,6 +231,21 @@ promotion or demotion applies at once. So `AuthUser` needs the pool as app
 data, `web::Data<PgPool>`, which `app::configure` registers (under axum,
 the `PgPool` and the JWT keys in the request's extensions, which `app::router` puts there, so one extractor serves the generated and the hand-written routes).
 
+A rule beyond "signed in" or "admin" (finance staff, a member of the
+partner in the path) is a [Guard](guards.md): `Allowed<G>` beside
+`AuthUser`, refusing before the body is read.
+
+## Local accounts
+
+`cargo run --bin seed` makes a verified admin (`admin@example.com`) and a
+verified ordinary user (`user@example.com`) and prints a new password for
+each, every run; `cargo run --bin seed -- --promote <email>` makes an
+existing account an admin, so the first admin needs no `psql`.
+`REQUIRE_VERIFIED_EMAIL` stays `true`: the seeded accounts are verified.
+The seed reads the server's settings, `.env` included in a debug build,
+and needs the migrations applied (`rok migrate up`); it is for local
+development only (`app/seed.rs`, its SQL in `queries/seed.sql`).
+
 ## Settings
 
 `src/config.rs` reads them, and `.env.example` lists them:
