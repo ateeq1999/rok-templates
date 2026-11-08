@@ -20,20 +20,22 @@
 //! `403`. [`AuthUser::credential`] says which one the caller sent.
 //!
 //! [`Allowed`] goes further: it runs a [`Guard`], an authorization rule
-//! written once, and hands the handler its grant, holding the request's
-//! body back until the guard has let the caller in.
+//! written once, and hands the handler its grant.
+//!
+//! Each holds the request's body back until it has let the caller in
+//! ([`body::hold`]): actix-web polls a handler's extractors together, in
+//! whatever order they are taken, so a bad body would otherwise answer
+//! `422` before the caller's `401` or `403`. A wrong `Content-Type` or a
+//! `Content-Length` over the limit is still answered first (see
+//! [`body`]).
 
 use std::future::Future;
 use std::pin::Pin;
-use std::task::{Context, Poll};
 
 use actix_web::dev::Payload;
-use actix_web::error::PayloadError;
 use actix_web::http::header;
 use actix_web::{FromRequest, HttpRequest, web};
-use futures_util::Stream;
 use sqlx::PgPool;
-use tokio::sync::oneshot;
 use uuid::Uuid;
 
 use crate::app::AppState;
@@ -44,7 +46,7 @@ pub use crate::shared::security::api_key::Credential;
 use crate::shared::security::api_key::{self, Presented};
 pub use crate::shared::security::guard::{Guard, require};
 pub use crate::shared::security::jwt::{Claims, JwtKeys};
-use crate::shared::telemetry;
+use crate::shared::{body, telemetry};
 
 /// A signed-in caller with a live, active account. Take it in a handler to
 /// require one.
@@ -66,29 +68,13 @@ impl FromRequest for AuthUser {
     type Error = AppError;
     type Future = Pin<Box<dyn Future<Output = Result<Self, AppError>>>>;
 
-    fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
-        let checked = credentials(req);
-        let method = req.method().as_str().to_owned();
-        // The decoded path the router matched, not the raw `req.path()`:
-        // `/api/v1/api%2Dkeys` routes to `/api/v1/api-keys`.
-        let path = req.match_info().as_str().to_owned();
+    fn from_request(req: &HttpRequest, payload: &mut Payload) -> Self::Future {
+        let pass = body::hold(req, payload);
+        let caller = caller(req);
         Box::pin(async move {
-            let user = match checked? {
-                Checked::Session(claims, pool) => {
-                    let state = session_state(pool.get_ref(), claims.sub.into()).await?;
-                    admit(&claims, state)?
-                }
-                Checked::ApiKey(key, pool) => {
-                    let owner = api_key::authenticate(&pool, &key, &method, &path).await?;
-                    AuthUser {
-                        id: owner.id,
-                        role: owner.role,
-                        credential: Credential::ApiKey(owner.scope),
-                    }
-                }
-            };
-            // The request's span names its caller from here on.
-            telemetry::record_user(user.id);
+            let user = caller.await?;
+            // Let in: the body may be read.
+            pass.open();
             Ok(user)
         })
     }
@@ -99,20 +85,52 @@ impl FromRequest for AdminUser {
     type Future = Pin<Box<dyn Future<Output = Result<Self, AppError>>>>;
 
     fn from_request(req: &HttpRequest, payload: &mut Payload) -> Self::Future {
-        let user = AuthUser::from_request(req, payload);
+        let pass = body::hold(req, payload);
+        let caller = caller(req);
         Box::pin(async move {
-            let user = user.await?;
+            let user = caller.await?;
             match user.role {
-                Role::Admin => Ok(AdminUser(user)),
+                Role::Admin => {
+                    pass.open();
+                    Ok(AdminUser(user))
+                }
                 Role::User => Err(AppError::Forbidden("this needs the admin role".to_owned())),
             }
         })
     }
 }
 
+/// The caller of `req`, as [`AuthUser`] reads it, leaving the body alone.
+fn caller(req: &HttpRequest) -> Pin<Box<dyn Future<Output = Result<AuthUser, AppError>>>> {
+    let checked = credentials(req);
+    let method = req.method().as_str().to_owned();
+    // The decoded path the router matched, not the raw `req.path()`:
+    // `/api/v1/api%2Dkeys` routes to `/api/v1/api-keys`.
+    let path = req.match_info().as_str().to_owned();
+    Box::pin(async move {
+        let user = match checked? {
+            Checked::Session(claims, pool) => {
+                let state = session_state(pool.get_ref(), claims.sub.into()).await?;
+                admit(&claims, state)?
+            }
+            Checked::ApiKey(key, pool) => {
+                let owner = api_key::authenticate(&pool, &key, &method, &path).await?;
+                AuthUser {
+                    id: owner.id,
+                    role: owner.role,
+                    credential: Credential::ApiKey(owner.scope),
+                }
+            }
+        };
+        // The request's span names its caller from here on.
+        telemetry::record_user(user.id);
+        Ok(user)
+    })
+}
+
 /// A caller the guard `G` let in, and its grant: how it was let in. Take
-/// it in a handler to require the rule, ahead of the body extractor, so a
-/// caller who is refused gets the `403` before the body is read:
+/// it in a handler to require the rule; a caller who is refused gets the
+/// `403` before the body is read:
 ///
 /// ```text
 /// Allowed(access): Allowed<PartnerAccess>   // the grant, matched on
@@ -121,10 +139,9 @@ impl FromRequest for AdminUser {
 ///
 /// It reads the caller as [`AuthUser`] does (none is a `401`), `G`'s path
 /// parameters as `web::Path<G::Path>` does (a malformed one is a `400`),
-/// then asks `G` ([`require`]): a refusal is a `403`. actix-web polls a
-/// handler's extractors together, so `Allowed` holds back the body the
-/// extractors after it read until `G` has let the caller in; refused, the
-/// body is never read.
+/// then asks `G` ([`require`]): a refusal is a `403`. Like `AuthUser`, it
+/// holds the body back until `G` has let the caller in ([`body::hold`]);
+/// refused, the body is never read.
 pub struct Allowed<G: Guard>(pub G::Grant);
 
 impl<G: Guard> Allowed<G> {
@@ -146,11 +163,10 @@ impl<G: Guard + 'static> FromRequest for Allowed<G> {
     type Future = Pin<Box<dyn Future<Output = Result<Self, actix_web::Error>>>>;
 
     fn from_request(req: &HttpRequest, payload: &mut Payload) -> Self::Future {
-        let caller = AuthUser::from_request(req, payload);
+        let pass = body::hold(req, payload);
+        let caller = caller(req);
         let path = web::Path::<G::Path>::extract(req);
         let state = req.app_data::<web::Data<AppState>>().cloned();
-        let (open, gate) = oneshot::channel();
-        *payload = held_back(payload.take(), gate);
         Box::pin(async move {
             let caller = caller.await?;
             let path = path.await?.into_inner();
@@ -158,42 +174,10 @@ impl<G: Guard + 'static> FromRequest for Allowed<G> {
                 AppError::Internal("`AppState` is not registered as app data".into())
             })?;
             let grant = require::<G>(&caller, &state, &path).await?;
-            // Let in: the extractors after this one may read the body.
-            open.send(()).ok();
+            // Let in: the body may be read.
+            pass.open();
             Ok(Allowed(grant))
         })
-    }
-}
-
-/// `payload`, read only once `gate` opens. Should it close instead (the
-/// guard refused, and the handler won't be called), it reads as empty.
-fn held_back(payload: Payload, gate: oneshot::Receiver<()>) -> Payload {
-    Payload::Stream {
-        payload: Box::pin(HeldBack {
-            gate: Some(gate),
-            payload,
-        }),
-    }
-}
-
-/// The body [`held_back`] makes.
-struct HeldBack {
-    gate: Option<oneshot::Receiver<()>>,
-    payload: Payload,
-}
-
-impl Stream for HeldBack {
-    type Item = Result<web::Bytes, PayloadError>;
-
-    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        if let Some(gate) = self.gate.as_mut() {
-            match Pin::new(gate).poll(cx) {
-                Poll::Pending => return Poll::Pending,
-                Poll::Ready(Ok(())) => self.gate = None,
-                Poll::Ready(Err(_)) => return Poll::Ready(None),
-            }
-        }
-        Pin::new(&mut self.payload).poll_next(cx)
     }
 }
 

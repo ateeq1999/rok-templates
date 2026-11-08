@@ -50,10 +50,13 @@ malformed one is a `400`), calls `G::check` and answers `None` with a `403`
 carrying `G::REFUSAL`. Otherwise the handler gets the grant:
 `Allowed(grant)`.
 
-Put it ahead of the body extractor. In axum the body extractor is the last
-argument anyway. actix-web polls a handler's extractors together, so
-`Allowed` holds back the body of the extractors after it until the guard
-lets the caller in; refused, the body is never read. A guard reads the
+In axum, put it ahead of the body extractor (the body is the last argument
+anyway). actix-web polls a handler's extractors together, so `Allowed`,
+like `AuthUser` and `AdminUser`, holds the body back until it lets the
+caller in (`shared::body::hold`, with the `hold_body` middleware `app`
+wraps every request in), whichever order the handler takes them in;
+refused, the body is never read. A wrong `Content-Type` or an over-limit
+`Content-Length` is still answered first. A guard reads the
 `AppState`, so in axum it serves the hand-written routes (a
 `Router<AppState>`), and in actix-web the state is app data
 (`app::configure` registers it).

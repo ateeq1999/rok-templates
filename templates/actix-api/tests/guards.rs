@@ -1,7 +1,8 @@
 //! `Allowed<G>`: a handler requiring a guard gets its grant, and a caller
 //! the guard refuses is answered `403` before the body is read, so a
 //! refused caller never learns the body's rules from a `422`. actix-web
-//! polls a handler's extractors together; `Allowed` holds the body back.
+//! polls a handler's extractors together; `Allowed` holds the body back
+//! (`shared::body`).
 
 mod support;
 

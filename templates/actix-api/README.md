@@ -343,6 +343,19 @@ IP (`429` past it). A flow refusing a well-formed request answers `400`
 with `invalid_token`, `wrong_password` or `breached_password`; a body of the
 wrong shape answers `422`.
 
+### The caller before the body
+
+`AuthUser`, `AdminUser` and `Allowed<G>` check the caller before the
+request's body is read: a call without a valid token answers `401`, and
+one the route refuses `403`, whatever its body, so a bad body's `422`
+never shows a route's rules to callers who can't use it. actix-web polls a
+handler's extractors together, so each holds the body back until it has
+let the caller in (`src/shared/body.rs`); the `hold_body` middleware
+`app` wraps every request in makes that work whichever order a handler
+takes the caller and the body in. What actix-web checks before reading
+the body is still answered first: a wrong `Content-Type` (`415`) or a
+`Content-Length` over the limit (`413`) can come before the `401`.
+
 ### Guards
 
 A rule beyond "signed in" (`AuthUser`) or "admin" (`AdminUser`) is a

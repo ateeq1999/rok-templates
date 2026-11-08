@@ -200,10 +200,11 @@ stderr.
 | A JSON body | 2 MiB | `413 payload_too_large` |
 
 A body is read only once the caller is authenticated, and only up to its
-route's limit. Under actix-web, the upload handlers take `web::Payload` and
-read it with `shared::body::read` in their body: actix polls a handler's
-extractors together, so a `web::Bytes` parameter would buffer the body
-while `AuthUser` was still checking the credential. Under axum, extractors
+route's limit. Under actix-web, which polls a handler's extractors
+together, `AuthUser` holds the body back until it has let the caller in
+(`shared::body::hold`), and the upload handlers take `web::Payload` and
+read it with `shared::body::read` in their body, answering the wire
+standard's `413` past the limit. Under axum, extractors
 run in order, so the body (`Bytes`, last) is read after `AuthUser`; each
 upload route has its own `DefaultBodyLimit` in place of the router's
 2 MiB. Your proxy's own limit (nginx's `client_max_body_size`, 1 MiB by
