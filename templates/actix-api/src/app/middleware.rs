@@ -3,7 +3,8 @@
 //! The middleware every answer passes through: the request's span and id,
 //! the security headers, CORS,
 //! a panic turned into the wire standard's `500`, and `GLOBAL_RATE_LIMIT`
-//! on every route but health. What they send is
+//! on every route but health, and the body held back for the caller
+//! extractors ([`hold_body`]). What they send is
 //! `shared/security/headers.rs`'s; this file is actix-web's glue around it.
 //! [`app`](super::app) wraps the application in them.
 
@@ -22,13 +23,13 @@ use tracing_actix_web::{DefaultRootSpanBuilder, RequestId, RootSpanBuilder};
 
 use crate::error::AppError;
 use crate::shared::health::SERVICE_UNAVAILABLE;
-use crate::shared::metrics;
 use crate::shared::rate_limit::{FORWARDED_FOR, RateLimit};
 use crate::shared::response::ErrorBody;
 use crate::shared::security::headers::{
     self, CORS_EXPOSED_HEADERS, CORS_HEADERS, CORS_MAX_AGE, CORS_METHODS, CorsOrigins,
 };
 use crate::shared::shutdown::{DRAINING_MESSAGE, Draining};
+use crate::shared::{body, metrics};
 
 /// The security headers for `https`, set on every answer that doesn't
 /// carry them already.
@@ -193,4 +194,18 @@ pub async fn global_rate_limit(
             .map(ServiceResponse::map_into_boxed_body),
         Err(refused) => Ok(req.into_response(refused.error_response())),
     }
+}
+
+/// Gates every request's body (`.wrap(from_fn(hold_body))`), so that the
+/// caller extractors (`AuthUser`, `AdminUser`, `Allowed<G>`) hold it back
+/// until they have let the caller in, whichever order a handler takes them
+/// and its body extractor in ([`body::hold`]).
+pub async fn hold_body(
+    mut req: ServiceRequest,
+    next: Next<impl MessageBody + 'static>,
+) -> Result<ServiceResponse<BoxBody>, Error> {
+    body::gate(&mut req);
+    next.call(req)
+        .await
+        .map(ServiceResponse::map_into_boxed_body)
 }

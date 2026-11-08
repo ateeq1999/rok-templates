@@ -13,8 +13,8 @@ use tracing_actix_web::TracingLogger;
 use utoipa_swagger_ui::SwaggerUi;
 
 use super::middleware::{
-    GlobalRateLimit, RequestSpan, catch_panic, cors, global_rate_limit, record_metrics, request_id,
-    security_headers, unready_while_draining,
+    GlobalRateLimit, RequestSpan, catch_panic, cors, global_rate_limit, hold_body, record_metrics,
+    request_id, security_headers, unready_while_draining,
 };
 use super::{AppState, AuditLog};
 use crate::features::account::{self, AccountService};
@@ -31,8 +31,10 @@ use crate::shared::health;
 /// routes, wrapped (outermost first) in the request's span and its
 /// `x-request-id`, the security headers, CORS, a
 /// panic answered `500`, and everything but health under
-/// `state.global_rate_limit`. The server runs it in every worker; tests
-/// build it with `actix_web::test::init_service(app(state))`.
+/// `state.global_rate_limit`, with each body held back until the
+/// handler's caller extractors have let the caller in (`hold_body`). The
+/// server runs it in every worker; tests build it with
+/// `actix_web::test::init_service(app(state))`.
 pub fn app(
     state: AppState,
 ) -> App<
@@ -50,6 +52,7 @@ pub fn app(
         )))
         .app_data(web::Data::new(state.draining.clone()))
         .configure(|cfg| configure(cfg, &state))
+        .wrap(from_fn(hold_body))
         .wrap(from_fn(unready_while_draining))
         .wrap(from_fn(global_rate_limit))
         .wrap(from_fn(catch_panic))

@@ -58,6 +58,21 @@ are this file's `## [X.Y.Z]` section.
   alternative to `[api] exclude`, and `rok gen`'s notice of a newly served
   table.
 
+**Fixed**
+
+- actix: `AuthUser` and `AdminUser` check the caller before the body is
+  read, as `Allowed<G>` does, so an unauthenticated call with a bad body
+  answers `401` and a non-admin `403`, not the body's `422`. actix-web
+  polls a handler's extractors together; each caller extractor now takes
+  a hold on the body (`shared/body.rs`'s `hold`, opened once the caller
+  is let in, the body read as empty if refused), and the `hold_body`
+  middleware `app` wraps every request in gates the body up front, so the
+  hold works whichever order a handler takes the caller and the body in,
+  generated handlers included. `Allowed<G>` moves onto the same hold
+  (its body hold now works in any order too). A wrong `Content-Type` or
+  an over-limit `Content-Length` is still answered first. axum is
+  unchanged: its extractors already run in order.
+
 ## [0.7.0]
 
 The `grpc` template, the templates on rok-data 0.8.1, and their CI

@@ -67,7 +67,7 @@ rules below follow them.
 | Background or slow work | a job (`shared/jobs/`) enqueued by `service.rs` on its transaction, registered in `app/run.rs` | request path |
 | Writing another feature's data | a port (trait) declared in your `service.rs`, implemented in `app/ports.rs` with the other service's `_in` method | that feature's files |
 | Register a hand-written feature | `features/mod.rs` and `app/router.rs` | — |
-| An authorization rule (a staff role, a role at the resource in the path) | a `Guard` in `shared/guards.rs`, its read in `queries/shared/`; handlers take `Allowed<G>` ahead of the body | the service, or the handler's body |
+| An authorization rule (a staff role, a role at the resource in the path) | a `Guard` in `shared/guards.rs`, its read in `queries/shared/`; handlers take `Allowed<G>` | the service, or the handler's body |
 
 ## The six rules
 
@@ -135,6 +135,14 @@ hand-written and follow the rules above. Keep to how they work:
   refusing a well-formed request is `400` with `AppError::InvalidToken`,
   `WrongPassword` or `BreachedPassword`. Don't tell a caller whether an
   email has an account where the flow answers `202`.
+- **The caller before the body.** `AuthUser`, `AdminUser` and
+  `Allowed<G>` hold the body back until they have let the caller in
+  (`shared/body.rs`'s `hold`, with `app/middleware.rs`'s `hold_body`
+  around every request), so a refused caller gets its `401` or `403`, not
+  a `422`, in any argument order. A caller extractor of your own takes a
+  `body::hold` in `from_request` and opens it once the caller is let in.
+  A wrong `Content-Type` or an over-limit `Content-Length` is still
+  answered first.
 - **API keys.** `features/api_keys/` makes, lists and revokes keys
   (`queries/api_keys.sql`); `shared/auth.rs` checks a presented one
   with `shared/security/api_key.rs` (`queries/session.sql`), and
