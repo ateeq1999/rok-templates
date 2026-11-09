@@ -32,6 +32,10 @@ _Avoid_: feature (that is an API feature), Capability (that has no routes or scr
 A named authorization rule a project writes once and a handler requires by type, refusing the call before its body is read.
 _Avoid_: policy, permission (that is a role's), middleware
 
+**Linked identity**:
+A User's account at an OpenID provider, recognised by the provider and its subject; a User may sign in through any of theirs, and has none, one or several.
+_Avoid_: social login, OAuth account, connected account
+
 **Service**:
 One independently deployed backend of a services Template, with its own database, reached by other Services over gRPC and by Events.
 _Avoid_: microservice, App (that is a monorepo member), the service layer (a feature's `service.rs`)
