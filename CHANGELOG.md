@@ -42,6 +42,14 @@ are this file's `## [X.Y.Z]` section.
 
 **Changed**
 
+- The contract test (`tests/contract.rs` in axum, actix and the monorepo's
+  API) allows additions to a covered operation: a new optional request
+  property, a new optional query parameter and a new response property
+  pass with no `KNOWN` entry, so a project grows the starter's routes
+  instead of adding twins beside them. A removed or retyped property, a
+  new required property or parameter and a changed success status still
+  fail, naming the operation. The `?permanent=` and list `sort`/`order`
+  entries leave `KNOWN`.
 - `compose.yaml` publishes PostgreSQL on `${POSTGRES_PORT:-5432}`, and
   `.env.example` sets `POSTGRES_PORT` and builds `DATABASE_URL` from it,
   against compose's `app` database (the axum template's and the Monorepo
@@ -66,6 +74,16 @@ are this file's `## [X.Y.Z]` section.
 
 **Fixed**
 
+- The API templates' database tests can't pass unrun in CI: with `CI` set
+  and no `DATABASE_URL` (exported or in `.env`), `Database::fresh` fails
+  with "DATABASE_URL is required in CI"; locally they still skip with a
+  note (`tests/support`'s `database_url`, in the actix, axum, gRPC and
+  monorepo API templates).
+- Monorepo web App: its tests pass on Node 25 and later. Node 25 defines a
+  `localStorage` global, `undefined` without `--localstorage-file`, that
+  hid jsdom's, so every test using storage failed; `vitest.config.ts`
+  now runs the tests with `--no-experimental-webstorage`. CI also tests
+  the web App on the current Node release, beside the pinned Node 22.
 - actix: `AuthUser` and `AdminUser` check the caller before the body is
   read, as `Allowed<G>` does, so an unauthenticated call with a bad body
   answers `401` and a non-admin `403`, not the body's `422`. actix-web

@@ -548,8 +548,9 @@ rok sqlc g --check                       # the generated code matches the schema
 rok sqlc check-arch                      # the layout and rules of AGENTS.md
 ```
 
-Without `DATABASE_URL`, the API tests print a note and pass; the contract
-and rate-limit tests need no database. The lints in `Cargo.toml` deny
+Without `DATABASE_URL` (exported or in `.env`), the API tests print a
+note and pass, except in CI (`CI` set), where they fail; the contract and
+rate-limit tests need no database. The lints in `Cargo.toml` deny
 `unwrap`, `expect`, `panic`, `todo` and leftover debugging.
 
 ## What is generated, and what is yours
@@ -615,9 +616,13 @@ features follow.
 - `token_version` is bumped to sign an account out everywhere: a token
   carrying an older one is rejected.
 
-`tests/contract.rs` lists the differences that remain, each with its
-reason: the `?permanent=` and list `sort`/`order` parameters every
-generated API has, and the account routes' answers, named
+`tests/contract.rs` allows additions to a covered route: a new optional
+request property or query parameter (the `?permanent=` and list
+`sort`/`order` every generated API has among them) and a new response
+property, so a project grows the starter's routes instead of adding
+twins beside them. A removed or retyped property, a new required one and
+a changed success status still fail. `KNOWN` lists the differences that
+remain, each with its reason: the account routes' answers, named
 `AccountResponse` and `NewAccountResponse` so they don't replace the
 `users` feature's `UserResponse` (utoipa keeps one schema per name;
 `tests/openapi_schemas.rs` fails when two collide).

@@ -248,8 +248,9 @@ DATABASE_URL=postgres://... cargo test   # each test makes and drops its own sch
 rok sqlc g --check                       # the generated code matches the schema
 ```
 
-Without `DATABASE_URL`, the tests that reach the data layer print a note and
-pass; the health, reflection, caller and shutdown tests need no database.
+Without `DATABASE_URL` (exported or in `.env`), the tests that reach the
+data layer print a note and pass, except in CI (`CI` set), where they
+fail; the health, reflection, caller and shutdown tests need no database.
 They call the server over an in-process channel (`tests/support/mod.rs`),
 the caller put in place by a stand-in for `app/auth.rs`.
 

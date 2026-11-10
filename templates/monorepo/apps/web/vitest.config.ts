@@ -9,5 +9,12 @@ export default defineConfig({
   // the test run and make apiUrl()/http() assertions machine-dependent.
   // Pointing envDir somewhere with no .env files keeps tests deterministic.
   envDir: "src",
-  test: { environment: "jsdom", include: ["src/**/*.test.{ts,tsx}"] },
+  test: {
+    environment: "jsdom",
+    include: ["src/**/*.test.{ts,tsx}"],
+    // Node 25+ defines its own `localStorage` global, `undefined` unless
+    // `--localstorage-file` is given, and it hides jsdom's. Turning Node's
+    // Web Storage off lets the tests use jsdom's storage on every Node.
+    execArgv: ["--no-experimental-webstorage"],
+  },
 })
