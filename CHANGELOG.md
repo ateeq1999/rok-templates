@@ -36,6 +36,14 @@ are this file's `## [X.Y.Z]` section.
 
 **Changed**
 
+- The contract test (`tests/contract.rs` in axum, actix and the monorepo's
+  API) allows additions to a covered operation: a new optional request
+  property, a new optional query parameter and a new response property
+  pass with no `KNOWN` entry, so a project grows the starter's routes
+  instead of adding twins beside them. A removed or retyped property, a
+  new required property or parameter and a changed success status still
+  fail, naming the operation. The `?permanent=` and list `sort`/`order`
+  entries leave `KNOWN`.
 - `compose.yaml` publishes PostgreSQL on `${POSTGRES_PORT:-5432}`, and
   `.env.example` sets `POSTGRES_PORT` and builds `DATABASE_URL` from it,
   against compose's `app` database (the axum template's and the Monorepo
