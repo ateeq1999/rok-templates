@@ -10,6 +10,14 @@ are this file's `## [X.Y.Z]` section.
 
 **Added**
 
+- Prerendered pages in the monorepo's web App. `PRERENDERED` in
+  `apps/web/vite.config.ts` (empty by default) lists the pages the build
+  writes as finished HTML, e.g. a landing page at `/`; no route is
+  discovered and no link followed, so signed-in routes always render in
+  the browser. The SPA shell is now rendered at `/_shell` (a route that
+  sends a visitor home) instead of `/`, so a listed page never replaces
+  `_shell.html`; listing `/_shell` fails the build with an error naming
+  it. The guide's monorepo page has a "Prerendered pages" section.
 - Guards: authorization rules written once. The security Capability's
   `Guard` trait (`shared/security/guard.rs`, a Shared file of every API
   template) names a rule's grant, its path parameters and its refusal;

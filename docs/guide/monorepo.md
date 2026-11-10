@@ -73,6 +73,26 @@ it there by default:
 Each App's own `README.md` is its reference; the project's `README.md`
 lists them all.
 
+### Prerendered pages
+
+The web App is a single-page app: `bun run build` writes one static shell,
+`dist/client/_shell.html`, and the host serves it for every route. To ship
+a marketing page as finished HTML instead, list its path in `PRERENDERED`
+at the top of `apps/web/vite.config.ts`:
+
+```ts
+const PRERENDERED: string[] = ["/", "/about"]
+```
+
+The build then also writes `index.html` and `about/index.html`. Only the
+listed paths are rendered: no route is discovered and no link is followed,
+so the signed-in routes always render in the browser.
+
+The shell itself is rendered at `SHELL_PATH` (`/_shell`, a route that sends
+a visitor home), so no page takes its place. Listing that path fails the
+build with an error naming it; a page rendered over the shell would break
+every route that is not prerendered.
+
 ## One contract
 
 The **contract** is `apps/api/openapi.json`: the OpenAPI 3.1 document the
