@@ -30,6 +30,14 @@ fn collect_workflows(dir: &Path, found: &mut Vec<PathBuf>) -> Result<()> {
     for entry in fs::read_dir(dir).with_context(|| dir.display().to_string())? {
         let path = entry?.path();
         if path.is_dir() {
+            // A dependency's workflows (`node_modules`) and build output
+            // are not the templates'.
+            if path
+                .file_name()
+                .is_some_and(|name| name == "node_modules" || name == "target")
+            {
+                continue;
+            }
             collect_workflows(&path, found)?;
         } else if path
             .parent()
