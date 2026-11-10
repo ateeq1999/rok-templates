@@ -14,10 +14,21 @@
 //! summaries, titles, examples and defaults are not compared, nor are extra
 //! statuses, error bodies and extra operations the application serves.
 //!
-//! One deliberate allowance: a target success response without a body
-//! documents none, so the application may serve any body there (no covered
-//! operation relies on it today). A target body the application doesn't
-//! serve is still a difference.
+//! An application grows the starter's routes rather than adding twins beside
+//! them, so a covered operation may add to the target: these additions are
+//! not differences.
+//!
+//! - A request body's new optional property (one the body's `required`
+//!   doesn't list), at any depth.
+//! - A new optional query parameter.
+//! - A response body's new property, required or not, at any depth.
+//! - A body on a success response the target documents without one (no
+//!   covered operation relies on it today).
+//!
+//! Anything else is still a difference: a property or parameter removed or
+//! retyped, a new required request property or parameter, a new path or
+//! header parameter, a changed success status, a target body the
+//! application doesn't serve.
 //!
 //! [`KNOWN`] lists the differences the application still has, each with why.
 //! The contract fails on any other difference, and on a known one that is
@@ -29,7 +40,7 @@ use axum::body::{Body, to_bytes};
 use axum::http::Request;
 use axum_api::app::{AppState, router};
 use axum_api::config::Config;
-use serde_json::Value;
+use serde_json::{Map, Value};
 use tower::ServiceExt;
 
 /// The target document.
@@ -79,18 +90,6 @@ const COVERED: &[(&str, &str)] = &[
 
 /// The differences the application still has, and why.
 const KNOWN: &[(&str, &str)] = &[
-    (
-        "DELETE /api/v1/users/{id}: parameter `permanent` (query): served has it, target has not",
-        "every generated soft-delete `DELETE` takes `?permanent=true` (engine ADR 0016)",
-    ),
-    (
-        "GET /api/v1/audit-log: parameter `sort` (query): served has it, target has not",
-        "every generated list takes `sort` (engine ADR 0016); the default is newest first, as the target's",
-    ),
-    (
-        "GET /api/v1/audit-log: parameter `order` (query): served has it, target has not",
-        "every generated list takes `order` (engine ADR 0016)",
-    ),
     (
         "POST /api/v1/auth/register: response 201: target refers to `UserResponse`, served to `NewAccountResponse`",
         NAMED_APART,
@@ -163,11 +162,25 @@ fn ref_name(schema: &Value) -> Option<&str> {
         .map(|reference| reference.rsplit('/').next().unwrap_or(reference))
 }
 
+/// Where a schema is used: what the application may add to it (see the
+/// module docs).
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Side {
+    /// A parameter's schema: nothing.
+    Parameter,
+    /// A request body: properties the client may leave out.
+    Request,
+    /// A response body: any property.
+    Response,
+}
+
 /// Compares two values, either of which may be a schema, a list of schemas,
 /// or a keyword's value, and appends each difference found under `at`.
 struct Compare<'a> {
     target: Doc<'a>,
     served: Doc<'a>,
+    /// What is being compared, which decides the additions allowed.
+    side: Side,
     differences: Vec<String>,
 }
 
@@ -231,15 +244,17 @@ impl Compare<'_> {
                     .collect();
                 for key in keys {
                     let at = join(at, key);
-                    match (target.get(key), served.get(key)) {
-                        (Some(target), Some(served)) => self.keyword(&at, key, target, served),
-                        (Some(value), None) => {
+                    match (key.as_str(), target.get(key), served.get(key)) {
+                        ("properties", _, _) => self.properties(&at, target, served),
+                        ("required", _, _) => self.required(&at, target, served),
+                        (_, Some(target), Some(served)) => self.keyword(&at, key, target, served),
+                        (_, Some(value), None) => {
                             self.differ(&at, format!("target has {value}, served has none"));
                         }
-                        (None, Some(value)) => {
+                        (_, None, Some(value)) => {
                             self.differ(&at, format!("served has {value}, target has none"));
                         }
-                        (None, None) => {}
+                        (_, None, None) => {}
                     }
                 }
             }
@@ -250,24 +265,101 @@ impl Compare<'_> {
         }
     }
 
+    /// Compares two object schemas' `properties`: each target property needs
+    /// one of the same schema, and a property only the application has is a
+    /// difference unless it is an addition (see [`Compare::added`]).
+    fn properties(&mut self, at: &str, target: &Map<String, Value>, served: &Map<String, Value>) {
+        /// A schema's `properties` (none is an empty list), or `None` when
+        /// they aren't an object.
+        fn properties<'a>(
+            schema: &'a Map<String, Value>,
+            empty: &'a Map<String, Value>,
+        ) -> Option<&'a Map<String, Value>> {
+            match schema.get("properties") {
+                Some(Value::Object(properties)) => Some(properties),
+                None => Some(empty),
+                Some(_) => None,
+            }
+        }
+        let empty = Map::new();
+        let (Some(target_properties), Some(served_properties)) =
+            (properties(target, &empty), properties(served, &empty))
+        else {
+            let none = Value::Null;
+            self.differ(
+                at,
+                format!(
+                    "target {}, served {}",
+                    target.get("properties").unwrap_or(&none),
+                    served.get("properties").unwrap_or(&none)
+                ),
+            );
+            return;
+        };
+        for (name, schema) in target_properties {
+            match served_properties.get(name) {
+                Some(other) => self.schema(&join(at, name), schema, other),
+                None => self.differ(at, format!("target has `{name}`, served has not")),
+            }
+        }
+        for name in served_properties
+            .keys()
+            .filter(|name| !target_properties.contains_key(*name))
+        {
+            if self.added(name, served) {
+                continue;
+            }
+            let has = if required_names(served).contains(name.as_str()) {
+                "requires"
+            } else {
+                "has"
+            };
+            self.differ(at, format!("served {has} `{name}`, target has not"));
+        }
+    }
+
+    /// Whether `name`, a property `served` has and the target's schema has
+    /// not, is an addition the contract allows: any property of a response
+    /// body, an optional one of a request body.
+    fn added(&self, name: &str, served: &Map<String, Value>) -> bool {
+        match self.side {
+            Side::Response => true,
+            Side::Request => !required_names(served).contains(name),
+            Side::Parameter => false,
+        }
+    }
+
+    /// Compares two object schemas' `required`, leaving out the properties
+    /// only the application has: [`Compare::properties`] judges those.
+    fn required(&mut self, at: &str, target: &Map<String, Value>, served: &Map<String, Value>) {
+        let names = |schema: &Map<String, Value>| -> BTreeSet<String> {
+            schema
+                .get("properties")
+                .and_then(Value::as_object)
+                .map(|properties| properties.keys().cloned().collect())
+                .unwrap_or_default()
+        };
+        let (target_properties, served_properties) = (names(target), names(served));
+        let served_names: BTreeSet<&str> = required_names(served)
+            .into_iter()
+            .filter(|name| target_properties.contains(*name) || !served_properties.contains(*name))
+            .collect();
+        if required_names(target) != served_names {
+            let none = Value::from("none");
+            self.differ(
+                at,
+                format!(
+                    "target {}, served {}",
+                    target.get("required").unwrap_or(&none),
+                    served.get("required").unwrap_or(&none)
+                ),
+            );
+        }
+    }
+
     /// Compares one keyword's values.
     fn keyword(&mut self, at: &str, key: &str, target: &Value, served: &Value) {
         match key {
-            "properties" => {
-                let (Some(target), Some(served)) = (target.as_object(), served.as_object()) else {
-                    self.differ(at, format!("target {target}, served {served}"));
-                    return;
-                };
-                for (name, schema) in target {
-                    match served.get(name) {
-                        Some(other) => self.schema(&join(at, name), schema, other),
-                        None => self.differ(at, format!("target has `{name}`, served has not")),
-                    }
-                }
-                for name in served.keys().filter(|name| !target.contains_key(*name)) {
-                    self.differ(at, format!("served has `{name}`, target has not"));
-                }
-            }
             "items" | "additionalProperties" | "not" => self.schema(at, target, served),
             "oneOf" | "anyOf" | "allOf" | "prefixItems" => {
                 let (Some(target), Some(served)) = (target.as_array(), served.as_array()) else {
@@ -290,7 +382,7 @@ impl Compare<'_> {
                 }
             }
             // Order doesn't matter in these.
-            "type" | "required" | "enum" => {
+            "type" | "enum" => {
                 if as_set(target) != as_set(served) {
                     self.differ(at, format!("target {target}, served {served}"));
                 }
@@ -319,6 +411,17 @@ fn as_set(value: &Value) -> BTreeSet<String> {
         Value::Array(items) => items.iter().map(Value::to_string).collect(),
         other => BTreeSet::from([other.to_string()]),
     }
+}
+
+/// The property names an object schema lists as `required`.
+fn required_names(schema: &Map<String, Value>) -> BTreeSet<&str> {
+    schema
+        .get("required")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .collect()
 }
 
 /// The parameters of an operation, by name and location.
@@ -370,6 +473,7 @@ fn differences(target: &Value, served: &Value, covered: &[(&str, &str)]) -> Vec<
             root: served,
             name: "served",
         },
+        side: Side::Parameter,
         differences: Vec::new(),
     };
     for (method, path) in covered {
@@ -402,14 +506,15 @@ fn differences(target: &Value, served: &Value, covered: &[(&str, &str)]) -> Vec<
             }
         }
 
+        compare.side = Side::Parameter;
         let (wanted_params, got_params) = (parameters(&wanted), parameters(&got));
+        let required = |p: &Value| p.get("required").and_then(Value::as_bool).unwrap_or(false);
         for ((name, place), parameter) in &wanted_params {
             let here = format!("{at}: parameter `{name}` ({place})");
             let Some(other) = got_params.get(&(name.clone(), place.clone())) else {
                 compare.differ(&here, "target has it, served has not".to_owned());
                 continue;
             };
-            let required = |p: &Value| p.get("required").and_then(Value::as_bool).unwrap_or(false);
             if required(parameter) != required(other) {
                 compare.differ(
                     &here,
@@ -423,18 +528,28 @@ fn differences(target: &Value, served: &Value, covered: &[(&str, &str)]) -> Vec<
             let schema = |p: &Value| p.get("schema").cloned().unwrap_or(Value::Null);
             compare.schema(&format!("{here}: "), &schema(parameter), &schema(other));
         }
-        for (name, place) in got_params
-            .keys()
-            .filter(|key| !wanted_params.contains_key(*key))
+        for ((name, place), parameter) in got_params
+            .iter()
+            .filter(|(key, _)| !wanted_params.contains_key(*key))
         {
+            // An optional query parameter is an addition (see the module docs).
+            if place == "query" && !required(parameter) {
+                continue;
+            }
+            let has = if required(parameter) {
+                "requires"
+            } else {
+                "has"
+            };
             compare.differ(
                 &format!("{at}: parameter `{name}` ({place})"),
-                "served has it, target has not".to_owned(),
+                format!("served {has} it, target has not"),
             );
         }
 
         match (wanted.get("requestBody"), got.get("requestBody")) {
             (Some(wanted_body), Some(got_body)) => {
+                compare.side = Side::Request;
                 let here = format!("{at}: request body");
                 if wanted_body.get("required") != got_body.get("required") {
                     compare.differ(&here, "`required` differs".to_owned());
@@ -459,7 +574,8 @@ fn differences(target: &Value, served: &Value, covered: &[(&str, &str)]) -> Vec<
                     );
                 }
                 let here = format!("{at}: response {wanted_status}");
-                // The allowance (see the module docs): a target response
+                compare.side = Side::Response;
+                // An addition (see the module docs): a target response
                 // without a body accepts any served body.
                 if let Some(wanted) = json_schema(wanted_response) {
                     match json_schema(got_response) {
@@ -557,6 +673,80 @@ async fn a_mismatch_breaks_the_contract_with_a_readable_list()
     Ok(())
 }
 
+/// The component schema `method path`'s JSON request body names in `doc`.
+fn request_schema<'a>(
+    doc: &'a mut Value,
+    method: &str,
+    path: &str,
+) -> Result<&'a mut Value, String> {
+    let body = &doc["paths"][path][method]["requestBody"];
+    let name = json_schema(body)
+        .and_then(ref_name)
+        .ok_or(format!("{method} {path} names no request schema"))?
+        .to_owned();
+    Ok(&mut doc["components"]["schemas"][name])
+}
+
+/// A query parameter named `name`, its value a string.
+fn query_parameter(name: &str, required: bool) -> Value {
+    serde_json::json!({"name": name, "in": "query", "required": required, "schema": {"type": "string"}})
+}
+
+/// An application grows the starter's routes: a new optional property in a
+/// request body (Karibu Pass's settings on `PATCH /users/me`), a new
+/// optional query parameter and a new property in a response body keep the
+/// contract, with no [`KNOWN`] entry.
+#[tokio::test]
+async fn additive_changes_keep_the_contract() -> Result<(), Box<dyn std::error::Error>> {
+    let target: Value = serde_json::from_str(TARGET)?;
+    let mut served = served_document().await?;
+    request_schema(&mut served, "patch", "/api/v1/users/me")?["properties"]["language"] =
+        serde_json::json!({"type": ["string", "null"]});
+    if let Some(parameters) = served["paths"]["/api/v1/users"]["get"]["parameters"].as_array_mut() {
+        parameters.push(query_parameter("city", false));
+    }
+    let user = &mut served["components"]["schemas"]["UserResponse"];
+    user["properties"]["language"] = serde_json::json!({"type": "string"});
+    if let Some(required) = user["required"].as_array_mut() {
+        required.push(Value::from("language"));
+    }
+    let found = differences(&target, &served, COVERED);
+    let (new, gone) = unexpected(&found);
+    assert!(new.is_empty() && gone.is_empty(), "{new:?} {gone:?}");
+    Ok(())
+}
+
+/// A new required property or parameter, and a removed property, still
+/// break the contract, each naming the operation.
+#[tokio::test]
+async fn breaking_changes_still_break_the_contract() -> Result<(), Box<dyn std::error::Error>> {
+    let target: Value = serde_json::from_str(TARGET)?;
+    let mut served = served_document().await?;
+    let profile = request_schema(&mut served, "patch", "/api/v1/users/me")?;
+    profile["properties"]["language"] = serde_json::json!({"type": "string"});
+    profile["required"] = serde_json::json!(["language"]);
+    if let Some(parameters) = served["paths"]["/api/v1/users"]["get"]["parameters"].as_array_mut() {
+        parameters.push(query_parameter("city", true));
+    }
+    let properties = &mut served["components"]["schemas"]["UserResponse"]["properties"];
+    if let Some(properties) = properties.as_object_mut() {
+        properties.remove("display_name");
+    }
+    let found = differences(&target, &served, COVERED);
+    let (new, _) = unexpected(&found);
+    let new: Vec<&str> = new.iter().map(|line| line.as_str()).collect();
+    assert_eq!(
+        new,
+        [
+            "GET /api/v1/users: parameter `city` (query): served requires it, target has not",
+            "GET /api/v1/users/{id}: response 200: properties: target has `display_name`, served has not",
+            "PATCH /api/v1/users/{id}: response 200: properties: target has `display_name`, served has not",
+            "PATCH /api/v1/users/me: request body: properties: served requires `language`, target has not",
+        ]
+    );
+    Ok(())
+}
+
 /// A document holding one operation, `GET /things`, whose `200` response
 /// has `schema` and whose components define `schemas`.
 fn one_operation(schema: Value, schemas: Value) -> Value {
@@ -596,7 +786,7 @@ async fn a_ref_on_either_side_needs_a_ref_of_the_same_name() {
 }
 
 /// A target response without a body documents none, so the application may
-/// serve any (the contract's one allowance). A target body the application
+/// serve any (an addition). A target body the application
 /// doesn't serve still breaks it.
 #[tokio::test]
 async fn a_target_response_without_a_body_accepts_any_served_body() {
