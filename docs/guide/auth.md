@@ -320,6 +320,14 @@ mail and recording it sends it again. Several instances share the outbox
 safely; each claims jobs the others aren't running. `/health/ready` doesn't
 depend on mail.
 
+**Mail a feature sends.** A feature's own message needs no new template
+method: `templates.message(to, subject, &paragraphs)` words it like the
+account mails (the subject as its heading, each paragraph escaped in the
+HTML body), and `.reply_to(address)` on the `Mail` sends replies to that
+address (its `Reply-To` header) instead of `MAIL_FROM`, such as an
+enquiry the team answers at the business that sent it. Enqueue it on the
+feature's transaction like any other mail.
+
 ## Adding a flow
 
 A flow that mails a link needs a token purpose, a lifetime, a message and

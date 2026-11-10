@@ -10,6 +10,12 @@ are this file's `## [X.Y.Z]` section.
 
 **Added**
 
+- Mail a feature words itself. `shared/mail` (every API template) gains
+  `Templates::message(to, subject, paragraphs)`, worded like the account
+  mails with each paragraph escaped in the HTML body, and
+  `Mail::reply_to`: a field `SmtpMailer` sends as `Reply-To`, serde-defaulted
+  so mail queued before it still decodes, and a builder, so a call reads
+  `templates.message(to, subject, &paragraphs).reply_to(business_email)`.
 - Guards: authorization rules written once. The security Capability's
   `Guard` trait (`shared/security/guard.rs`, a Shared file of every API
   template) names a rule's grant, its path parameters and its refusal;

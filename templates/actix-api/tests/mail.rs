@@ -19,6 +19,7 @@ fn mail(to: &str) -> Mail {
         subject: "Hello".to_owned(),
         text: "Hello there".to_owned(),
         html: "<p>Hello there</p>".to_owned(),
+        reply_to: None,
     }
 }
 
@@ -62,6 +63,19 @@ async fn an_enqueued_mail_is_sent_then_deleted() -> TestResult {
         .fetch_one(&db.pool)
         .await?;
     assert_eq!(left, 0);
+    db.drop().await
+}
+
+#[actix_web::test]
+async fn a_reply_to_survives_the_queue() -> TestResult {
+    let Some(db) = Database::fresh().await? else {
+        return Ok(());
+    };
+    let enquiry = mail("partners@test.invalid").reply_to("hello@acme.test");
+    enqueue(&db.pool, &enquiry).await?;
+    let mailer = Arc::new(MemoryMailer::default());
+    worker(&db.pool, mailer.clone()).run_due().await?;
+    assert_eq!(mailer.sent(), vec![enquiry]);
     db.drop().await
 }
 
