@@ -60,6 +60,11 @@ are this file's `## [X.Y.Z]` section.
 
 **Fixed**
 
+- Monorepo web App: its tests pass on Node 25 and later. Node 25 defines a
+  `localStorage` global, `undefined` without `--localstorage-file`, that
+  hid jsdom's, so every test using storage failed; `vitest.config.ts`
+  now runs the tests with `--no-experimental-webstorage`. CI also tests
+  the web App on the current Node release, beside the pinned Node 22.
 - actix: `AuthUser` and `AdminUser` check the caller before the body is
   read, as `Allowed<G>` does, so an unauthenticated call with a bad body
   answers `401` and a non-admin `403`, not the body's `422`. actix-web
