@@ -1,5 +1,13 @@
-target
-.env
-storage
-.git
+# The API's image builds from the project root (the workspace holds
+# `Cargo.lock`), so these paths are relative to the root. BuildKit reads
+# this file for `docker build -f apps/api/Dockerfile .`. The workspace's
+# Rust members stay in: cargo reads every member's manifest.
+**/target
+**/node_modules
+**/.env
 **/.terraform
+**/.dart_tool
+.git
+apps/api/storage
+apps/web
+apps/mobile
