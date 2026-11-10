@@ -60,6 +60,11 @@ are this file's `## [X.Y.Z]` section.
 
 **Fixed**
 
+- The API templates' database tests can't pass unrun in CI: with `CI` set
+  and no `DATABASE_URL` (exported or in `.env`), `Database::fresh` fails
+  with "DATABASE_URL is required in CI"; locally they still skip with a
+  note (`tests/support`'s `database_url`, in the actix, axum, gRPC and
+  monorepo API templates).
 - Monorepo web App: its tests pass on Node 25 and later. Node 25 defines a
   `localStorage` global, `undefined` without `--localstorage-file`, that
   hid jsdom's, so every test using storage failed; `vitest.config.ts`

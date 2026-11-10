@@ -548,8 +548,9 @@ rok sqlc g --check                       # the generated code matches the schema
 rok sqlc check-arch                      # the layout and rules of AGENTS.md
 ```
 
-Without `DATABASE_URL`, the API tests print a note and pass; the contract
-and rate-limit tests need no database. The lints in `Cargo.toml` deny
+Without `DATABASE_URL` (exported or in `.env`), the API tests print a
+note and pass, except in CI (`CI` set), where they fail; the contract and
+rate-limit tests need no database. The lints in `Cargo.toml` deny
 `unwrap`, `expect`, `panic`, `todo` and leftover debugging.
 
 ## What is generated, and what is yours

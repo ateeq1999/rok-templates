@@ -1,6 +1,10 @@
 //! `.env`: a debug build reads the first one in the directory or above it,
 //! without overriding what is set, and a value may name an earlier one
-//! (`${POSTGRES_PORT}`); a release build reads none.
+//! (`${POSTGRES_PORT}`); a release build reads none. The database tests
+//! read their `DATABASE_URL` after it, and skip without one, except in CI.
+
+#[path = "support/mod.rs"]
+mod support;
 
 use std::fs;
 
@@ -39,4 +43,17 @@ fn a_debug_build_reads_the_env_file_and_a_release_build_does_not()
         env!("CARGO_MANIFEST_DIR")
     );
     Ok(())
+}
+
+#[test]
+fn the_database_tests_read_their_url_and_skip_without_one() {
+    let url = |name: &str| (name == "DATABASE_URL").then(|| "postgres://db".to_owned());
+    assert_eq!(support::database_url(url).as_deref(), Some("postgres://db"));
+    assert_eq!(support::database_url(|_| None), None);
+}
+
+#[test]
+#[should_panic(expected = "DATABASE_URL is required in CI")]
+fn in_ci_the_database_tests_fail_without_a_url() {
+    support::database_url(|name| (name == "CI").then(|| "true".to_owned()));
 }
