@@ -27,12 +27,30 @@ RUN cargo build --release --locked \
 
 # The migrations image (`docker build --target migrate`): `rok migrate up`
 # over `migrations/`, what the deploy runs once before the new version
-# starts (deploy/terraform's migrate task).
-FROM chef AS rok
-RUN cargo install rok-data-cli --locked --version 0.4.0
+# starts (deploy/terraform's migrate task). Its `rok` is the release CI
+# pins (`ROK_VERSION`, .github/workflows/ci.yml), downloaded and checked
+# against its published SHA-256, for the architecture being built.
+FROM debian:bookworm-slim AS rok
+ARG ROK_VERSION=0.9.0
+ARG TARGETARCH
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates curl \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /rok
+RUN case "${TARGETARCH:-amd64}" in \
+        amd64) arch=x86_64 ;; \
+        arm64) arch=aarch64 ;; \
+        *) echo "no rok release for ${TARGETARCH}" >&2; exit 1 ;; \
+    esac \
+    && name="rok-${ROK_VERSION}-${arch}-unknown-linux-musl" \
+    && url="https://github.com/ateeq1999/rok-v2/releases/download/v${ROK_VERSION}" \
+    && curl -fsSL --retry 3 -O "$url/$name.tar.gz" -O "$url/$name.tar.gz.sha256" \
+    && sha256sum -c "$name.tar.gz.sha256" \
+    && tar -xzf "$name.tar.gz" \
+    && mv "$name/rok" /usr/local/bin/rok
 
 FROM gcr.io/distroless/cc-debian12:nonroot AS migrate
-COPY --from=rok /usr/local/cargo/bin/rok /rok
+COPY --from=rok /usr/local/bin/rok /rok
 COPY migrations /migrations
 WORKDIR /
 USER nonroot

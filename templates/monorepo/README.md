@@ -72,6 +72,18 @@ each step. From the root:
 cargo run -p axum-api
 ```
 
+## CI
+
+GitHub runs a repository's workflows from the root's `.github/workflows`
+only, so every App's live there: `api.yml` checks the API from
+`apps/api` (formatting, clippy, the tests against PostgreSQL, the
+generated code, `cargo deny`, the image and the Terraform). Its image
+builds from the root, where the workspace's `Cargo.lock` is:
+
+```sh
+docker build -f apps/api/Dockerfile -t api .
+```
+
 ## Running the web app
 
 You need bun. With the API running (it listens on `127.0.0.1:8080`, its

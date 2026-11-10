@@ -151,3 +151,94 @@ fn major_minor_reads_a_pin_and_a_release() {
     assert_eq!(major_minor("0.8"), None);
     assert_eq!(major_minor("latest"), None);
 }
+
+/// GitHub runs a repository's workflows from the root's
+/// `.github/workflows` only, so a monorepo App's workflow under its own
+/// directory would never run.
+#[test]
+fn the_monorepos_workflows_sit_at_its_root() -> Result<()> {
+    let monorepo = root().join("templates/monorepo");
+    let at_root = monorepo.join(".github/workflows");
+    let workflows: Vec<PathBuf> = template_workflows()?
+        .into_iter()
+        .filter(|path| path.starts_with(&monorepo))
+        .collect();
+    assert!(
+        workflows.contains(&at_root.join("api.yml")),
+        "the monorepo has no root .github/workflows/api.yml: {workflows:?}"
+    );
+    for path in &workflows {
+        assert!(
+            path.parent() == Some(at_root.as_path()),
+            "{}: GitHub never runs a workflow outside the root's .github/workflows",
+            path.display()
+        );
+    }
+    Ok(())
+}
+
+/// Every template `Dockerfile`, however deep, by path relative to the
+/// crate, with its text.
+fn template_dockerfiles() -> Result<Vec<(String, String)>> {
+    fn walk(dir: &Path, found: &mut Vec<PathBuf>) -> Result<()> {
+        for entry in fs::read_dir(dir).with_context(|| dir.display().to_string())? {
+            let path = entry?.path();
+            if path.is_dir() {
+                walk(&path, found)?;
+            } else if path.file_name().is_some_and(|name| name == "Dockerfile") {
+                found.push(path);
+            }
+        }
+        Ok(())
+    }
+    let mut paths = Vec::new();
+    walk(&root().join("templates"), &mut paths)?;
+    paths.sort();
+    paths
+        .into_iter()
+        .map(|path| {
+            let text = fs::read_to_string(&path).with_context(|| path.display().to_string())?;
+            let name = path
+                .strip_prefix(root())
+                .unwrap_or(&path)
+                .display()
+                .to_string()
+                .replace('\\', "/");
+            Ok((name, text))
+        })
+        .collect()
+}
+
+/// The image's migrate stage downloads the `rok` release CI pins, checked
+/// against its SHA-256, instead of building an old `rok-data-cli`.
+#[test]
+fn every_template_dockerfile_downloads_the_rok_release_ci_pins() -> Result<()> {
+    let workflows = rok_workflows()?;
+    let pinned = rok_version(&workflows[0].1).context("the first workflow has no ROK_VERSION")?;
+    let dockerfiles = template_dockerfiles()?;
+    assert!(
+        dockerfiles.len() >= 3,
+        "expected the actix, axum and monorepo API Dockerfiles: {:?}",
+        dockerfiles.iter().map(|(name, _)| name).collect::<Vec<_>>()
+    );
+    for (name, text) in &dockerfiles {
+        assert!(
+            !text.contains("cargo install rok-data-cli"),
+            "{name}: builds rok-data-cli from source; download the rok release instead"
+        );
+        let version = text
+            .lines()
+            .find_map(|line| line.trim().strip_prefix("ARG ROK_VERSION="))
+            .with_context(|| format!("{name} has no `ARG ROK_VERSION=`"))?;
+        assert_eq!(
+            version, pinned,
+            "{name}: ROK_VERSION {version} is not the {pinned} the workflows pin"
+        );
+        assert!(
+            text.contains("rok-${ROK_VERSION}-${arch}-unknown-linux-musl")
+                && text.contains("sha256sum -c"),
+            "{name}: rok is not downloaded from the checksummed release"
+        );
+    }
+    Ok(())
+}

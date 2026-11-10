@@ -70,7 +70,9 @@ $ OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318 docker compose --profile observ
 
 The `Dockerfile` builds the image production runs: dependencies cached in
 a layer of their own, the binary on distroless as a non-root user, JSON
-logs. `.github/workflows/ci.yml` checks every change: formatting, clippy,
+logs. The CI workflow (`.github/workflows/ci.yml`; in a monorepo, the
+project root's `.github/workflows/api.yml`, as GitHub runs workflows from
+the root only) checks every change: formatting, clippy,
 the tests against PostgreSQL, `rok sqlc g --check` and `check-arch`,
 `cargo deny`, and the image build. CI gets `rok` from its release, not by
 building it: the workflow downloads the `x86_64-unknown-linux-musl`
@@ -78,7 +80,9 @@ archive of the rok release `ROK_VERSION` pins from
 [rok-v2](https://github.com/ateeq1999/rok-v2/releases), checks it against
 its `.sha256` and puts `rok` on the PATH. A rok release links the
 rok-data of its minor (rok 0.9.x, rok-data 0.9): move `ROK_VERSION` with
-the `rok-data` version in `Cargo.toml`.
+the `rok-data` version in `Cargo.toml`. The image's migrate stage downloads
+the same release (`ARG ROK_VERSION` in the `Dockerfile`, for the
+architecture being built): move the two together.
 
 ### Deploying to AWS
 
@@ -96,7 +100,8 @@ Manager, and the logs in CloudWatch. `modules/app` composes it;
    `terraform init && terraform apply`. Publish the `mail_dns_records` it
    prints.
 3. Each release: build and push the server (`:<tag>`) and the migrations
-   (`docker build --target migrate`, `:<tag>-migrate`) to the
+   (`docker build --target migrate`, `:<tag>-migrate`; in a monorepo, from
+   the root with `-f apps/api/Dockerfile`) to the
    `repository_url`, run the `migrate_command` it prints and wait for it
    to stop with exit code 0, then `terraform apply -var image_tag=<tag>`.
 

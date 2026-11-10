@@ -234,12 +234,21 @@ fn the_grpc_template_shares_the_axum_templates_files() -> Result<()> {
     Ok(())
 }
 
+/// The axum template's files the monorepo's api App holds its own way,
+/// because the monorepo builds and checks it from the project root:
+/// GitHub runs workflows from the root's `.github/workflows` only (the
+/// App's is the root's `api.yml`), and the image builds from the root,
+/// where the workspace's `Cargo.lock` is (its ignore list is
+/// `Dockerfile.dockerignore`, read for `-f apps/api/Dockerfile`).
+const BUILT_FROM_THE_ROOT: &[&str] = &[".github/workflows/ci.yml", ".dockerignore", "Dockerfile"];
+
 /// The monorepo's api App is the axum template file for file (workspace
 /// ADR 0027): every file of `templates/axum-api` but its manifest and lock
 /// file (the monorepo's root holds the lock file, and init renames the
 /// App's package) has the same copy under `templates/monorepo/apps/api`,
 /// which adds only its own files (the contract's export and the tests
-/// that drive the API through the Rust client).
+/// that drive the API through the Rust client). [`BUILT_FROM_THE_ROOT`]
+/// are the axum template's files the App holds its own way.
 #[test]
 fn the_monorepo_api_app_is_the_axum_template() -> Result<()> {
     let (axum, api) = (
@@ -249,7 +258,10 @@ fn the_monorepo_api_app_is_the_axum_template() -> Result<()> {
     let paths: Vec<String> = files_under(&axum, "")?
         .into_keys()
         .filter(|path| {
-            !path.starts_with("target/") && path != "Cargo.lock" && path != "Cargo.toml.template"
+            !path.starts_with("target/")
+                && path != "Cargo.lock"
+                && path != "Cargo.toml.template"
+                && !BUILT_FROM_THE_ROOT.contains(&path.as_str())
         })
         .collect();
     let found = drift(&axum, &api, &paths)?;
