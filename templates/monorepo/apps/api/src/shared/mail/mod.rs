@@ -21,8 +21,9 @@ pub use outbox::{Outbox, SendMail};
 pub use templates::Templates;
 pub use transport::{LogMailer, MemoryMailer, SmtpMailer};
 
-/// A rendered mail: one recipient, a subject, and a text and an HTML body.
-/// The job queue stores it as JSON until it is sent.
+/// A rendered mail: one recipient, a subject, a text and an HTML body, and
+/// optionally where replies go. The job queue stores it as JSON until it
+/// is sent.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Mail {
     /// The recipient's address.
@@ -33,6 +34,20 @@ pub struct Mail {
     pub text: String,
     /// The HTML body.
     pub html: String,
+    /// Where a reply goes when it is not `MAIL_FROM`: the `Reply-To`
+    /// header. A job queued before the field existed decodes as `None`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub reply_to: Option<String>,
+}
+
+impl Mail {
+    /// This mail, answered at `address` (its `Reply-To`) instead of
+    /// `MAIL_FROM`: `templates.message(to, subject, &paragraphs).reply_to(email)`.
+    #[must_use]
+    pub fn reply_to(mut self, address: impl Into<String>) -> Self {
+        self.reply_to = Some(address.into());
+        self
+    }
 }
 
 /// Why a mail was not sent. It goes to the log and to the job's

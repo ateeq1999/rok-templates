@@ -4,8 +4,9 @@
 //! body. A link is `{APP_URL}{path}?token={token}`: the front end at
 //! `APP_URL` serves the page and posts the token back to the API.
 //!
-//! To add a message, add a method that calls [`Templates::compose`] with
-//! its subject, paragraphs and (optional) link.
+//! A feature mails with [`Templates::message`] (a subject and paragraphs).
+//! To add an account message, add a method that calls `compose` with its
+//! subject, paragraphs and (optional) link.
 
 use super::Mail;
 
@@ -177,6 +178,16 @@ impl Templates {
             }),
         )
     }
+
+    /// A message a feature sends, worded like the account mails: `subject`
+    /// as its heading, then each paragraph, escaped in the HTML body. Chain
+    /// [`Mail::reply_to`] when replies should not go to `MAIL_FROM`:
+    /// `templates.message(to, subject, &paragraphs).reply_to(business_email)`.
+    #[must_use]
+    pub fn message(&self, to: &str, subject: &str, paragraphs: &[impl AsRef<str>]) -> Mail {
+        let paragraphs: Vec<&str> = paragraphs.iter().map(AsRef::as_ref).collect();
+        compose(to, subject, &paragraphs, None)
+    }
 }
 
 /// A message to `to`: the paragraphs, then the action's link, in both
@@ -208,6 +219,7 @@ fn compose(to: &str, subject: &str, paragraphs: &[&str], action: Option<&Action<
         subject: subject.to_owned(),
         text: text.trim_end().to_owned() + "\n",
         html,
+        reply_to: None,
     }
 }
 
@@ -264,6 +276,35 @@ mod tests {
             let link = format!("https://app.example.com{path}?token={TOKEN}");
             assert!(mail.text.contains(&link), "{}", mail.text);
         }
+    }
+
+    #[test]
+    fn a_feature_message_escapes_its_paragraphs() {
+        let templates = Templates::new("http://localhost:8080");
+        let enquiry = vec![
+            "Acme <Tours> & Safaris asked to partner.".to_owned(),
+            "Reply to reach them.".to_owned(),
+        ];
+        let mail = templates.message("partners@example.com", "New partner enquiry", &enquiry);
+        assert_eq!(mail.to, "partners@example.com");
+        assert_eq!(mail.subject, "New partner enquiry");
+        assert_eq!(mail.reply_to, None);
+        assert_eq!(
+            mail.text,
+            "New partner enquiry\n\nAcme <Tours> & Safaris asked to partner.\n\nReply to reach them.\n"
+        );
+        assert!(
+            mail.html
+                .contains("<p>Acme &lt;Tours&gt; &amp; Safaris asked to partner.</p>"),
+            "{}",
+            mail.html
+        );
+        assert!(!mail.html.contains("<Tours>"), "{}", mail.html);
+
+        let mail = templates
+            .message("partners@example.com", "Hi", &["One line."])
+            .reply_to("hello@acme.example");
+        assert_eq!(mail.reply_to.as_deref(), Some("hello@acme.example"));
     }
 
     #[test]

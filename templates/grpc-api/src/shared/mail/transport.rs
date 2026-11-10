@@ -59,15 +59,21 @@ impl Mailer for SmtpMailer {
     }
 }
 
-/// `mail` from `from`, as a text and HTML alternative.
+/// `mail` from `from`, as a text and HTML alternative, with its `Reply-To`
+/// when it has one.
 fn message(from: &Mailbox, mail: &Mail) -> Result<Message, MailError> {
     let to: Mailbox = mail
         .to
         .parse()
         .map_err(|err| MailError::Build(format!("recipient `{}`: {err}", mail.to)))?;
-    Message::builder()
-        .from(from.clone())
-        .to(to)
+    let mut builder = Message::builder().from(from.clone()).to(to);
+    if let Some(reply_to) = &mail.reply_to {
+        let reply_to: Mailbox = reply_to
+            .parse()
+            .map_err(|err| MailError::Build(format!("reply-to `{reply_to}`: {err}")))?;
+        builder = builder.reply_to(reply_to);
+    }
+    builder
         .subject(mail.subject.clone())
         .multipart(MultiPart::alternative_plain_html(
             mail.text.clone(),
@@ -128,6 +134,7 @@ mod tests {
             subject: "Hello".to_owned(),
             text: "plain".to_owned(),
             html: "<p>html</p>".to_owned(),
+            reply_to: None,
         }
     }
 
@@ -138,6 +145,27 @@ mod tests {
         assert!(raw.contains("multipart/alternative"));
         assert!(raw.contains("Subject: Hello"));
         assert!(raw.contains("To: user@example.com"));
+        Ok(())
+    }
+
+    #[test]
+    fn a_reply_to_reaches_smtp_as_its_header() -> Result<(), Box<dyn std::error::Error>> {
+        let from: Mailbox = "App <no-reply@example.com>".parse()?;
+        let raw = String::from_utf8(message(&from, &mail("user@example.com"))?.formatted())?;
+        assert!(!raw.contains("Reply-To:"), "{raw}");
+
+        let mail = mail("partners@example.com").reply_to("Acme <hello@acme.example>");
+        let raw = String::from_utf8(message(&from, &mail)?.formatted())?;
+        assert!(raw.contains("Reply-To: Acme <hello@acme.example>"), "{raw}");
+        assert!(raw.contains("From: App <no-reply@example.com>"), "{raw}");
+        Ok(())
+    }
+
+    #[test]
+    fn an_invalid_reply_to_is_not_built() -> Result<(), Box<dyn std::error::Error>> {
+        let from: Mailbox = "no-reply@example.com".parse()?;
+        let mail = mail("user@example.com").reply_to("not an address");
+        assert!(matches!(message(&from, &mail), Err(MailError::Build(_))));
         Ok(())
     }
 
