@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AppRouteRouteImport } from './routes/_app/route'
 import { Route as PublicRouteRouteImport } from './routes/_public/route'
+import { Route as ShellRouteImport } from './routes/[_]shell'
 import { Route as AppAdminRouteRouteImport } from './routes/_app/admin/route'
 import { Route as AppMediaRouteImport } from './routes/_app/media'
 import { Route as AppProfileRouteImport } from './routes/_app/profile'
@@ -43,6 +44,11 @@ const AppRouteRoute = AppRouteRouteImport.update({
 } as any)
 const PublicRouteRoute = PublicRouteRouteImport.update({
   id: '/_public',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShellRoute = ShellRouteImport.update({
+  id: '/_shell',
+  path: '/_shell',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppAdminRouteRoute = AppAdminRouteRouteImport.update({
@@ -144,6 +150,7 @@ const AppAdminUsersUserIdRoute = AppAdminUsersUserIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/_shell': typeof ShellRoute
   '/admin': typeof AppAdminRouteRouteWithChildren
   '/settings': typeof AppSettingsRouteRouteWithChildren
   '/media': typeof AppMediaRoute
@@ -166,6 +173,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/_shell': typeof ShellRoute
   '/media': typeof AppMediaRoute
   '/profile': typeof AppProfileRoute
   '/confirm-email-change': typeof PublicConfirmEmailChangeRoute
@@ -189,6 +197,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_app': typeof AppRouteRouteWithChildren
   '/_public': typeof PublicRouteRouteWithChildren
+  '/_shell': typeof ShellRoute
   '/_app/admin': typeof AppAdminRouteRouteWithChildren
   '/_app/settings': typeof AppSettingsRouteRouteWithChildren
   '/_app/media': typeof AppMediaRoute
@@ -213,6 +222,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/_shell'
     | '/admin'
     | '/settings'
     | '/media'
@@ -235,6 +245,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/_shell'
     | '/media'
     | '/profile'
     | '/confirm-email-change'
@@ -257,6 +268,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_app'
     | '/_public'
+    | '/_shell'
     | '/_app/admin'
     | '/_app/settings'
     | '/_app/media'
@@ -282,6 +294,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRouteRoute: typeof AppRouteRouteWithChildren
   PublicRouteRoute: typeof PublicRouteRouteWithChildren
+  ShellRoute: typeof ShellRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -305,6 +318,13 @@ declare module '@tanstack/react-router' {
       path: ''
       fullPath: '/'
       preLoaderRoute: typeof PublicRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_shell': {
+      id: '/_shell'
+      path: '/_shell'
+      fullPath: '/_shell'
+      preLoaderRoute: typeof ShellRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/admin': {
@@ -524,6 +544,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRouteRoute: AppRouteRouteWithChildren,
   PublicRouteRoute: PublicRouteRouteWithChildren,
+  ShellRoute: ShellRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

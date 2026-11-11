@@ -10,6 +10,14 @@ are this file's `## [X.Y.Z]` section.
 
 **Added**
 
+- Prerendered pages in the monorepo's web App. `PRERENDERED` in
+  `apps/web/vite.config.ts` (empty by default) lists the pages the build
+  writes as finished HTML, e.g. a landing page at `/`; no route is
+  discovered and no link followed, so signed-in routes always render in
+  the browser. The SPA shell is now rendered at `/_shell` (a route that
+  sends a visitor home) instead of `/`, so a listed page never replaces
+  `_shell.html`; listing `/_shell` fails the build with an error naming
+  it. The guide's monorepo page has a "Prerendered pages" section.
 - Mail a feature words itself. `shared/mail` (every API template) gains
   `Templates::message(to, subject, paragraphs)`, worded like the account
   mails with each paragraph escaped in the HTML body, and
