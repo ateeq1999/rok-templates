@@ -374,6 +374,24 @@ page has a recipe (staff roles, a member's role at a partner from the
 path, and a guard generic over the kind of partner), each rule backed by
 one read query in `queries/shared/`.
 
+### Live updates
+
+A screen other people change (a board, a bill) needn't poll: a feature
+publishes a notice on a Topic on its own transaction, sent only when it
+commits (a PostgreSQL `NOTIFY`), and signed-in clients subscribe:
+
+```rust
+live::publish(&mut tx, tenant, "orders.new", json!({"id": order.id})).await?;
+```
+
+`POST /api/v1/live/tickets` gives a caller the `Subscriber` guard
+(`src/features/live/service.rs`) lets in a short-lived ticket to its
+tenant's Topics (by default, each account is its own tenant), and
+`GET /api/v1/live?topics=orders.new&ticket=…` streams the notices as
+server-sent events. One listener per instance fans them out. The guide's
+[Live updates](https://github.com/ateeq1999/rok-templates/blob/main/docs/guide/live.md)
+page has the rest.
+
 ## Uploads
 
 `/api/v1/media` holds each signed-in user's files (the hand-written
@@ -484,6 +502,7 @@ bytes = "1"
 chrono = { version = "0.4", features = ["serde"] }
 croner = "4"
 dotenvy = "=0.15.7"
+futures-util = { version = "0.3", default-features = false }
 governor = { version = "0.10", default-features = false, features = ["std"] }
 hmac = "0.13"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }

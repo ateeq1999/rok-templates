@@ -65,6 +65,7 @@ rules below follow them.
 | Call to an outside system | `shared/<name>.rs` behind a trait | service directly |
 | Env variable | `config.rs` (a debug build reads `.env` too) | `std::env` anywhere else |
 | Background or slow work | a job (`shared/jobs/`) enqueued by `service.rs` on its transaction, registered in `app/run.rs` | request path |
+| Telling clients something changed (a live board, a bill) | `shared::live::publish(&mut tx, tenant, "orders.new", payload)` on the feature's transaction; clients subscribe at `/api/v1/live` | a polling timer in the App |
 | Writing another feature's data | a port (trait) declared in your `service.rs`, implemented in `app/ports.rs` with the other service's `_in` method | that feature's files |
 | Register a hand-written feature | `features/mod.rs` and `app/router.rs` | — |
 | An authorization rule (a staff role, a role at the resource in the path) | a `Guard` in `shared/guards.rs`, its read in `queries/shared/`; handlers take `Allowed<G>` ahead of the body | the service, or the handler's body |

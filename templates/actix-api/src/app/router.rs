@@ -22,6 +22,7 @@ use crate::features::api_keys::{self, ApiKeyService};
 use crate::features::audit_log_entry::AuditLogEntryService;
 use crate::features::auth::{self, AuthService};
 use crate::features::jobs::{self, JobService};
+use crate::features::live;
 use crate::features::two_factor::{self, TwoFactorService};
 use crate::features::{configure_all, media, register_services};
 use crate::openapi::document;
@@ -112,6 +113,7 @@ pub fn configure(cfg: &mut web::ServiceConfig, state: &AppState) {
     account::routes(cfg, &state.rate_limit);
     api_keys::routes(cfg);
     jobs::routes(cfg);
+    live::routes::<live::Subscriber>(cfg);
     two_factor::routes(cfg, &state.rate_limit);
     auth::routes(cfg, &state.rate_limit);
     media::routes(cfg);

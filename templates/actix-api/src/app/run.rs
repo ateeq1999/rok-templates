@@ -57,6 +57,14 @@ pub async fn run(config: Config) -> std::io::Result<()> {
     tracing::info!(addr = %config.bind_addr, role = role.name(), "listening");
     // actix-web's own signal handling would stop at once: the drain below
     // handles the signal, and `shutdown_timeout` is the grace.
+    // One listener per instance fans the live Topics out to its subscribers;
+    // without it, subscriptions open but stay quiet.
+    let live = state.live.clone();
+    if role.serves_api()
+        && let Err(err) = live.start(&state.pool).await
+    {
+        tracing::warn!(error = %err, "live: no NOTIFY listener; subscriptions hear nothing");
+    }
     let grace = settings.grace.as_secs();
     let server: Server = if role.serves_api() {
         HttpServer::new(move || app(state.clone()))
@@ -82,6 +90,9 @@ pub async fn run(config: Config) -> std::io::Result<()> {
     let draining_task = actix_web::rt::spawn(async move {
         shutdown::signal().await;
         draining.start();
+        // Open subscriptions end, so they don't hold the drain up: their
+        // clients reconnect to an instance that is ready.
+        live.close();
         tracing::info!(delay = ?settings.delay, "draining: /health/ready answers 503");
         tokio::time::sleep(settings.delay).await;
         // Stops accepting, and gives the requests in flight the grace.
