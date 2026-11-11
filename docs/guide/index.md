@@ -36,6 +36,9 @@ What the API does:
   email flows, two-factor sign-in, API keys, sessions, mail.
 - [Guards](guards.md): authorization rules written once and required by
   type (`Allowed<Finance>`), with a recipe for roles at a resource.
+- [Live updates](live.md): Topics, a notice published on a feature's
+  transaction and pushed to the subscribed clients, so a screen refetches
+  on news instead of polling.
 - [Files and storage](files.md): uploads, direct uploads, profile photos,
   the storage port, S3.
 - [Jobs and schedules](jobs.md): background work on PostgreSQL, scheduled

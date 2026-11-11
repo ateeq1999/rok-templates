@@ -13,6 +13,7 @@ use crate::features::audit_log_entry::AuditLogEntryService;
 use crate::features::auth::service::AuditTrail;
 use crate::features::media::MediaService;
 use crate::shared::jobs::Queue;
+use crate::shared::live::Topics;
 use crate::shared::mail::{Outbox, Templates};
 use crate::shared::rate_limit::RateLimit;
 use crate::shared::security::breach::{self, BreachCheck};
@@ -28,6 +29,9 @@ use crate::shared::storage::{self, Storage};
 pub struct AppState {
     /// The database.
     pub pool: PgPool,
+    /// The live Topics: the hub subscriptions read, listening once `run`
+    /// starts it, and the tickets that open them.
+    pub live: Topics,
     /// Signs and verifies session tokens.
     pub keys: web::Data<JwtKeys>,
     /// Where flows enqueue jobs; it wakes the job worker.
@@ -87,6 +91,7 @@ impl AppState {
         let queue = Queue::new();
         Ok(AppState {
             pool: pool.clone(),
+            live: Topics::new(&config.jwt_secret),
             keys: web::Data::new(
                 JwtKeys::new(&config.jwt_secret, config.jwt_ttl)
                     .with_previous(config.jwt_secret_previous.as_deref()),

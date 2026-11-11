@@ -10,6 +10,20 @@ are this file's `## [X.Y.Z]` section.
 
 **Added**
 
+- Live updates over Topics. `shared/live` (axum, actix and the monorepo's
+  API) publishes a notice on a feature's transaction,
+  `live::publish(&mut tx, tenant, "orders.new", payload)`, as a PostgreSQL
+  `NOTIFY`, so nothing is sent for a rollback; one listener per instance
+  fans notices out to its subscribers through a bounded buffer, dropping
+  one that falls behind. The `live` feature serves them:
+  `POST /api/v1/live/tickets` gives a caller the `Subscriber` guard lets in
+  a short-lived ticket to its tenant (403 otherwise), and
+  `GET /api/v1/live?topics=…&ticket=…` streams the notices as server-sent
+  events. The monorepo's web App gains `subscribe` and `useTopics`
+  (`src/lib/live.ts`), which invalidate the queries a notice names, and its
+  mobile App `LiveRepository`, a `Stream<Notice>`; both reconnect with a
+  fresh ticket after a dropped connection. The guide's "Live updates" page
+  has the rest.
 - Prerendered pages in the monorepo's web App. `PRERENDERED` in
   `apps/web/vite.config.ts` (empty by default) lists the pages the build
   writes as finished HTML, e.g. a landing page at `/`; no route is
