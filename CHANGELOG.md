@@ -18,6 +18,12 @@ are this file's `## [X.Y.Z]` section.
   sends a visitor home) instead of `/`, so a listed page never replaces
   `_shell.html`; listing `/_shell` fails the build with an error naming
   it. The guide's monorepo page has a "Prerendered pages" section.
+- Mail a feature words itself. `shared/mail` (every API template) gains
+  `Templates::message(to, subject, paragraphs)`, worded like the account
+  mails with each paragraph escaped in the HTML body, and
+  `Mail::reply_to`: a field `SmtpMailer` sends as `Reply-To`, serde-defaulted
+  so mail queued before it still decodes, and a builder, so a call reads
+  `templates.message(to, subject, &paragraphs).reply_to(business_email)`.
 - Guards: authorization rules written once. The security Capability's
   `Guard` trait (`shared/security/guard.rs`, a Shared file of every API
   template) names a rule's grant, its path parameters and its refusal;
@@ -44,6 +50,14 @@ are this file's `## [X.Y.Z]` section.
 
 **Changed**
 
+- The contract test (`tests/contract.rs` in axum, actix and the monorepo's
+  API) allows additions to a covered operation: a new optional request
+  property, a new optional query parameter and a new response property
+  pass with no `KNOWN` entry, so a project grows the starter's routes
+  instead of adding twins beside them. A removed or retyped property, a
+  new required property or parameter and a changed success status still
+  fail, naming the operation. The `?permanent=` and list `sort`/`order`
+  entries leave `KNOWN`.
 - `compose.yaml` publishes PostgreSQL on `${POSTGRES_PORT:-5432}`, and
   `.env.example` sets `POSTGRES_PORT` and builds `DATABASE_URL` from it,
   against compose's `app` database (the axum template's and the Monorepo
@@ -68,6 +82,11 @@ are this file's `## [X.Y.Z]` section.
 
 **Fixed**
 
+- The API templates' database tests can't pass unrun in CI: with `CI` set
+  and no `DATABASE_URL` (exported or in `.env`), `Database::fresh` fails
+  with "DATABASE_URL is required in CI"; locally they still skip with a
+  note (`tests/support`'s `database_url`, in the actix, axum, gRPC and
+  monorepo API templates).
 - Monorepo web App: its tests pass on Node 25 and later. Node 25 defines a
   `localStorage` global, `undefined` without `--localstorage-file`, that
   hid jsdom's, so every test using storage failed; `vitest.config.ts`

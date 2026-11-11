@@ -55,7 +55,7 @@ and the root `Cargo.toml` holds only the Rust members.
 
 | App | What it is | Run it | Its checks |
 | --- | --- | --- | --- |
-| `apps/api` | The `axum` template file for file (`tests/template_drift.rs` checks it), plus the contract's export (`examples/openapi.rs`) and the tests that drive it through `clients/rust` (`tests/client/`). Every other page of this guide is about it. | `cargo run -p my-shop-api` from the root | `cargo test -p my-shop-api` (with `DATABASE_URL`; without it the database tests print a note and pass) |
+| `apps/api` | The `axum` template file for file (`tests/template_drift.rs` checks it), plus the contract's export (`examples/openapi.rs`) and the tests that drive it through `clients/rust` (`tests/client/`). Every other page of this guide is about it. | `cargo run -p my-shop-api` from the root | `cargo test -p my-shop-api` (with `DATABASE_URL`, exported or in `apps/api/.env`; without it the database tests print a note and pass, except in CI, where they fail) |
 | `apps/web` | TanStack Start (React, TypeScript, shadcn/ui), on `clients/ts`. | `bun install --frozen-lockfile`, then `bun run dev` in `apps/web` | `bun run typecheck`, `bun run test` |
 | `apps/desktop` | rok-ui's bloc-http starter on GPUI, imported at rok-ui 0.9.1, its data layer on `clients/rust`. | `cargo run -p my-shop-desktop` from the root | `cargo test -p my-shop-desktop` |
 | `apps/mobile` | Flutter (`flutter_bloc`, `go_router`) for iOS and Android, on `clients/dart`. | `flutter pub get`, then `flutter run` in `apps/mobile` | `flutter analyze`, `flutter test` |

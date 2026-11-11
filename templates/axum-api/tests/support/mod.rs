@@ -1,7 +1,8 @@
 //! What the API tests share: the whole application over a PostgreSQL schema
 //! of its own, requests to it, and callers' accounts and tokens.
 //!
-//! The tests need `DATABASE_URL`; without it they print a note and pass.
+//! The tests need `DATABASE_URL`, from the environment or `.env`; without
+//! it they print a note and pass, except in CI (`CI` set), where they fail.
 //! Each one creates a fresh schema holding the tables (`db::schema`'s
 //! snapshot of `schema/`) and drops it when done, so tests run in
 //! parallel without seeing each other's rows.
@@ -42,6 +43,24 @@ pub const TOTP_KEY: &str = "dGVzdCBrZXkgb2YgZXhhY3RseSB0aGlydHktdHdvIGI=";
 /// The `APP_URL` the test application's mailed links start with.
 pub const APP_URL: &str = "http://app.test";
 
+/// The test database's URL, the variable `DATABASE_URL` as `var` reads it,
+/// or `None` (and a note) without one.
+///
+/// # Panics
+///
+/// In CI (`CI` set): the database tests must run there, not pass unrun.
+pub fn database_url(var: impl Fn(&str) -> Option<String>) -> Option<String> {
+    let url = var("DATABASE_URL");
+    if url.is_none() {
+        assert!(
+            var("CI").is_none(),
+            "DATABASE_URL is required in CI: the database tests would pass without running"
+        );
+        eprintln!("skipping: DATABASE_URL is not set");
+    }
+    url
+}
+
 /// A schema of the test database, and a pool whose connections use it.
 pub struct Database {
     pub pool: PgPool,
@@ -50,12 +69,12 @@ pub struct Database {
 }
 
 impl Database {
-    /// A fresh schema, or `None` (and a note) when `DATABASE_URL` is not set.
+    /// A fresh schema, or `None` (and a note) when `DATABASE_URL` is not set
+    /// (see [`database_url`]).
     pub async fn fresh() -> Result<Option<Database>, Box<dyn std::error::Error>> {
         // `DATABASE_URL` may come from `.env`, as the server's does.
         axum_api::config::load_env_file()?;
-        let Ok(url) = std::env::var("DATABASE_URL") else {
-            eprintln!("skipping: DATABASE_URL is not set");
+        let Some(url) = database_url(|name| std::env::var(name).ok()) else {
             return Ok(None);
         };
         let schema = format!("test_{}", uuid::Uuid::now_v7().simple());

@@ -100,3 +100,28 @@ impl Outbox {
         self.queue.wake();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_job_queued_without_reply_to_still_decodes() -> Result<(), serde_json::Error> {
+        let payload = serde_json::json!({
+            "to": "ana@example.com",
+            "subject": "Hello",
+            "text": "plain",
+            "html": "<p>html</p>",
+        });
+        let SendMail(mail) = serde_json::from_value(payload.clone())?;
+        assert_eq!(mail.to, "ana@example.com");
+        assert_eq!(mail.reply_to, None);
+        assert_eq!(serde_json::to_value(SendMail(mail.clone()))?, payload);
+
+        let SendMail(mail) = serde_json::from_value(serde_json::to_value(SendMail(
+            mail.reply_to("hello@acme.example"),
+        ))?)?;
+        assert_eq!(mail.reply_to.as_deref(), Some("hello@acme.example"));
+        Ok(())
+    }
+}
