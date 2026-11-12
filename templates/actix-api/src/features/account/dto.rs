@@ -81,6 +81,15 @@ impl From<User> for AccountResponse {
     }
 }
 
+/// The signed-in user's current profile photo, as `GET /users/me/avatar`
+/// answers it. Without one the route answers `null`, not a `404`: no photo
+/// yet is an answer.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, utoipa::ToSchema)]
+pub struct AvatarResponse {
+    /// The photo's public, cacheable URL, `/api/v1/avatars/<file>`.
+    pub url: String,
+}
+
 /// Deserializes a present display name: `null` and an empty (after
 /// trimming) one are `Some(None)`, anything else `Some(Some(trimmed))`.
 fn trimmed<'de, D>(deserializer: D) -> Result<Option<Option<String>>, D::Error>

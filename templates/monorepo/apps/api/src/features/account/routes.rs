@@ -5,7 +5,7 @@
 
 use axum::Router;
 use axum::extract::DefaultBodyLimit;
-use axum::routing::{get, put};
+use axum::routing::get;
 
 use super::dto::AVATAR_MAX_BYTES;
 use super::handlers;
@@ -29,7 +29,8 @@ pub fn routes(limit: &RateLimit) -> Router<AppState> {
         )
         .route(
             "/api/v1/users/me/avatar",
-            put(handlers::upload_avatar)
+            get(handlers::current_avatar)
+                .put(handlers::upload_avatar)
                 .delete(handlers::remove_avatar)
                 .layer(DefaultBodyLimit::max(AVATAR_MAX_BYTES)),
         )

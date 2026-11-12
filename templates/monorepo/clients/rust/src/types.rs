@@ -125,6 +125,13 @@ impl std::fmt::Display for AuditLogEntrySort {
     }
 }
 
+/// The API's `AvatarResponse`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct AvatarResponse {
+    /// The photo's public, cacheable URL, `/api/v1/avatars/<file>`.
+    pub url: String,
+}
+
 /// The API's `ChangeEmailDto`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ChangeEmailDto {

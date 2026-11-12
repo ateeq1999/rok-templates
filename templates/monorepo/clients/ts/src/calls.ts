@@ -7,6 +7,7 @@ import type {
   ApiKeyResponse,
   AuditLogEntryResponse,
   AuditLogListQuery,
+  AvatarResponse,
   ChangeEmailDto,
   ChangePasswordDto,
   CreateApiKeyDto,
@@ -399,6 +400,23 @@ export const api = {
       request<AccountResponse>(
         {
           method: "DELETE",
+          path: "/api/v1/users/me/avatar",
+          secured: true,
+          response: "json",
+        },
+        options
+      ),
+    /**
+     * `GET /api/v1/users/me/avatar`: the signed-in user's profile photo,
+     * `200`; `null` before they set one. No photo yet is an answer, not a
+     * `404`: that one means no such resource.
+     */
+    current: (
+      options?: RequestOptions
+    ) =>
+      request<null | AvatarResponse>(
+        {
+          method: "GET",
           path: "/api/v1/users/me/avatar",
           secured: true,
           response: "json",
