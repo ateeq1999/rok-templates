@@ -248,6 +248,20 @@ pub struct ForgotPasswordDto {
     pub email: String,
 }
 
+/// The API's `IdentityResponse`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct IdentityResponse {
+    /// When it was linked.
+    pub created_at: String,
+    /// The email the provider gave when it was linked, if any.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub email: Option<String>,
+    /// Unlink it with `DELETE /auth/oidc/identities/{id}`.
+    pub id: UserIdentityId,
+    /// The provider's name, such as `google`.
+    pub provider: String,
+}
+
 /// The API's `InviteUserDto`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct InviteUserDto {
@@ -310,6 +324,13 @@ impl std::fmt::Display for JobStatus {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.as_str())
     }
+}
+
+/// The API's `LinkResponse`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct LinkResponse {
+    /// The provider's authorization URL.
+    pub url: String,
 }
 
 /// The `LoginResponsePendingToken` object.
@@ -588,6 +609,9 @@ pub struct UploadTicket {
     /// to the API (`/api/v1/storage/…`).
     pub upload_url: String,
 }
+
+/// The API's `UserIdentityId`.
+pub type UserIdentityId = String;
 
 /// The API's `UserResponse`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

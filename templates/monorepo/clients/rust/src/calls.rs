@@ -246,6 +246,38 @@ impl Auth<'_> {
         call.json_answer().await
     }
 
+    /// `GET /api/v1/auth/oidc/identities`: the caller's Linked identities,
+    /// `200`.
+    ///
+    /// Sends the session's token.
+    pub async fn list_identities(&self) -> Result<Vec<types::IdentityResponse>, ApiError> {
+        let path = "/api/v1/auth/oidc/identities";
+        let call = self.client.call(Method::GET, path, true)?;
+        call.json_answer().await
+    }
+
+    /// `DELETE /api/v1/auth/oidc/identities/{id}`: unlinks one of the caller's
+    /// identities, `204`.
+    ///
+    /// Sends the session's token.
+    pub async fn unlink_identity(&self, id: types::UserIdentityId) -> Result<(), ApiError> {
+        let id = crate::segment(&id.to_string());
+        let path = format!("/api/v1/auth/oidc/identities/{id}");
+        let call = self.client.call(Method::DELETE, &path, true)?;
+        call.empty_answer().await
+    }
+
+    /// `POST /api/v1/auth/oidc/{provider}/link`: where to send the browser to
+    /// link an identity at `provider` to the caller, `200`.
+    ///
+    /// Sends the session's token.
+    pub async fn link_identity(&self, provider: &str) -> Result<types::LinkResponse, ApiError> {
+        let provider = crate::segment(provider);
+        let path = format!("/api/v1/auth/oidc/{provider}/link");
+        let call = self.client.call(Method::POST, &path, true)?;
+        call.json_answer().await
+    }
+
     /// `POST /api/v1/auth/password/change`: replaces the signed-in user's
     /// password and signs every session out, `200`.
     ///

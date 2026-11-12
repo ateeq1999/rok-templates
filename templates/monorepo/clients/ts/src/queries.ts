@@ -20,6 +20,7 @@ import type {
   StartUploadDto,
   UpdateProfileDto,
   UpdateUserDto,
+  UserIdentityId,
   UsersListQuery,
   UsersRemoveQuery,
   VerifyEmailDto,
@@ -64,6 +65,11 @@ export const queries = {
       queryOptions({
         queryKey: ["auth", "me"] as const,
         queryFn: ({ signal }) => api.auth.me({ signal }),
+      }),
+    listIdentities: () =>
+      queryOptions({
+        queryKey: ["auth", "listIdentities"] as const,
+        queryFn: ({ signal }) => api.auth.listIdentities({ signal }),
       }),
   },
   avatars: {
@@ -222,6 +228,18 @@ export const mutations = {
         mutationKey: ["auth", "login"] as const,
         mutationFn: (body: CredentialsDto) =>
           api.auth.login(body, options),
+      }),
+    unlinkIdentity: (options?: RequestOptions) =>
+      mutationOptions({
+        mutationKey: ["auth", "unlinkIdentity"] as const,
+        mutationFn: (id: UserIdentityId) =>
+          api.auth.unlinkIdentity(id, options),
+      }),
+    linkIdentity: (options?: RequestOptions) =>
+      mutationOptions({
+        mutationKey: ["auth", "linkIdentity"] as const,
+        mutationFn: (provider: string) =>
+          api.auth.linkIdentity(provider, options),
       }),
     change: (options?: RequestOptions) =>
       mutationOptions({
