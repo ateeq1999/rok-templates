@@ -28,6 +28,7 @@ pub fn routes(cfg: &mut web::ServiceConfig, limit: &RateLimit) {
     )
     .service(
         web::resource("/api/v1/users/me/avatar")
+            .route(web::get().to(handlers::current_avatar))
             .route(web::put().to(handlers::upload_avatar))
             .route(web::delete().to(handlers::remove_avatar)),
     )

@@ -25,6 +25,7 @@ use crate::features::GeneratedApiDoc;
         crate::features::account::handlers::auth_me,
         crate::features::account::handlers::get_me,
         crate::features::account::handlers::update_me,
+        crate::features::account::handlers::current_avatar,
         crate::features::account::handlers::upload_avatar,
         crate::features::account::handlers::remove_avatar,
         crate::features::account::handlers::avatar,

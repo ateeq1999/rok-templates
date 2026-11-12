@@ -62,6 +62,11 @@ export type AuditLogEntryResponse = {
 
 export type AuditLogEntrySort = "id" | "created_at"
 
+export type AvatarResponse = {
+  /** The photo's public, cacheable URL, `/api/v1/avatars/<file>`. */
+  url: string
+}
+
 export type ChangeEmailDto = {
   /** The account's current password. */
   current_password: string

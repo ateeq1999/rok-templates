@@ -334,9 +334,11 @@ documents each one, the settings, sending real mail and adding a flow
   or WebP image of at most 2 MiB (`413` past it; anything undecodable, or
   over 8192×8192 pixels, is a `422`), stores a 256×256 JPEG of its centre
   (re-encoded, so no EXIF survives) and deletes the previous one;
-  `DELETE /api/v1/users/me/avatar` removes it. Every user response
-  answers `avatar_url`, `/api/v1/avatars/<file>` or `null`, which anyone
-  may fetch, cacheable for good (a new photo gets a new name).
+  `DELETE /api/v1/users/me/avatar` removes it, and `GET` answers it,
+  `{ "url": … }`, or `200` with `null` before there is one. Every user
+  response answers `avatar_url`, `/api/v1/avatars/<file>` or `null`,
+  which anyone may fetch, cacheable for good (a new photo gets a new
+  name).
 - **API keys.** `src/features/api_keys/`: `POST /api/v1/api-keys`
   (`{"name", "scope"?, "expires_in_days"?}`) answers a `rok_…` key once
   (only its prefix and SHA-256 are stored); `GET` lists the caller's

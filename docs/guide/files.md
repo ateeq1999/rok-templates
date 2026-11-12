@@ -23,7 +23,7 @@ keys these routes check are on [Accounts and sign-in](auth.md).
 | Path | What it holds |
 |---|---|
 | `src/features/media/` | the uploads: list, upload, metadata, content, delete |
-| `src/features/account/` | the profile photo: set, remove, and the public `GET /avatars/{file}` |
+| `src/features/account/` | the profile photo: read, set, remove, and the public `GET /avatars/{file}` |
 | `src/shared/storage/` | the `Storage` port and `ObjectStorage`, its implementation over `object_store`; `StorageUrl` |
 | `src/shared/thumbnail.rs` | decoding a photo under limits, cropping it, re-encoding it as JPEG |
 | `src/shared/body.rs` | reading an upload's body, and answering the wire standard's `413` |
@@ -106,6 +106,39 @@ or `null`. That route is public (an `<img>` tag sends no token) and
 answers `image/jpeg` with `Cache-Control: public, max-age=31536000,
 immutable`: a new photo gets a new name, so a cached one is never stale.
 The name is random, so it can't be guessed from the user's id.
+
+**No photo yet is an answer, not an error.** `GET /users/me/avatar`
+answers the current photo, `{ "url": "/api/v1/avatars/<file>" }`, and
+`null` before the user sets one: an absent current value is 200 with
+`null`; a missing resource is 404. Declare the body `Option<T>`, which
+utoipa writes as a nullable schema, and answer `Json(None)`:
+
+<!-- source: templates/axum-api/src/features/account/handlers.rs -->
+```rust
+    responses(
+        (status = 200, description = "The current photo, or null without one", body = Option<AvatarResponse>),
+        (status = 401, description = "No valid bearer token", body = ErrorBody),
+    ),
+    security(("bearer_auth" = [])),
+)]
+pub async fn current_avatar(
+    State(service): State<Arc<AccountService>>,
+    caller: AuthUser,
+) -> Result<Json<Option<AvatarResponse>>, AppError> {
+    match service.current_avatar(caller.id.into()).await? {
+        Some(url) => Ok(Json(Some(AvatarResponse { url }))),
+        None => Ok(Json(None)),
+    }
+}
+```
+
+The actix template's handler answers `web::Json(None)` the same way. Each
+Client returns a nullable type for it (the monorepo's
+`client.avatars().current()` is an `Option<AvatarResponse>` in Rust,
+`AvatarResponse?` in Dart, and `null` in TypeScript, where TanStack Query's
+`data` is `null` rather than `isError`), so a screen shows "no photo yet"
+without catching anything. Keep `404` for a resource that isn't there,
+such as another user's file.
 
 `avatar_url` is a generated column of `users`
 (`'/api/v1/' || avatar_key`, in `0005_avatars.sql`), so the generated

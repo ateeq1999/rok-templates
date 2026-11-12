@@ -10,6 +10,12 @@ are this file's `## [X.Y.Z]` section.
 
 **Added**
 
+- `GET /api/v1/users/me/avatar` (axum, actix and the monorepo's API): the
+  signed-in user's current profile photo, `{ "url": … }`, or `200` with
+  `null` before they set one. It declares `body = Option<AvatarResponse>`,
+  a nullable schema, so each monorepo Client's `avatars.current` returns a
+  nullable type. The guide's "Files and storage" page states the rule: an
+  absent current value is 200 with `null`; a missing resource is 404.
 - Live updates over Topics. `shared/live` (axum, actix and the monorepo's
   API) publishes a notice on a feature's transaction,
   `live::publish(&mut tx, tenant, "orders.new", payload)`, as a PostgreSQL

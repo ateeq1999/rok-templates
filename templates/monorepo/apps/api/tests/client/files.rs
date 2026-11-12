@@ -59,8 +59,15 @@ async fn a_profile_photo_is_set_served_and_cleared() -> TestResult {
         return Ok(());
     };
     api.client.set_token(Some(user(&api.db.pool).await?));
+    // No photo yet is `None`, not an error.
+    assert_eq!(api.client.avatars().current().await?, None);
     let me = api.client.avatars().upload(picture()?).await?;
     let url = me.avatar_url.ok_or("no avatar_url")?;
+    let current = api.client.avatars().current().await?;
+    assert_eq!(
+        current.map(|avatar| avatar.url).as_deref(),
+        Some(url.as_str())
+    );
     let file = url
         .strip_prefix("/api/v1/avatars/")
         .ok_or(format!("not an avatar's URL: {url}"))?;
@@ -71,5 +78,6 @@ async fn a_profile_photo_is_set_served_and_cleared() -> TestResult {
     let me = api.client.avatars().remove().await?;
     assert_eq!(me.avatar_url, None);
     assert_eq!(api.client.users().me().await?.avatar_url, None);
+    assert_eq!(api.client.avatars().current().await?, None);
     api.stop().await
 }

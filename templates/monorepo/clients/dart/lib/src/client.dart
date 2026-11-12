@@ -404,6 +404,21 @@ final class AvatarsApi {
     options,
   );
 
+  /// `GET /api/v1/users/me/avatar`: the signed-in user's profile photo,
+  /// `200`; `null` before they set one. No photo yet is an answer, not a
+  /// `404`: that one means no such resource.
+  Future<AvatarResponse?> current({
+    RequestOptions? options,
+  }) => _transport.json<AvatarResponse?>(
+    Call(
+      'GET',
+      '/api/v1/users/me/avatar',
+      secured: true,
+    ),
+    (json) => json == null ? null : AvatarResponse.fromJson(json as Map<String, Object?>),
+    options,
+  );
+
   /// `PUT /api/v1/users/me/avatar`: makes the raw body (a JPEG, PNG or WebP
   /// image) the signed-in user's profile photo, `200`.
   Future<AccountResponse> upload(
