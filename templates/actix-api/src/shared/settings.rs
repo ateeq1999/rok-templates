@@ -20,6 +20,17 @@ pub enum ConfigError {
     /// A required variable is not set.
     #[error("environment variable `{0}` is not set")]
     Missing(&'static str),
+    /// A variable an `OpenID` provider named in `OIDC_PROVIDERS` needs is not
+    /// set.
+    #[error(
+        "environment variable `{variable}` is not set (`OIDC_PROVIDERS` names the provider `{provider}`)"
+    )]
+    ProviderMissing {
+        /// The variable, such as `OIDC_GOOGLE_CLIENT_SECRET`.
+        variable: String,
+        /// The provider's name.
+        provider: String,
+    },
     /// A key is too short to resist guessing.
     #[error(
         "environment variable `{name}` is {len} bytes long; it needs at least {min} (try `openssl rand -base64 48`)"

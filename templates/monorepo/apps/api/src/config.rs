@@ -16,6 +16,11 @@
 //! | `TOTP_ENCRYPTION_KEY` | required | the AES-256 key two-factor secrets are stored under: 32 bytes, base64 |
 //! | `REQUIRE_VERIFIED_EMAIL` | `true` | sign-in needs a verified email |
 //! | `APP_URL` | `http://localhost:8080` | the base of the links mails carry |
+//! | `OIDC_PROVIDERS` | unset | the `OpenID` providers people may sign in with, by name, such as `google` (lowercase letters, digits and dashes, comma-separated); unset, sign-in with a provider is off |
+//! | `OIDC_<NAME>_ISSUER` | required for each provider | its issuer URL, such as `https://accounts.google.com` (`<NAME>` is the name in capitals, `-` as `_`) |
+//! | `OIDC_<NAME>_CLIENT_ID` | required for each provider | the client id the provider issued |
+//! | `OIDC_<NAME>_CLIENT_SECRET` | required for each provider | its client secret |
+//! | `OIDC_<NAME>_TRUST_EMAIL` | `false` | an unknown identity whose verified email belongs to an account signs in as that account; set it only for a provider that owns the emails it verifies (docs/guide/auth.md) |
 //! | `MAIL_TRANSPORT` | `log` | `log` (mails are logged) or `smtp` |
 //! | `SMTP_URL` | required for `smtp` | such as `smtps://user:pass@host:465` |
 //! | `MAIL_FROM` | `Axum API <no-reply@localhost>` | the sender of every mail |
@@ -296,8 +301,28 @@ pub struct Config {
     /// `STORAGE_PUBLIC_ENDPOINT`: the endpoint an S3-compatible store's URLs
     /// are signed for, when clients reach it elsewhere than the API does.
     pub storage_public_endpoint: Option<String>,
+    /// `OIDC_PROVIDERS` and each one's `OIDC_<NAME>_*`: the `OpenID` providers
+    /// people may sign in with; none, and sign-in with a provider is off.
+    pub oidc_providers: Vec<OidcProviderSettings>,
     /// The pool's size and timeouts, `DB_*`.
     pub pool: PoolSettings,
+}
+
+/// One `OpenID` provider's settings, `OIDC_<NAME>_*`.
+#[derive(Clone, PartialEq, Eq)]
+pub struct OidcProviderSettings {
+    /// Its name in `OIDC_PROVIDERS` and in its routes
+    /// (`/auth/oidc/{name}/start`), such as `google`.
+    pub name: String,
+    /// `OIDC_<NAME>_ISSUER`: the issuer URL its discovery document is under.
+    pub issuer: String,
+    /// `OIDC_<NAME>_CLIENT_ID`.
+    pub client_id: String,
+    /// `OIDC_<NAME>_CLIENT_SECRET`.
+    pub client_secret: String,
+    /// `OIDC_<NAME>_TRUST_EMAIL`: an unknown identity whose verified email
+    /// belongs to an account signs in as that account.
+    pub trust_email: bool,
 }
 
 impl Config {
@@ -451,6 +476,7 @@ impl Config {
                     .unwrap_or(DEFAULT_MEDIA_DOWNLOAD_URL_TTL_SECS),
             ),
             storage_public_endpoint: var("STORAGE_PUBLIC_ENDPOINT").filter(|url| !url.is_empty()),
+            oidc_providers: oidc_providers(&vars, &var),
             pool,
         };
         vars.finish(config)
@@ -532,6 +558,18 @@ impl Config {
                 "STORAGE_PUBLIC_ENDPOINT",
                 self.storage_public_endpoint.clone().unwrap_or_else(unset),
             ),
+            (
+                "OIDC_PROVIDERS",
+                if self.oidc_providers.is_empty() {
+                    unset()
+                } else {
+                    self.oidc_providers
+                        .iter()
+                        .map(|provider| provider.name.as_str())
+                        .collect::<Vec<_>>()
+                        .join(",")
+                },
+            ),
             ("DB_MAX_CONNECTIONS", self.pool.max_connections.to_string()),
             ("DB_MIN_CONNECTIONS", self.pool.min_connections.to_string()),
             ("DB_ACQUIRE_TIMEOUT_SECS", secs(self.pool.acquire_timeout)),
@@ -544,6 +582,71 @@ impl Config {
             .collect::<Vec<_>>()
             .join("\n")
     }
+}
+
+/// The `OpenID` providers `OIDC_PROVIDERS` names (comma-separated), each read
+/// from its `OIDC_<NAME>_*` variables: `<NAME>` is the name in capitals,
+/// `-` as `_`. A name that isn't lowercase letters, digits and dashes, or a
+/// provider missing a variable, is recorded on `vars`.
+fn oidc_providers(
+    vars: &Vars<'_>,
+    var: &impl Fn(&str) -> Option<String>,
+) -> Vec<OidcProviderSettings> {
+    let Some(list) = var("OIDC_PROVIDERS").filter(|list| !list.trim().is_empty()) else {
+        return Vec::new();
+    };
+    let names: Vec<&str> = list.split(',').map(str::trim).collect();
+    let valid = |name: &&str| {
+        !name.is_empty()
+            && name
+                .chars()
+                .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-')
+    };
+    if !names.iter().all(valid) {
+        vars.fail(ConfigError::NotOneOf {
+            name: "OIDC_PROVIDERS",
+            value: list.clone(),
+            expected: "names of lowercase letters, digits and dashes, comma-separated",
+        });
+        return Vec::new();
+    }
+    names
+        .into_iter()
+        .map(|name| {
+            let prefix = format!("OIDC_{}_", name.to_ascii_uppercase().replace('-', "_"));
+            let required = |setting: &str| {
+                let variable = format!("{prefix}{setting}");
+                var(&variable)
+                    .filter(|value| !value.trim().is_empty())
+                    .unwrap_or_else(|| {
+                        vars.fail(ConfigError::ProviderMissing {
+                            variable,
+                            provider: name.to_owned(),
+                        });
+                        String::new()
+                    })
+            };
+            let trust_email = match var(&format!("{prefix}TRUST_EMAIL")).as_deref() {
+                None | Some("false" | "0") => false,
+                Some("true" | "1") => true,
+                Some(other) => {
+                    vars.fail(ConfigError::NotOneOf {
+                        name: "OIDC_<NAME>_TRUST_EMAIL",
+                        value: other.to_owned(),
+                        expected: "true, false",
+                    });
+                    false
+                }
+            };
+            OidcProviderSettings {
+                name: name.to_owned(),
+                issuer: required("ISSUER"),
+                client_id: required("CLIENT_ID"),
+                client_secret: required("CLIENT_SECRET"),
+                trust_email,
+            }
+        })
+        .collect()
 }
 
 /// `url` with the password of its user info, if it has one, as

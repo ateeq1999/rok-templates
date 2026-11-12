@@ -31,6 +31,8 @@ lettre = { version = "0.11", default-features = false, features = ["builder", "h
 metrics = "0.24"
 metrics-exporter-prometheus = { version = "0.18", default-features = false, features = ["http-listener"] }
 object_store = { version = "0.13", features = ["aws"] }
+# Sign-in with an OpenID provider (`shared/oidc`): discovery, PKCE, ID tokens.
+openidconnect = { version = "4", default-features = false, features = ["reqwest", "rustls-tls"] }
 opentelemetry = { version = "0.32", default-features = false, features = ["trace"] }
 opentelemetry-otlp = { version = "0.32", default-features = false, features = ["trace", "http-proto", "reqwest-blocking-client", "reqwest-rustls"] }
 opentelemetry_sdk = { version = "0.32", default-features = false, features = ["trace"] }
@@ -55,6 +57,8 @@ tower-http = { version = "0.6", features = ["catch-panic", "cors", "request-id",
 tracing = "0.1"
 tracing-opentelemetry = { version = "0.33", default-features = false }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+# The App URLs sign-in with a provider builds (`shared/oidc`, the `oidc` feature).
+url = "2"
 utoipa = { version = "5", features = ["chrono", "uuid"] }
 utoipa-swagger-ui = { version = "9", features = ["axum", "vendored"] }
 uuid = { version = "1", features = ["v7", "serde"] }

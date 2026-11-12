@@ -10,6 +10,26 @@ are this file's `## [X.Y.Z]` section.
 
 **Added**
 
+- Sign-in with an OpenID provider, the `oidc` feature (axum, actix and the
+  monorepo's API), off until `OIDC_PROVIDERS` names a provider (its routes
+  answer 404 until then). Providers are generic, keyed by name, each with
+  `OIDC_<NAME>_ISSUER`, `_CLIENT_ID`, `_CLIENT_SECRET` and `_TRUST_EMAIL`;
+  Google is the documented one. `GET /api/v1/auth/oidc/{provider}/start`
+  and `/callback` sign in (PKCE, a single-use state and a nonce) and send
+  the browser to `{APP_URL}/auth/oidc` with the session, a two-factor step
+  or why not in the fragment; `GET /auth/oidc/identities`,
+  `POST /auth/oidc/{provider}/link` and `DELETE /auth/oidc/identities/{id}`
+  list, link and unlink a signed-in account's Linked identities. An
+  identity is matched by provider and subject; an email an account has
+  links only from a provider trusted with emails that verified it, and
+  unlinking an account's last way in is a 422. A kept two-factor still asks
+  for the code. New tables `user_identities`, `oidc_requests` and
+  `oidc_handoffs` (the last for the mobile hand-over), migration
+  `0009_oidc`. `shared/oidc` holds `IdentityProvider`, its `openidconnect`
+  implementation and `FakeIdentityProvider` for tests. The start and
+  callback routes stay out of the OpenAPI document until the next `rok`
+  release reads Browser routes. The guide's "Sign in with Google" covers
+  setup and what `trust_email` trusts.
 - `GET /api/v1/users/me/avatar` (axum, actix and the monorepo's API): the
   signed-in user's current profile photo, `{ "url": … }`, or `200` with
   `null` before they set one. It declares `body = Option<AvatarResponse>`,

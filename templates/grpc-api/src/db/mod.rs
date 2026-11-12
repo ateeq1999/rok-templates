@@ -19,12 +19,15 @@ pub mod job_schedules;
 pub mod jobs;
 pub mod media;
 pub mod nullable;
+pub mod oidc_handoffs;
+pub mod oidc_requests;
 pub mod pool;
 pub mod queries;
 pub mod schema;
 pub mod search;
 pub mod totp_recovery_codes;
 pub mod types;
+pub mod user_identities;
 pub mod users;
 
 /// Everything a call site needs: `use crate::db::prelude::*;` brings
@@ -52,11 +55,20 @@ pub mod prelude {
     pub use super::media::filter::{MediaFilter, MediaSortKey};
     pub use super::media::models::Media;
     pub use super::media::models::*;
+    pub use super::oidc_handoffs::filter::{OidcHandoffFilter, OidcHandoffSortKey};
+    pub use super::oidc_handoffs::models::OidcHandoff;
+    pub use super::oidc_handoffs::models::*;
+    pub use super::oidc_requests::filter::{OidcRequestFilter, OidcRequestSortKey};
+    pub use super::oidc_requests::models::OidcRequest;
+    pub use super::oidc_requests::models::*;
     pub use super::search::{Direction, Equality, Ordered, Sort, Text};
     pub use super::totp_recovery_codes::filter::{TotpRecoveryCodeFilter, TotpRecoveryCodeSortKey};
     pub use super::totp_recovery_codes::models::TotpRecoveryCode;
     pub use super::totp_recovery_codes::models::*;
     pub use super::types::*;
+    pub use super::user_identities::filter::{UserIdentityFilter, UserIdentitySortKey};
+    pub use super::user_identities::models::UserIdentity;
+    pub use super::user_identities::models::*;
     pub use super::users::filter::{UserFilter, UserSortKey};
     pub use super::users::models::User;
     pub use super::users::models::*;

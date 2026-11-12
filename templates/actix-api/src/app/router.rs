@@ -23,6 +23,7 @@ use crate::features::audit_log_entry::AuditLogEntryService;
 use crate::features::auth::{self, AuthService};
 use crate::features::jobs::{self, JobService};
 use crate::features::live;
+use crate::features::oidc::{self, OidcService};
 use crate::features::two_factor::{self, TwoFactorService};
 use crate::features::{configure_all, media, register_services};
 use crate::openapi::document;
@@ -69,10 +70,10 @@ pub fn app(
 /// templates as app data, every feature's service,
 /// `/health/live` and `/health/ready`, the `OpenAPI` document at
 /// `/api-docs/openapi.json` with Swagger UI at `/docs/`, and every feature's
-/// routes: the hand-written `account`, `two_factor` and `auth` first, so
-/// that `/users/me` is not taken for `/users/{id}` and the `/auth` scope
-/// doesn't swallow `/auth/me` or `/auth/2fa`. [`app`] wraps it in the
-/// middleware.
+/// routes: the hand-written `account`, `two_factor`, `oidc` and `auth`
+/// first, so that `/users/me` is not taken for `/users/{id}` and the
+/// `/auth` scope doesn't swallow `/auth/me`, `/auth/2fa` or `/auth/oidc`.
+/// [`app`] wraps it in the middleware.
 pub fn configure(cfg: &mut web::ServiceConfig, state: &AppState) {
     cfg.app_data(web::Data::new(state.clone()))
         .app_data(web::Data::new(state.pool.clone()))
@@ -100,6 +101,13 @@ pub fn configure(cfg: &mut web::ServiceConfig, state: &AppState) {
         templates: state.templates.clone().into_inner(),
         totp: state.totp.clone(),
     }));
+    cfg.app_data(web::Data::new(OidcService {
+        pool: state.pool.clone(),
+        keys: state.keys.clone().into_inner(),
+        providers: state.identity_providers.clone(),
+        app_url: state.app_url.clone(),
+        require_verified_email: state.require_verified_email,
+    }));
     cfg.app_data(web::Data::new(state.media_service()));
     health::routes(cfg);
     cfg.service(web::redirect("/docs", "/docs/").see_other())
@@ -115,6 +123,7 @@ pub fn configure(cfg: &mut web::ServiceConfig, state: &AppState) {
     jobs::routes(cfg);
     live::routes::<live::Subscriber>(cfg);
     two_factor::routes(cfg, &state.rate_limit);
+    oidc::routes(cfg, &state.rate_limit);
     auth::routes(cfg, &state.rate_limit);
     media::routes(cfg);
     configure_all(cfg);

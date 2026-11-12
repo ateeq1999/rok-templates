@@ -17,10 +17,12 @@ use crate::features::auth::AuthService;
 use crate::features::auth::service::AuditTrail;
 use crate::features::jobs::JobService;
 use crate::features::media::MediaService;
+use crate::features::oidc::OidcService;
 use crate::features::two_factor::TwoFactorService;
 use crate::shared::jobs::Queue;
 use crate::shared::live::Topics;
 use crate::shared::mail::{Outbox, Templates};
+use crate::shared::oidc::IdentityProviders;
 use crate::shared::rate_limit::RateLimit;
 use crate::shared::security::breach::{self, BreachCheck};
 use crate::shared::security::headers::CorsOrigins;
@@ -58,6 +60,10 @@ pub struct AppState {
     /// `two_factor`'s service, over the parts above and the cipher
     /// (`TOTP_ENCRYPTION_KEY`).
     pub two_factor: Arc<TwoFactorService>,
+    /// `oidc`'s service: sign-in with the `OpenID` providers `OIDC_PROVIDERS`
+    /// configures (none by default: its routes answer `404`). A test swaps
+    /// the providers with [`AppState::with_identity_providers`].
+    pub oidc: Arc<OidcService>,
     /// `account`'s service, its profile photos in `storage`.
     pub account: Arc<AccountService>,
     /// `jobs`'s service: the queue, for admins.
@@ -141,6 +147,13 @@ impl AppState {
             download_url_ttl: config.media_download_url_ttl,
         });
         let account = Arc::new(AccountService::new(pool.clone(), storage.clone()));
+        let oidc = Arc::new(OidcService {
+            pool: pool.clone(),
+            keys: keys.clone(),
+            providers: Arc::new(IdentityProviders::from_settings(&config.oidc_providers)),
+            app_url: config.app_url.clone(),
+            require_verified_email: config.require_verified_email,
+        });
         Ok(AppState {
             storage,
             live: Topics::new(&config.jwt_secret),
@@ -154,6 +167,7 @@ impl AppState {
             }),
             auth,
             two_factor,
+            oidc,
             pool,
             keys,
             outbox,
@@ -182,6 +196,14 @@ impl AppState {
         Arc::make_mut(&mut self.media).storage = storage.clone();
         Arc::make_mut(&mut self.account).storage = storage.clone();
         self.storage = storage;
+        self
+    }
+
+    /// This state, signing in with `providers` instead of the configured
+    /// ones.
+    #[must_use]
+    pub fn with_identity_providers(mut self, providers: IdentityProviders) -> Self {
+        Arc::make_mut(&mut self.oidc).providers = Arc::new(providers);
         self
     }
 

@@ -627,6 +627,226 @@
       "primary_key": [
         "kind"
       ]
+    },
+    {
+      "name": "user_identities",
+      "module": "types",
+      "doc": [
+        "A User's Linked identities: who they are at a provider. One identity is",
+        "one account's, matched by its provider and subject, never by email."
+      ],
+      "columns": [
+        {
+          "name": "id",
+          "sql_type": "UUID",
+          "nullable": false
+        },
+        {
+          "name": "user_id",
+          "sql_type": "UUID",
+          "nullable": false
+        },
+        {
+          "name": "provider",
+          "sql_type": "TEXT",
+          "nullable": false,
+          "doc": [
+            "The provider's name, such as `google`."
+          ]
+        },
+        {
+          "name": "subject",
+          "sql_type": "TEXT",
+          "nullable": false,
+          "doc": [
+            "The provider's id for the person (the ID token's `sub`)."
+          ]
+        },
+        {
+          "name": "email",
+          "sql_type": "TEXT",
+          "nullable": true,
+          "doc": [
+            "The email the provider gave when the identity was linked, shown in",
+            "the settings; it is never matched on."
+          ]
+        },
+        {
+          "name": "created_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "uniques": [
+        {
+          "name": "user_identities_provider_subject_key",
+          "columns": [
+            "provider",
+            "subject"
+          ]
+        }
+      ],
+      "foreign_keys": [
+        {
+          "name": "user_identities_user_id_fkey",
+          "columns": [
+            "user_id"
+          ],
+          "ref_table": "users",
+          "ref_columns": [
+            "id"
+          ],
+          "on_delete": "CASCADE"
+        }
+      ]
+    },
+    {
+      "name": "oidc_requests",
+      "module": "types",
+      "doc": [
+        "A sign-in (or, with `user_id`, a link) waiting for the provider's",
+        "callback: single-use, found by the hash of its `state`, with the PKCE",
+        "verifier and the nonce the callback redeems the code with."
+      ],
+      "columns": [
+        {
+          "name": "id",
+          "sql_type": "UUID",
+          "nullable": false
+        },
+        {
+          "name": "provider",
+          "sql_type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "state_hash",
+          "sql_type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "pkce_verifier",
+          "sql_type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "nonce",
+          "sql_type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "user_id",
+          "sql_type": "UUID",
+          "nullable": true,
+          "doc": [
+            "The signed-in account linking an identity; none for a sign-in."
+          ]
+        },
+        {
+          "name": "expires_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": false
+        },
+        {
+          "name": "created_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "uniques": [
+        {
+          "name": "oidc_requests_state_hash_key",
+          "columns": [
+            "state_hash"
+          ]
+        }
+      ],
+      "foreign_keys": [
+        {
+          "name": "oidc_requests_user_id_fkey",
+          "columns": [
+            "user_id"
+          ],
+          "ref_table": "users",
+          "ref_columns": [
+            "id"
+          ],
+          "on_delete": "CASCADE"
+        }
+      ]
+    },
+    {
+      "name": "oidc_handoffs",
+      "module": "types",
+      "doc": [
+        "A finished sign-in handed over to a mobile App: a one-minute,",
+        "single-use code the App trades for a session (only its hash is kept)."
+      ],
+      "columns": [
+        {
+          "name": "id",
+          "sql_type": "UUID",
+          "nullable": false
+        },
+        {
+          "name": "user_id",
+          "sql_type": "UUID",
+          "nullable": false
+        },
+        {
+          "name": "code_hash",
+          "sql_type": "TEXT",
+          "nullable": false
+        },
+        {
+          "name": "expires_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": false
+        },
+        {
+          "name": "used_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": true
+        },
+        {
+          "name": "created_at",
+          "sql_type": "TIMESTAMPTZ",
+          "nullable": false,
+          "default": "now()"
+        }
+      ],
+      "primary_key": [
+        "id"
+      ],
+      "uniques": [
+        {
+          "name": "oidc_handoffs_code_hash_key",
+          "columns": [
+            "code_hash"
+          ]
+        }
+      ],
+      "foreign_keys": [
+        {
+          "name": "oidc_handoffs_user_id_fkey",
+          "columns": [
+            "user_id"
+          ],
+          "ref_table": "users",
+          "ref_columns": [
+            "id"
+          ],
+          "on_delete": "CASCADE"
+        }
+      ]
     }
   ],
   "indexes": [
@@ -664,6 +884,11 @@
       "name": "jobs_unique_key",
       "table": "jobs",
       "sql": "CREATE UNIQUE INDEX jobs_unique_key ON jobs(unique_key)"
+    },
+    {
+      "name": "user_identities_user",
+      "table": "user_identities",
+      "sql": "CREATE INDEX user_identities_user ON user_identities(user_id)"
     }
   ],
   "extras": [

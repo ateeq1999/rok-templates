@@ -9,7 +9,10 @@ use super::super::api_keys::models::ApiKey;
 use super::super::audit_log_entry::models::AuditLogEntry;
 use super::super::auth_tokens::models::AuthToken;
 use super::super::media::models::Media;
+use super::super::oidc_handoffs::models::OidcHandoff;
+use super::super::oidc_requests::models::OidcRequest;
 use super::super::totp_recovery_codes::models::TotpRecoveryCode;
+use super::super::user_identities::models::UserIdentity;
 use super::models::{User, UserId};
 use rok_data::Model;
 
@@ -192,6 +195,102 @@ where
     }
     let related = TotpRecoveryCode::filter(TotpRecoveryCode::USER_ID.is_in(keys))
         .order_by(TotpRecoveryCode::ID)
+        .all(executor)
+        .await?;
+    for row in related {
+        if let Some(list) = loaded.get_mut(&row.user_id) {
+            list.push(row);
+        }
+    }
+    Ok(loaded)
+}
+
+/// Loads the `user_identities` of each of `rows`: the `user_identities` rows whose
+/// `user_id` references it, keyed by `id`, in one query.
+/// Every row's key has an entry, empty when no row references it.
+pub async fn load_user_identities<'e, E>(
+    executor: E,
+    rows: &[User],
+) -> Result<HashMap<UserId, Vec<UserIdentity>>, rok_data::Error>
+where
+    E: rok_data::Executor<'e>,
+{
+    let mut loaded = HashMap::new();
+    let mut keys = Vec::new();
+    for row in rows {
+        loaded.insert(row.id, Vec::new());
+        keys.push(row.id);
+    }
+    if keys.is_empty() {
+        return Ok(loaded);
+    }
+    let related = UserIdentity::filter(UserIdentity::USER_ID.is_in(keys))
+        .order_by(UserIdentity::ID)
+        .all(executor)
+        .await?;
+    for row in related {
+        if let Some(list) = loaded.get_mut(&row.user_id) {
+            list.push(row);
+        }
+    }
+    Ok(loaded)
+}
+
+/// Loads the `oidc_requests` of each of `rows`: the `oidc_requests` rows whose
+/// `user_id` references it, keyed by `id`, in one query.
+/// Every row's key has an entry, empty when no row references it.
+pub async fn load_oidc_requests<'e, E>(
+    executor: E,
+    rows: &[User],
+) -> Result<HashMap<UserId, Vec<OidcRequest>>, rok_data::Error>
+where
+    E: rok_data::Executor<'e>,
+{
+    let mut loaded = HashMap::new();
+    let mut keys = Vec::new();
+    for row in rows {
+        loaded.insert(row.id, Vec::new());
+        keys.push(row.id);
+    }
+    if keys.is_empty() {
+        return Ok(loaded);
+    }
+    let related = OidcRequest::filter(OidcRequest::USER_ID.is_in(keys))
+        .order_by(OidcRequest::ID)
+        .all(executor)
+        .await?;
+    for row in related {
+        let Some(key) = &row.user_id else {
+            continue;
+        };
+        if let Some(list) = loaded.get_mut(key) {
+            list.push(row);
+        }
+    }
+    Ok(loaded)
+}
+
+/// Loads the `oidc_handoffs` of each of `rows`: the `oidc_handoffs` rows whose
+/// `user_id` references it, keyed by `id`, in one query.
+/// Every row's key has an entry, empty when no row references it.
+pub async fn load_oidc_handoffs<'e, E>(
+    executor: E,
+    rows: &[User],
+) -> Result<HashMap<UserId, Vec<OidcHandoff>>, rok_data::Error>
+where
+    E: rok_data::Executor<'e>,
+{
+    let mut loaded = HashMap::new();
+    let mut keys = Vec::new();
+    for row in rows {
+        loaded.insert(row.id, Vec::new());
+        keys.push(row.id);
+    }
+    if keys.is_empty() {
+        return Ok(loaded);
+    }
+    let related = OidcHandoff::filter(OidcHandoff::USER_ID.is_in(keys))
+        .order_by(OidcHandoff::ID)
         .all(executor)
         .await?;
     for row in related {

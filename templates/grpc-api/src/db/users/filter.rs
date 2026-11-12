@@ -4,11 +4,14 @@ use super::super::api_keys::filter::ApiKeyFilter;
 use super::super::audit_log_entry::filter::AuditLogEntryFilter;
 use super::super::auth_tokens::filter::AuthTokenFilter;
 use super::super::media::filter::MediaFilter;
+use super::super::oidc_handoffs::filter::OidcHandoffFilter;
+use super::super::oidc_requests::filter::OidcRequestFilter;
 use super::super::search::{
     Condition, Direction, Equality, Ordered, Sort, Text, correlate, open_exists, push_null_check,
 };
 use super::super::totp_recovery_codes::filter::TotpRecoveryCodeFilter;
 use super::super::types;
+use super::super::user_identities::filter::UserIdentityFilter;
 use super::models::User;
 use super::models::UserId;
 
@@ -100,6 +103,12 @@ pub struct UserFilter {
     pub auth_tokens: Option<Box<AuthTokenFilter>>,
     /// Matches rows with at least one of their `totp_recovery_codes` (`totp_recovery_codes` rows) matching this filter.
     pub totp_recovery_codes: Option<Box<TotpRecoveryCodeFilter>>,
+    /// Matches rows with at least one of their `user_identities` (`user_identities` rows) matching this filter.
+    pub user_identities: Option<Box<UserIdentityFilter>>,
+    /// Matches rows with at least one of their `oidc_requests` (`oidc_requests` rows) matching this filter.
+    pub oidc_requests: Option<Box<OidcRequestFilter>>,
+    /// Matches rows with at least one of their `oidc_handoffs` (`oidc_handoffs` rows) matching this filter.
+    pub oidc_handoffs: Option<Box<OidcHandoffFilter>>,
 }
 
 impl UserFilter {
@@ -229,6 +238,24 @@ impl UserFilter {
         }
         if let Some(filter) = self.totp_recovery_codes {
             let alias = open_exists("totp_recovery_codes", depth, query)?;
+            correlate(&alias, "user_id", outer, "id", query);
+            filter.push_conditions(&alias, depth + 1, query)?;
+            query.push(")");
+        }
+        if let Some(filter) = self.user_identities {
+            let alias = open_exists("user_identities", depth, query)?;
+            correlate(&alias, "user_id", outer, "id", query);
+            filter.push_conditions(&alias, depth + 1, query)?;
+            query.push(")");
+        }
+        if let Some(filter) = self.oidc_requests {
+            let alias = open_exists("oidc_requests", depth, query)?;
+            correlate(&alias, "user_id", outer, "id", query);
+            filter.push_conditions(&alias, depth + 1, query)?;
+            query.push(")");
+        }
+        if let Some(filter) = self.oidc_handoffs {
+            let alias = open_exists("oidc_handoffs", depth, query)?;
             correlate(&alias, "user_id", outer, "id", query);
             filter.push_conditions(&alias, depth + 1, query)?;
             query.push(")");
