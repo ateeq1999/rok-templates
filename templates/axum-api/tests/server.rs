@@ -20,6 +20,7 @@ fn mail(to: &str) -> Mail {
         subject: "Hello".to_owned(),
         text: "Hello there".to_owned(),
         html: "<p>Hello there</p>".to_owned(),
+        reply_to: None,
     }
 }
 

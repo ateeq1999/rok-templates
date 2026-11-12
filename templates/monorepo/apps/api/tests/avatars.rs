@@ -180,6 +180,32 @@ async fn delete_clears_the_photo() -> TestResult {
     db.drop().await
 }
 
+/// No photo yet is an answer, not an error: `200` with `null`, where a
+/// missing resource would be a `404`.
+#[tokio::test]
+async fn no_photo_yet_is_a_200_with_null() -> TestResult {
+    let Some(db) = Database::fresh().await? else {
+        return Ok(());
+    };
+    let state = state(&db.pool)?;
+    let token = user(&db.pool).await?;
+    let none_yet = fetch(&state, Some(&token), Method::GET, AVATAR).await?;
+    assert_eq!(none_yet.status, StatusCode::OK);
+    assert_eq!(none_yet.header("content-type"), Some("application/json"));
+    assert_eq!(&none_yet.bytes[..], b"null");
+
+    let url = avatar_url(&upload(&state, &token, picture(ImageFormat::Png)?).await?)?;
+    let current = fetch(&state, Some(&token), Method::GET, AVATAR).await?;
+    assert_eq!(current.status, StatusCode::OK);
+    assert_eq!(current.json()?, serde_json::json!({ "url": url }));
+
+    fetch(&state, Some(&token), Method::DELETE, AVATAR).await?;
+    let cleared = fetch(&state, Some(&token), Method::GET, AVATAR).await?;
+    assert_eq!(cleared.status, StatusCode::OK);
+    assert_eq!(&cleared.bytes[..], b"null");
+    db.drop().await
+}
+
 #[tokio::test]
 async fn what_is_not_an_image_is_unprocessable() -> TestResult {
     let Some(db) = Database::fresh().await? else {

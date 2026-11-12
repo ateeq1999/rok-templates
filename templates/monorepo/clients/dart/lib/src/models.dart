@@ -226,6 +226,27 @@ enum AuditLogEntrySort {
   String toJson() => value;
 }
 
+/// The `AvatarResponse` model.
+final class AvatarResponse {
+  /// Makes one from its fields.
+  const AvatarResponse({
+    required this.url,
+  });
+
+  /// Reads one from its JSON.
+  factory AvatarResponse.fromJson(Map<String, Object?> json) => AvatarResponse(
+    url: json['url'] as String,
+  );
+
+  /// The photo's public, cacheable URL, `/api/v1/avatars/<file>`.
+  final String url;
+
+  /// Its JSON.
+  Map<String, Object?> toJson() => {
+    'url': url,
+  };
+}
+
 /// The `ChangeEmailDto` model.
 final class ChangeEmailDto {
   /// Makes one from its fields.

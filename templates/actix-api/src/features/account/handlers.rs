@@ -6,7 +6,9 @@
 use actix_web::http::header;
 use actix_web::{HttpResponse, web};
 
-use super::dto::{AVATAR_CACHE_CONTROL, AVATAR_MAX_BYTES, AccountResponse, UpdateProfileDto};
+use super::dto::{
+    AVATAR_CACHE_CONTROL, AVATAR_MAX_BYTES, AccountResponse, AvatarResponse, UpdateProfileDto,
+};
 use super::service::AccountService;
 use crate::error::AppError;
 use crate::shared::auth::AuthUser;
@@ -79,6 +81,30 @@ pub async fn update_me(
         .update_profile(caller.id.into(), body.into_inner())
         .await?;
     Ok(HttpResponse::Ok().json(AccountResponse::from(user)))
+}
+
+/// `GET /api/v1/users/me/avatar`: the signed-in user's profile photo,
+/// `200`; `null` before they set one. No photo yet is an answer, not a
+/// `404`: that one means no such resource.
+#[utoipa::path(
+    get,
+    path = "/api/v1/users/me/avatar",
+    tag = "avatars",
+    operation_id = "current",
+    responses(
+        (status = 200, description = "The current photo, or null without one", body = Option<AvatarResponse>),
+        (status = 401, description = "No valid bearer token", body = ErrorBody),
+    ),
+    security(("bearer_auth" = [])),
+)]
+pub async fn current_avatar(
+    service: web::Data<AccountService>,
+    caller: AuthUser,
+) -> Result<web::Json<Option<AvatarResponse>>, AppError> {
+    match service.current_avatar(caller.id.into()).await? {
+        Some(url) => Ok(web::Json(Some(AvatarResponse { url }))),
+        None => Ok(web::Json(None)),
+    }
 }
 
 /// `PUT /api/v1/users/me/avatar`: makes the raw body (a JPEG, PNG or WebP

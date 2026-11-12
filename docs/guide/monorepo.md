@@ -55,7 +55,7 @@ and the root `Cargo.toml` holds only the Rust members.
 
 | App | What it is | Run it | Its checks |
 | --- | --- | --- | --- |
-| `apps/api` | The `axum` template file for file (`tests/template_drift.rs` checks it), plus the contract's export (`examples/openapi.rs`) and the tests that drive it through `clients/rust` (`tests/client/`). Every other page of this guide is about it. | `cargo run -p my-shop-api` from the root | `cargo test -p my-shop-api` (with `DATABASE_URL`; without it the database tests print a note and pass) |
+| `apps/api` | The `axum` template file for file (`tests/template_drift.rs` checks it), plus the contract's export (`examples/openapi.rs`) and the tests that drive it through `clients/rust` (`tests/client/`). Every other page of this guide is about it. | `cargo run -p my-shop-api` from the root | `cargo test -p my-shop-api` (with `DATABASE_URL`, exported or in `apps/api/.env`; without it the database tests print a note and pass, except in CI, where they fail) |
 | `apps/web` | TanStack Start (React, TypeScript, shadcn/ui), on `clients/ts`. | `bun install --frozen-lockfile`, then `bun run dev` in `apps/web` | `bun run typecheck`, `bun run test` |
 | `apps/desktop` | rok-ui's bloc-http starter on GPUI, imported at rok-ui 0.9.1, its data layer on `clients/rust`. | `cargo run -p my-shop-desktop` from the root | `cargo test -p my-shop-desktop` |
 | `apps/mobile` | Flutter (`flutter_bloc`, `go_router`) for iOS and Android, on `clients/dart`. | `flutter pub get`, then `flutter run` in `apps/mobile` | `flutter analyze`, `flutter test` |
@@ -72,6 +72,26 @@ it there by default:
 
 Each App's own `README.md` is its reference; the project's `README.md`
 lists them all.
+
+### Prerendered pages
+
+The web App is a single-page app: `bun run build` writes one static shell,
+`dist/client/_shell.html`, and the host serves it for every route. To ship
+a marketing page as finished HTML instead, list its path in `PRERENDERED`
+at the top of `apps/web/vite.config.ts`:
+
+```ts
+const PRERENDERED: string[] = ["/", "/about"]
+```
+
+The build then also writes `index.html` and `about/index.html`. Only the
+listed paths are rendered: no route is discovered and no link is followed,
+so the signed-in routes always render in the browser.
+
+The shell itself is rendered at `SHELL_PATH` (`/_shell`, a route that sends
+a visitor home), so no page takes its place. Listing that path fails the
+build with an error naming it; a page rendered over the shell would break
+every route that is not prerendered.
 
 ## One contract
 

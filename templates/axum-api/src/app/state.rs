@@ -19,6 +19,7 @@ use crate::features::jobs::JobService;
 use crate::features::media::MediaService;
 use crate::features::two_factor::TwoFactorService;
 use crate::shared::jobs::Queue;
+use crate::shared::live::Topics;
 use crate::shared::mail::{Outbox, Templates};
 use crate::shared::rate_limit::RateLimit;
 use crate::shared::security::breach::{self, BreachCheck};
@@ -69,6 +70,9 @@ pub struct AppState {
     pub storage: Arc<dyn Storage>,
     /// `media`'s service, over `storage` and the `MEDIA_*` settings.
     pub media: Arc<MediaService>,
+    /// The live Topics: the hub subscriptions read, listening once
+    /// `app::serve` starts it, and the tickets that open them.
+    pub live: Topics,
     /// The per-IP limit on every route but health (`GLOBAL_RATE_LIMIT`,
     /// off by default), counted apart from `rate_limit`.
     #[from_ref(skip)]
@@ -139,6 +143,7 @@ impl AppState {
         let account = Arc::new(AccountService::new(pool.clone(), storage.clone()));
         Ok(AppState {
             storage,
+            live: Topics::new(&config.jwt_secret),
             media,
             account,
             api_keys: Arc::new(ApiKeyService::new(pool.clone())),

@@ -72,6 +72,11 @@ export const queries = {
         queryKey: ["avatars", "serve", file] as const,
         queryFn: ({ signal }) => api.avatars.serve(file, { signal }),
       }),
+    current: () =>
+      queryOptions({
+        queryKey: ["avatars", "current"] as const,
+        queryFn: ({ signal }) => api.avatars.current({ signal }),
+      }),
   },
   jobs: {
     list: (query?: JobsListQuery) =>

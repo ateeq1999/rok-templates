@@ -77,7 +77,13 @@ pub async fn serve_as(
     } else {
         None
     };
+    let live = state.live.clone();
     let app = if role.serves_api() {
+        // One listener per instance fans the live Topics out to its
+        // subscribers; without it, subscriptions open but stay quiet.
+        if let Err(err) = live.start(&state.pool).await {
+            tracing::warn!(error = %err, "live: no NOTIFY listener; subscriptions hear nothing");
+        }
         router(state)
     } else {
         health_routes(&state.pool, &state.draining)
@@ -98,9 +104,13 @@ pub async fn serve_as(
         served = &mut server => Some(served.map_err(std::io::Error::other).and_then(|served| served)),
         () = shutdown => None,
     };
-    let served = match served {
-        Some(served) => served,
-        None => drain(&draining, settings, stop_accepting, server).await,
+    let served = if let Some(served) = served {
+        served
+    } else {
+        // Open subscriptions end, so they don't hold the drain up: their
+        // clients reconnect to an instance that is ready.
+        live.close();
+        drain(&draining, settings, stop_accepting, server).await
     };
     if let Some(background) = background {
         background.stop_within(settings.grace).await;

@@ -44,6 +44,12 @@ impl AccountService {
         User::find(&self.pool, id).await?.ok_or_else(gone)
     }
 
+    /// The URL of the account `id`'s profile photo, or `None` before it
+    /// sets one.
+    pub async fn current_avatar(&self, id: UserId) -> Result<Option<String>, AppError> {
+        Ok(self.me(id).await?.avatar_url)
+    }
+
     /// Changes the account `id`'s profile: the fields `input` holds.
     pub async fn update_profile(
         &self,

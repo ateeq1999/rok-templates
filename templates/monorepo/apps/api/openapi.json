@@ -2526,6 +2526,47 @@
       }
     },
     "/api/v1/users/me/avatar": {
+      "get": {
+        "tags": [
+          "avatars"
+        ],
+        "summary": "`GET /api/v1/users/me/avatar`: the signed-in user's profile photo,\n`200`; `null` before they set one. No photo yet is an answer, not a\n`404`: that one means no such resource.",
+        "operationId": "current",
+        "responses": {
+          "200": {
+            "description": "The current photo, or null without one",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "oneOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "$ref": "#/components/schemas/AvatarResponse"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      },
       "put": {
         "tags": [
           "avatars"
@@ -3117,6 +3158,19 @@
           "id",
           "created_at"
         ]
+      },
+      "AvatarResponse": {
+        "type": "object",
+        "description": "The signed-in user's current profile photo, as `GET /users/me/avatar`\nanswers it. Without one the route answers `null`, not a `404`: no photo\nyet is an answer.",
+        "required": [
+          "url"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "The photo's public, cacheable URL, `/api/v1/avatars/<file>`."
+          }
+        }
       },
       "ChangeEmailDto": {
         "type": "object",

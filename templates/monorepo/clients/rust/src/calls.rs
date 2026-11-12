@@ -318,6 +318,17 @@ impl Avatars<'_> {
         call.json_answer().await
     }
 
+    /// `GET /api/v1/users/me/avatar`: the signed-in user's profile photo,
+    /// `200`; `null` before they set one. No photo yet is an answer, not a
+    /// `404`: that one means no such resource.
+    ///
+    /// Sends the session's token.
+    pub async fn current(&self) -> Result<Option<types::AvatarResponse>, ApiError> {
+        let path = "/api/v1/users/me/avatar";
+        let call = self.client.call(Method::GET, path, true)?;
+        call.json_answer().await
+    }
+
     /// `PUT /api/v1/users/me/avatar`: makes the raw body (a JPEG, PNG or WebP
     /// image) the signed-in user's profile photo, `200`.
     ///

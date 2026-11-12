@@ -334,9 +334,11 @@ documents each one, the settings, sending real mail and adding a flow
   or WebP image of at most 2 MiB (`413` past it; anything undecodable, or
   over 8192×8192 pixels, is a `422`), stores a 256×256 JPEG of its centre
   (re-encoded, so no EXIF survives) and deletes the previous one;
-  `DELETE /api/v1/users/me/avatar` removes it. Every user response
-  answers `avatar_url`, `/api/v1/avatars/<file>` or `null`, which anyone
-  may fetch, cacheable for good (a new photo gets a new name).
+  `DELETE /api/v1/users/me/avatar` removes it, and `GET` answers it,
+  `{ "url": … }`, or `200` with `null` before there is one. Every user
+  response answers `avatar_url`, `/api/v1/avatars/<file>` or `null`,
+  which anyone may fetch, cacheable for good (a new photo gets a new
+  name).
 - **API keys.** `src/features/api_keys/`: `POST /api/v1/api-keys`
   (`{"name", "scope"?, "expires_in_days"?}`) answers a `rok_…` key once
   (only its prefix and SHA-256 are stored); `GET` lists the caller's
@@ -373,6 +375,24 @@ the extractor, no rules: the guide's
 page has a recipe (staff roles, a member's role at a partner from the
 path, and a guard generic over the kind of partner), each rule backed by
 one read query in `queries/shared/`.
+
+### Live updates
+
+A screen other people change (a board, a bill) needn't poll: a feature
+publishes a notice on a Topic on its own transaction, sent only when it
+commits (a PostgreSQL `NOTIFY`), and signed-in clients subscribe:
+
+```rust
+live::publish(&mut tx, tenant, "orders.new", json!({"id": order.id})).await?;
+```
+
+`POST /api/v1/live/tickets` gives a caller the `Subscriber` guard
+(`src/features/live/service.rs`) lets in a short-lived ticket to its
+tenant's Topics (by default, each account is its own tenant), and
+`GET /api/v1/live?topics=orders.new&ticket=…` streams the notices as
+server-sent events. One listener per instance fans them out. The guide's
+[Live updates](https://github.com/ateeq1999/rok-templates/blob/main/docs/guide/live.md)
+page has the rest.
 
 ## Uploads
 
@@ -484,6 +504,7 @@ bytes = "1"
 chrono = { version = "0.4", features = ["serde"] }
 croner = "4"
 dotenvy = "=0.15.7"
+futures-util = { version = "0.3", default-features = false }
 governor = { version = "0.10", default-features = false, features = ["std"] }
 hmac = "0.13"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp"] }
@@ -548,8 +569,9 @@ rok sqlc g --check                       # the generated code matches the schema
 rok sqlc check-arch                      # the layout and rules of AGENTS.md
 ```
 
-Without `DATABASE_URL`, the API tests print a note and pass; the contract
-and rate-limit tests need no database. The lints in `Cargo.toml` deny
+Without `DATABASE_URL` (exported or in `.env`), the API tests print a
+note and pass, except in CI (`CI` set), where they fail; the contract and
+rate-limit tests need no database. The lints in `Cargo.toml` deny
 `unwrap`, `expect`, `panic`, `todo` and leftover debugging.
 
 ## What is generated, and what is yours
@@ -615,9 +637,13 @@ features follow.
 - `token_version` is bumped to sign an account out everywhere: a token
   carrying an older one is rejected.
 
-`tests/contract.rs` lists the differences that remain, each with its
-reason: the `?permanent=` and list `sort`/`order` parameters every
-generated API has, and the account routes' answers, named
+`tests/contract.rs` allows additions to a covered route: a new optional
+request property or query parameter (the `?permanent=` and list
+`sort`/`order` every generated API has among them) and a new response
+property, so a project grows the starter's routes instead of adding
+twins beside them. A removed or retyped property, a new required one and
+a changed success status still fail. `KNOWN` lists the differences that
+remain, each with its reason: the account routes' answers, named
 `AccountResponse` and `NewAccountResponse` so they don't replace the
 `users` feature's `UserResponse` (utoipa keeps one schema per name;
 `tests/openapi_schemas.rs` fails when two collide).
