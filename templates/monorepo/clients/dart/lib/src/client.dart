@@ -310,6 +310,49 @@ final class AuthApi {
     options,
   );
 
+  /// `GET /api/v1/auth/oidc/identities`: the caller's Linked identities,
+  /// `200`.
+  Future<List<IdentityResponse>> listIdentities({
+    RequestOptions? options,
+  }) => _transport.json<List<IdentityResponse>>(
+    Call(
+      'GET',
+      '/api/v1/auth/oidc/identities',
+      secured: true,
+    ),
+    (json) => (json as List<Object?>).map((v) => IdentityResponse.fromJson(v as Map<String, Object?>)).toList(),
+    options,
+  );
+
+  /// `DELETE /api/v1/auth/oidc/identities/{id}`: unlinks one of the caller's
+  /// identities, `204`.
+  Future<void> unlinkIdentity(
+    String id, {
+    RequestOptions? options,
+  }) => _transport.none(
+    Call(
+      'DELETE',
+      '/api/v1/auth/oidc/identities/${Uri.encodeComponent(id)}',
+      secured: true,
+    ),
+    options,
+  );
+
+  /// `POST /api/v1/auth/oidc/{provider}/link`: where to send the browser to
+  /// link an identity at `provider` to the caller, `200`.
+  Future<LinkResponse> linkIdentity(
+    String provider, {
+    RequestOptions? options,
+  }) => _transport.json<LinkResponse>(
+    Call(
+      'POST',
+      '/api/v1/auth/oidc/${Uri.encodeComponent(provider)}/link',
+      secured: true,
+    ),
+    (json) => LinkResponse.fromJson(json as Map<String, Object?>),
+    options,
+  );
+
   /// `POST /api/v1/auth/password/change`: replaces the signed-in user's
   /// password and signs every session out, `200`.
   Future<MessageResponse> change(

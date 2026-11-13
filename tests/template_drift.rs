@@ -55,6 +55,9 @@ const SHARED: &[&str] = &[
     "src/shared/jobs",
     // The live Topics: `publish`, the hub and its tickets.
     "src/shared/live",
+    // Sign-in with an `OpenID` provider: `IdentityProvider`, its `openidconnect`
+    // implementation and the test fake.
+    "src/shared/oidc",
     "src/shared/mod.rs",
     // `cargo deny check`'s policy.
     "deny.toml",
@@ -79,6 +82,7 @@ const HAND_WRITTEN: &[&str] = &[
     "jobs",
     "live",
     "media",
+    "oidc",
     "two_factor",
 ];
 

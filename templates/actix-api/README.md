@@ -292,6 +292,13 @@ documents each one, the settings, sending real mail and adding a flow
   a new link with `POST /api/v1/auth/email/verification/resend`. With
   `MAIL_TRANSPORT=log` (the default) the mail is logged, and
   `RUST_LOG=debug` shows its body.
+- **Sign-in with a provider.** `src/features/oidc/` signs people in with
+  an OpenID provider such as Google (`GET /api/v1/auth/oidc/{provider}/start`),
+  and lists, links and unlinks a signed-in account's identities under
+  `/api/v1/auth/oidc/identities`. It is off until `OIDC_PROVIDERS` names a
+  provider (its routes answer 404); `OIDC_<NAME>_TRUST_EMAIL` decides
+  whether an email an account has links. The guide's "Sign in with
+  Google" has the setup.
 - **Sign-in.** `POST /api/v1/auth/login` answers a session token. Five
   wrong passwords in a row lock an account for 15 minutes, and an
   unverified email is a `403` while `REQUIRE_VERIFIED_EMAIL=true`.
@@ -504,6 +511,7 @@ lettre = { version = "0.11", default-features = false, features = ["builder", "h
 metrics = "0.24"
 metrics-exporter-prometheus = { version = "0.18", default-features = false, features = ["http-listener"] }
 object_store = { version = "0.13", features = ["aws"] }
+openidconnect = { version = "4", default-features = false, features = ["reqwest", "rustls-tls"] }
 opentelemetry = { version = "0.32", default-features = false, features = ["trace"] }
 opentelemetry-otlp = { version = "0.32", default-features = false, features = ["trace", "http-proto", "reqwest-blocking-client", "reqwest-rustls"] }
 opentelemetry_sdk = { version = "0.32", default-features = false, features = ["trace"] }
@@ -524,6 +532,7 @@ tracing = "0.1"
 tracing-actix-web = { version = "0.7", features = ["opentelemetry_0_32"] }
 tracing-opentelemetry = { version = "0.33", default-features = false }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+url = "2"
 utoipa = { version = "5", features = ["chrono", "uuid"] }
 utoipa-swagger-ui = { version = "9", features = ["actix-web", "vendored"] }
 uuid = { version = "1", features = ["v7", "serde"] }
@@ -570,9 +579,9 @@ needs no database. The lints in `Cargo.toml` deny `unwrap`, `expect`,
   `src/{lib,main,config,error,openapi}.rs`, `src/app/`,
   `src/shared/{mod,auth}.rs`, `src/shared/rate_limit/`,
   `src/shared/security/`, `src/shared/mail/`, `src/shared/storage/`,
-  `src/shared/thumbnail.rs`,
+  `src/shared/thumbnail.rs`, `src/shared/oidc/`,
   `src/features/mod.rs`, the hand-written
-  `src/features/{account,api_keys,auth,jobs,media,two_factor}/`,
+  `src/features/{account,api_keys,auth,jobs,media,oidc,two_factor}/`,
   each feature's `service.rs` (business rules go there), `tests/`, and this README.
 - **Generated**: `migrations/` is the history — `rok gen --migration` (the
   workspace CLI) stages its pairs and refreshes `.rok-schema.json`; never

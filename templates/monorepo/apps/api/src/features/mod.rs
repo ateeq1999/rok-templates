@@ -12,5 +12,6 @@ mod generated;
 pub mod jobs;
 pub mod live;
 pub mod media;
+pub mod oidc;
 pub mod two_factor;
 pub use generated::*;

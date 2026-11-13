@@ -114,11 +114,14 @@ units, time is UTC, and ids are UUIDs.
 
 `features/auth/` (sign-up, sign-in, email verification, the password
 flows, email change, invitations), `features/two_factor/`
-(`/auth/2fa/*`) and `features/account/` (`/auth/me`, `/users/me`) are
-hand-written and follow the rules above. Keep to how they work:
+(`/auth/2fa/*`), `features/oidc/` (`/auth/oidc/*`, sign-in with an
+OpenID provider through `shared/oidc`) and `features/account/` (`/auth/me`,
+`/users/me`) are hand-written and follow the rules above. Keep to how they
+work:
 
 - **SQL.** `auth`'s goes in `queries/auth.sql`, `two_factor`'s in
-  `queries/two_factor.sql`, `account`'s in `queries/account.sql`; SQL
+  `queries/two_factor.sql`, `oidc`'s in `queries/oidc.sql`, `account`'s in
+  `queries/account.sql`; SQL
   `shared/` runs goes in a file named after no feature
   (`queries/session.sql`, `queries/queue.sql`). Run `rok sqlc g` after
   editing one.

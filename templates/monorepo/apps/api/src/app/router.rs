@@ -21,7 +21,7 @@ use super::middleware::{
 };
 use crate::error::AppError;
 use crate::features;
-use crate::features::{account, api_keys, auth, jobs, live, media, two_factor};
+use crate::features::{account, api_keys, auth, jobs, live, media, oidc, two_factor};
 use crate::openapi::document;
 use crate::shared::health;
 use crate::shared::shutdown::Draining;
@@ -35,7 +35,7 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 /// The whole application over `state`: `/health/live` and
 /// `/health/ready`, the `OpenAPI` document at `/api-docs/openapi.json` with
 /// Swagger UI at `/docs/`, every feature's routes (the hand-written
-/// `account`, `auth` and `two_factor`, their `/auth` routes behind
+/// `account`, `auth`, `two_factor` and `oidc`, their `/auth` routes behind
 /// `state.rate_limit`), and the middleware: tracing, request ids
 /// (`x-request-id`), the security headers, CORS, a timeout, a body limit,
 /// a panic answered `500`, and everything but health under
@@ -64,6 +64,7 @@ pub fn router(state: AppState) -> Router {
         .merge(jobs::routes())
         .merge(live::routes::<live::Subscriber>())
         .merge(two_factor::routes(&state.rate_limit))
+        .merge(oidc::routes(&state.rate_limit))
         .merge(media::routes(state.media.max_upload_bytes))
         .with_state(state);
     // Everything but health counts against `GLOBAL_RATE_LIMIT`: a probe is

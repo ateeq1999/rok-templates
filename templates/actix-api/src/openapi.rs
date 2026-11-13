@@ -36,6 +36,12 @@ use crate::features::GeneratedApiDoc;
         crate::features::two_factor::handlers::enable_totp,
         crate::features::two_factor::handlers::disable_totp,
         crate::features::two_factor::handlers::verify_totp,
+        // `oidc`'s `start` and `callback` answer only redirects, which the
+        // released `rok` can't read into the Clients yet: they join the document
+        // after the next `rok` release (see `features/oidc/handlers.rs`).
+        crate::features::oidc::handlers::list_identities,
+        crate::features::oidc::handlers::link_identity,
+        crate::features::oidc::handlers::unlink_identity,
         crate::features::api_keys::handlers::list,
         crate::features::api_keys::handlers::create,
         crate::features::api_keys::handlers::revoke,

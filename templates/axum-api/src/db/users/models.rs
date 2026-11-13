@@ -4,8 +4,11 @@ use super::super::api_keys::models::ApiKey;
 use super::super::audit_log_entry::models::AuditLogEntry;
 use super::super::auth_tokens::models::AuthToken;
 use super::super::media::models::Media;
+use super::super::oidc_handoffs::models::OidcHandoff;
+use super::super::oidc_requests::models::OidcRequest;
 use super::super::totp_recovery_codes::models::TotpRecoveryCode;
 use super::super::types;
+use super::super::user_identities::models::UserIdentity;
 use rok_data::Model;
 
 /// The primary key of the `users` table, as a distinct type so it
@@ -63,6 +66,9 @@ rok_data::impl_value!(UserId);
 #[rok(has_many(api_keys = ApiKey::USER_ID))]
 #[rok(has_many(auth_tokens = AuthToken::USER_ID))]
 #[rok(has_many(totp_recovery_codes = TotpRecoveryCode::USER_ID))]
+#[rok(has_many(user_identities = UserIdentity::USER_ID))]
+#[rok(has_many(oidc_requests = OidcRequest::USER_ID))]
+#[rok(has_many(oidc_handoffs = OidcHandoff::USER_ID))]
 pub struct User {
     /// The `id` column.
     pub id: UserId,

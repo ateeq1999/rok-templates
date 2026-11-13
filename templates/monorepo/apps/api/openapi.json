@@ -1124,6 +1124,202 @@
         ]
       }
     },
+    "/api/v1/auth/oidc/identities": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "`GET /api/v1/auth/oidc/identities`: the caller's Linked identities,\n`200`.",
+        "operationId": "list_identities",
+        "responses": {
+          "200": {
+            "description": "The caller's Linked identities, oldest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/IdentityResponse"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No OpenID provider is configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this IP",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/oidc/identities/{id}": {
+      "delete": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "`DELETE /api/v1/auth/oidc/identities/{id}`: unlinks one of the caller's\nidentities, `204`.",
+        "operationId": "unlink_identity",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "The Linked identity",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/UserIdentityId"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Unlinked"
+          },
+          "401": {
+            "description": "No valid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such identity of the caller's, or no provider configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "The account's last way in: no password and no other identity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this IP",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
+    "/api/v1/auth/oidc/{provider}/link": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "`POST /api/v1/auth/oidc/{provider}/link`: where to send the browser to\nlink an identity at `provider` to the caller, `200`.",
+        "operationId": "link_identity",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "description": "The provider's name, such as `google`",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The provider's authorization URL; its callback links the identity",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LinkResponse"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid bearer token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such provider is configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this IP",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer_auth": []
+          }
+        ]
+      }
+    },
     "/api/v1/auth/password/change": {
       "post": {
         "tags": [
@@ -3376,6 +3572,37 @@
           }
         }
       },
+      "IdentityResponse": {
+        "type": "object",
+        "description": "One of the signed-in account's Linked identities.",
+        "required": [
+          "id",
+          "provider",
+          "created_at"
+        ],
+        "properties": {
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When it was linked."
+          },
+          "email": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The email the provider gave when it was linked, if any."
+          },
+          "id": {
+            "$ref": "#/components/schemas/UserIdentityId",
+            "description": "Unlink it with `DELETE /auth/oidc/identities/{id}`."
+          },
+          "provider": {
+            "type": "string",
+            "description": "The provider's name, such as `google`."
+          }
+        }
+      },
       "InviteUserDto": {
         "type": "object",
         "description": "`POST /auth/invitations`' body: an admin invites someone, whose account\nis created and a \"set your password\" link mailed. The email is trimmed\nand lowercased, the display name trimmed (an empty one is none), and\nthe role is `user` unless given.",
@@ -3469,6 +3696,19 @@
           "pending",
           "dead"
         ]
+      },
+      "LinkResponse": {
+        "type": "object",
+        "description": "`POST /auth/oidc/{provider}/link`'s answer: where to send the browser.\nThe provider sends it back to the callback, which links the identity\nand goes on to `{APP_URL}/auth/oidc#linked=<provider>`.",
+        "required": [
+          "url"
+        ],
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "The provider's authorization URL."
+          }
+        }
       },
       "LoginResponse": {
         "oneOf": [
@@ -4169,6 +4409,11 @@
             "description": "Where to send them: absolute on an S3-compatible store, else relative\nto the API (`/api/v1/storage/…`)."
           }
         }
+      },
+      "UserIdentityId": {
+        "type": "string",
+        "format": "uuid",
+        "description": "The primary key of the `user_identities` table, as a distinct type so it\ncannot be mixed up with another table's key."
       },
       "UserResponse": {
         "type": "object",

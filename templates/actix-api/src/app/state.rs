@@ -15,6 +15,7 @@ use crate::features::media::MediaService;
 use crate::shared::jobs::Queue;
 use crate::shared::live::Topics;
 use crate::shared::mail::{Outbox, Templates};
+use crate::shared::oidc::IdentityProviders;
 use crate::shared::rate_limit::RateLimit;
 use crate::shared::security::breach::{self, BreachCheck};
 use crate::shared::security::headers::CorsOrigins;
@@ -65,6 +66,13 @@ pub struct AppState {
     pub media_download_url_ttl: std::time::Duration,
     /// Encrypts two-factor secrets at rest (`TOTP_ENCRYPTION_KEY`).
     pub totp: Arc<TotpCipher>,
+    /// The `OpenID` providers people may sign in with (`OIDC_PROVIDERS`;
+    /// none by default: the `oidc` routes answer `404`). A test swaps them
+    /// with [`AppState::with_identity_providers`].
+    pub identity_providers: Arc<IdentityProviders>,
+    /// `APP_URL`: where the `oidc` callback is, and where it sends the
+    /// browser on to.
+    pub app_url: String,
     /// The per-IP limit on every route but health (`GLOBAL_RATE_LIMIT`,
     /// off by default), counted apart from `rate_limit`.
     pub global_rate_limit: RateLimit,
@@ -112,6 +120,8 @@ impl AppState {
             media_upload_url_ttl: config.media_upload_url_ttl,
             media_download_url_ttl: config.media_download_url_ttl,
             totp: Arc::new(TotpCipher::new(&config.totp_encryption_key)),
+            identity_providers: Arc::new(IdentityProviders::from_settings(&config.oidc_providers)),
+            app_url: config.app_url.clone(),
             global_rate_limit: RateLimit::per_minute(config.global_rate_limit, config.trust_proxy),
             cors_allowed_origins: config.cors_allowed_origins.clone(),
             https: config.https(),
@@ -122,6 +132,14 @@ impl AppState {
     #[must_use]
     pub fn with_storage(mut self, storage: Arc<dyn Storage>) -> Self {
         self.storage = storage;
+        self
+    }
+
+    /// This state, signing in with `providers` instead of the configured
+    /// ones.
+    #[must_use]
+    pub fn with_identity_providers(mut self, providers: IdentityProviders) -> Self {
+        self.identity_providers = Arc::new(providers);
         self
     }
 

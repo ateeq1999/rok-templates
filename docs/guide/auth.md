@@ -24,6 +24,7 @@ shows actix-web wiring, the axum template does the same in axum's terms.
 - [Where the code is](#where-the-code-is)
 - [The flows](#the-flows)
 - [Two-factor sign-in](#two-factor-sign-in)
+- [Sign in with Google](#sign-in-with-google)
 - [API keys](#api-keys)
 - [Sessions](#sessions)
 - [Settings](#settings)
@@ -182,6 +183,96 @@ can't open the secrets or match the recovery codes stored under the old
 one, so every user with two-factor on would have to set it up again. Keep
 the key with your other secrets, and back it up.
 
+## Sign in with Google
+
+People can sign in with an OpenID provider, such as Google, as well as
+with a password. The `oidc` feature (`src/features/oidc/`, its SQL in
+`queries/oidc.sql`) does it, and `shared/oidc/` reaches the provider
+through `IdentityProvider`: `OpenIdProvider` speaks OpenID Connect
+(discovery, the authorization code flow with PKCE, a signed ID token
+checked for its audience, expiry and nonce), and `FakeIdentityProvider`
+stands in for one in tests. Nothing is Google-only: a provider is a
+name you choose and its issuer (workspace ADR 0035).
+
+It is off until a provider is configured: with no `OIDC_PROVIDERS`, every
+route below answers `404`.
+
+**Setting Google up.** In the Google Cloud console, create an OAuth client
+of type *Web application* and add the callback as an authorized redirect
+URI: `{APP_URL}/api/v1/auth/oidc/google/callback` (with the web App, the
+browser reaches the API under the App's origin, so `APP_URL` is the App's).
+Then set:
+
+```sh
+OIDC_PROVIDERS=google
+OIDC_GOOGLE_ISSUER=https://accounts.google.com
+OIDC_GOOGLE_CLIENT_ID=1234-abc.apps.googleusercontent.com
+OIDC_GOOGLE_CLIENT_SECRET=GOCSPX-...
+OIDC_GOOGLE_TRUST_EMAIL=true
+```
+
+Another provider is another name in `OIDC_PROVIDERS` (lowercase letters,
+digits and dashes) with its own `OIDC_<NAME>_*` variables: `work-sso`
+reads `OIDC_WORK_SSO_ISSUER` and so on.
+
+**The routes**, under `/api/v1/auth/oidc`, behind the `/auth` rate limit:
+
+| Route | Does |
+|---|---|
+| `GET /{provider}/start` | `303` to the provider's sign-in page |
+| `GET /{provider}/callback` | the provider's redirect back: `303` to `{APP_URL}/auth/oidc#…` |
+| `GET /identities` | the caller's Linked identities |
+| `POST /{provider}/link` | the authorization URL that links an identity to the caller |
+| `DELETE /identities/{id}` | unlinks one (`204`) |
+
+The callback sends the browser to the App with the outcome in the URL's
+fragment, which never reaches a server: `access_token`, `expires_in` and
+`token_type` for a session; `requires_totp=true` and `pending_token` when
+the account has two-factor on (the App asks for the code and sends both
+to `POST /auth/2fa/verify`, as after a password); `linked=<provider>`
+after a link; or `error` and `message` when it didn't sign in
+(`email_in_use`, `identity_in_use`, `invalid_request` for an expired or
+replayed callback, `provider_refused`, …).
+
+`start` and `callback` answer only redirects, and the released `rok`'s
+contract reader still refuses an operation with no `2xx`, so they are
+not in the `OpenAPI` document or the Clients yet: they join them with the
+next `rok` release, which reads Browser routes. The other three are
+ordinary routes in the document.
+
+**Who signs in.** A Linked identity is matched by its provider and its
+subject (the ID token's `sub`), never by email: a returning identity signs
+in as its account whatever email the provider now gives. An unknown
+identity:
+
+- with an email no account has, signs up: a new account with no password,
+  its email verified when the provider says so (with
+  `REQUIRE_VERIFIED_EMAIL`, an unverified one is refused);
+- with an email an account has, is refused with `email_in_use`: the person
+  signs in to that account another way and links the provider from its
+  settings (`POST /{provider}/link`);
+- unless the provider is configured `trust_email`, and the ID token says
+  `email_verified`: then it links to that account and signs in.
+
+**What `trust_email` trusts.** It trusts the provider's word that the
+person controls that address, enough to hand them the account that has
+it. Set it only for a provider that owns the emails it vouches for:
+Google, for Gmail and Google Workspace addresses, is the documented case,
+and its setup above sets it. Leave it off for a provider that lets anyone
+claim an address and verifies it loosely, or for a self-hosted one whose
+users can set their own email: there, `trust_email` would let anyone who
+signs up there with someone's address take over their account here.
+Off, nothing is lost but a step: the person links the provider once
+from their settings.
+
+**Unlinking keeps a way in.** `DELETE /identities/{id}` of an account
+with no password and no other identity is a `422` saying why; set a
+password (the reset flow) or link another identity first.
+
+**Testing.** `tests/oidc.rs` signs in against `FakeIdentityProvider`:
+`AppState::with_identity_providers` swaps it in under a name, and
+`fake.code_for(identity)` is the code the provider's redirect would bring.
+
 ## API keys
 
 A user makes keys for scripts and integrations: `POST /api-keys` with
@@ -263,6 +354,9 @@ development only (`app/seed.rs`, its SQL in `queries/seed.sql`).
 | `BREACH_CHECK` | `false` | refuse passwords Have I Been Pwned knows |
 | `TRUST_PROXY` | `false` | take the client IP from `X-Forwarded-For` |
 | `AUTH_RATE_LIMIT` | `20` | requests a minute per IP on `/auth`; `0` turns it off |
+| `OIDC_PROVIDERS` | unset | the OpenID providers people may sign in with, by name; unset, off ([Sign in with Google](#sign-in-with-google)) |
+| `OIDC_<NAME>_ISSUER`, `_CLIENT_ID`, `_CLIENT_SECRET` | required for each provider | its issuer URL and the client the provider issued |
+| `OIDC_<NAME>_TRUST_EMAIL` | `false` | link an unknown identity to the account with its verified email |
 
 The upload settings (`STORAGE_URL`, `MEDIA_MAX_UPLOAD_BYTES`,
 `MEDIA_ALLOWED_TYPES`) are on [Files and storage](files.md#settings).

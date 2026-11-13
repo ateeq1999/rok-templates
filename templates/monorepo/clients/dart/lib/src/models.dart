@@ -570,6 +570,45 @@ final class ForgotPasswordDto {
   };
 }
 
+/// The `IdentityResponse` model.
+final class IdentityResponse {
+  /// Makes one from its fields.
+  const IdentityResponse({
+    required this.createdAt,
+    this.email,
+    required this.id,
+    required this.provider,
+  });
+
+  /// Reads one from its JSON.
+  factory IdentityResponse.fromJson(Map<String, Object?> json) => IdentityResponse(
+    createdAt: json['created_at'] as String,
+    email: json['email'] as String?,
+    id: json['id'] as String,
+    provider: json['provider'] as String,
+  );
+
+  /// When it was linked.
+  final String createdAt;
+
+  /// The email the provider gave when it was linked, if any.
+  final String? email;
+
+  /// Unlink it with `DELETE /auth/oidc/identities/{id}`.
+  final String id;
+
+  /// The provider's name, such as `google`.
+  final String provider;
+
+  /// Its JSON.
+  Map<String, Object?> toJson() => {
+    'created_at': createdAt,
+    'email': ?email,
+    'id': id,
+    'provider': provider,
+  };
+}
+
 /// The `InviteUserDto` model.
 final class InviteUserDto {
   /// Makes one from its fields.
@@ -684,6 +723,27 @@ enum JobStatus {
 
   /// Its JSON.
   String toJson() => value;
+}
+
+/// The `LinkResponse` model.
+final class LinkResponse {
+  /// Makes one from its fields.
+  const LinkResponse({
+    required this.url,
+  });
+
+  /// Reads one from its JSON.
+  factory LinkResponse.fromJson(Map<String, Object?> json) => LinkResponse(
+    url: json['url'] as String,
+  );
+
+  /// The provider's authorization URL.
+  final String url;
+
+  /// Its JSON.
+  Map<String, Object?> toJson() => {
+    'url': url,
+  };
 }
 
 /// The `LoginResponse` model: one of its variants.
@@ -1327,6 +1387,9 @@ final class UploadTicket {
     'upload_url': uploadUrl,
   };
 }
+
+/// The `UserIdentityId` schema.
+typedef UserIdentityId = String;
 
 /// The `UserResponse` model.
 final class UserResponse {

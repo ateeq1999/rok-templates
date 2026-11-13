@@ -17,8 +17,10 @@ import type {
   DownloadUrl,
   EnableTotpDto,
   ForgotPasswordDto,
+  IdentityResponse,
   InviteUserDto,
   JobsListQuery,
+  LinkResponse,
   LoginResponse,
   MediaListQuery,
   MediaResponse,
@@ -37,6 +39,7 @@ import type {
   UpdateProfileDto,
   UpdateUserDto,
   UploadTicket,
+  UserIdentityId,
   UserResponse,
   UsersListQuery,
   UsersRemoveQuery,
@@ -297,6 +300,56 @@ export const api = {
         {
           method: "GET",
           path: "/api/v1/auth/me",
+          secured: true,
+          response: "json",
+        },
+        options
+      ),
+    /**
+     * `GET /api/v1/auth/oidc/identities`: the caller's Linked identities,
+     * `200`.
+     */
+    listIdentities: (
+      options?: RequestOptions
+    ) =>
+      request<IdentityResponse[]>(
+        {
+          method: "GET",
+          path: "/api/v1/auth/oidc/identities",
+          secured: true,
+          response: "json",
+        },
+        options
+      ),
+    /**
+     * `DELETE /api/v1/auth/oidc/identities/{id}`: unlinks one of the caller's
+     * identities, `204`.
+     */
+    unlinkIdentity: (
+      id: UserIdentityId,
+      options?: RequestOptions
+    ) =>
+      request<void>(
+        {
+          method: "DELETE",
+          path: `/api/v1/auth/oidc/identities/${encodeURIComponent(String(id))}`,
+          secured: true,
+          response: "none",
+        },
+        options
+      ),
+    /**
+     * `POST /api/v1/auth/oidc/{provider}/link`: where to send the browser to
+     * link an identity at `provider` to the caller, `200`.
+     */
+    linkIdentity: (
+      provider: string,
+      options?: RequestOptions
+    ) =>
+      request<LinkResponse>(
+        {
+          method: "POST",
+          path: `/api/v1/auth/oidc/${encodeURIComponent(String(provider))}/link`,
           secured: true,
           response: "json",
         },

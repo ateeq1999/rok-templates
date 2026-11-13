@@ -144,6 +144,17 @@ export type ForgotPasswordDto = {
   email: string
 }
 
+export type IdentityResponse = {
+  /** When it was linked. */
+  created_at: string
+  /** The email the provider gave when it was linked, if any. */
+  email?: string | null
+  /** Unlink it with `DELETE /auth/oidc/identities/{id}`. */
+  id: UserIdentityId
+  /** The provider's name, such as `google`. */
+  provider: string
+}
+
 export type InviteUserDto = {
   /** The invitee's display name, at most 100 characters. */
   display_name?: string | null
@@ -173,6 +184,11 @@ export type JobResponse = {
 }
 
 export type JobStatus = "pending" | "dead"
+
+export type LinkResponse = {
+  /** The provider's authorization URL. */
+  url: string
+}
 
 export type LoginResponse = TokenResponse | {
   /** The token `POST /auth/2fa/verify` takes with the code. */
@@ -420,6 +436,8 @@ export type UploadTicket = {
    */
   upload_url: string
 }
+
+export type UserIdentityId = string
 
 export type UserResponse = {
   /** The `avatar_url` column. */

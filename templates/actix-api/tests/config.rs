@@ -208,6 +208,78 @@ fn the_totp_key_is_32_bytes_in_base64() -> Result<(), ConfigErrors> {
     Ok(())
 }
 
+/// No OpenID provider by default; `OIDC_PROVIDERS` names each, read from its
+/// own `OIDC_<NAME>_*` variables, and a named provider missing one is
+/// refused, naming it.
+#[test]
+fn the_oidc_providers_are_read_by_name() -> Result<(), ConfigErrors> {
+    assert!(read(REQUIRED)?.oidc_providers.is_empty());
+    let config = read(&with(&[
+        ("OIDC_PROVIDERS", "google, work-sso"),
+        ("OIDC_GOOGLE_ISSUER", "https://accounts.google.com"),
+        ("OIDC_GOOGLE_CLIENT_ID", "google-client"),
+        ("OIDC_GOOGLE_CLIENT_SECRET", "google-secret"),
+        ("OIDC_GOOGLE_TRUST_EMAIL", "true"),
+        ("OIDC_WORK_SSO_ISSUER", "https://sso.example.com"),
+        ("OIDC_WORK_SSO_CLIENT_ID", "work-client"),
+        ("OIDC_WORK_SSO_CLIENT_SECRET", "work-secret"),
+    ]))?;
+    let providers: Vec<_> = config
+        .oidc_providers
+        .iter()
+        .map(|p| {
+            (
+                p.name.as_str(),
+                p.issuer.as_str(),
+                p.client_id.as_str(),
+                p.trust_email,
+            )
+        })
+        .collect();
+    assert_eq!(
+        providers,
+        [
+            (
+                "google",
+                "https://accounts.google.com",
+                "google-client",
+                true
+            ),
+            ("work-sso", "https://sso.example.com", "work-client", false),
+        ]
+    );
+    let summary = config.summary();
+    assert!(!summary.contains("google-secret"), "{summary}");
+    assert!(
+        summary
+            .lines()
+            .any(|l| l == "OIDC_PROVIDERS=google,work-sso"),
+        "{summary}"
+    );
+
+    let vars = with(&[
+        ("OIDC_PROVIDERS", "google"),
+        ("OIDC_GOOGLE_ISSUER", "https://accounts.google.com"),
+        ("OIDC_GOOGLE_CLIENT_ID", "google-client"),
+    ]);
+    assert_eq!(
+        refusal(&vars).as_deref(),
+        Some(
+            "environment variable `OIDC_GOOGLE_CLIENT_SECRET` is not set \
+             (`OIDC_PROVIDERS` names the provider `google`)"
+        )
+    );
+    let vars = with(&[("OIDC_PROVIDERS", "Google!")]);
+    assert_eq!(
+        refusal(&vars).as_deref(),
+        Some(
+            "environment variable `OIDC_PROVIDERS` is `Google!`, which is not one of \
+             names of lowercase letters, digits and dashes, comma-separated"
+        )
+    );
+    Ok(())
+}
+
 /// The summary names every setting, but no secret: keys by their length,
 /// URLs without their password.
 #[test]
