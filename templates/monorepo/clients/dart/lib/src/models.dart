@@ -570,6 +570,27 @@ final class ForgotPasswordDto {
   };
 }
 
+/// The `HandoffDto` model.
+final class HandoffDto {
+  /// Makes one from its fields.
+  const HandoffDto({
+    required this.code,
+  });
+
+  /// Reads one from its JSON.
+  factory HandoffDto.fromJson(Map<String, Object?> json) => HandoffDto(
+    code: json['code'] as String,
+  );
+
+  /// The `code` of `<APP_SCHEME>://auth/oidc?code=…`.
+  final String code;
+
+  /// Its JSON.
+  Map<String, Object?> toJson() => {
+    'code': code,
+  };
+}
+
 /// The `IdentityResponse` model.
 final class IdentityResponse {
   /// Makes one from its fields.
@@ -939,6 +960,26 @@ final class NewAccountResponse {
   };
 }
 
+/// The `OidcClient` values.
+enum OidcClient {
+  web('web'),
+  mobile('mobile');
+
+  const OidcClient(this.value);
+
+  /// Its value on the wire.
+  final String value;
+
+  /// Reads one from its JSON.
+  static OidcClient fromJson(String json) => values.firstWhere(
+    (v) => v.value == json,
+    orElse: () => throw FormatException('not a OidcClient', json),
+  );
+
+  /// Its JSON.
+  String toJson() => value;
+}
+
 /// The `PaginatedResponseAuditLogEntryResponse` model.
 final class PaginatedResponseAuditLogEntryResponse {
   /// Makes one from its fields.
@@ -1140,6 +1181,27 @@ enum Role {
 
   /// Its JSON.
   String toJson() => value;
+}
+
+/// The `SignInProviderResponse` model.
+final class SignInProviderResponse {
+  /// Makes one from its fields.
+  const SignInProviderResponse({
+    required this.name,
+  });
+
+  /// Reads one from its JSON.
+  factory SignInProviderResponse.fromJson(Map<String, Object?> json) => SignInProviderResponse(
+    name: json['name'] as String,
+  );
+
+  /// Its name in the routes (`/auth/oidc/{name}/start`), such as `google`.
+  final String name;
+
+  /// Its JSON.
+  Map<String, Object?> toJson() => {
+    'name': name,
+  };
 }
 
 /// The `SortOrder` values.

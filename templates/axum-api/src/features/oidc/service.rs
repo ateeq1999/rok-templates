@@ -18,9 +18,15 @@ use chrono::{TimeDelta, Utc};
 use rok_data::Model;
 use sqlx::PgPool;
 
-use super::dto::{CallbackQuery, IdentityResponse, LinkResponse};
+use super::dto::{
+    CallbackQuery, IdentityResponse, LinkResponse, OidcClient, SignInProviderResponse,
+    TokenResponse,
+};
+use crate::db::oidc_handoffs::models::OidcHandoffId;
 use crate::db::oidc_requests::models::OidcRequestId;
-use crate::db::queries::oidc::{self as queries, InsertIdentityParams, InsertRequestParams};
+use crate::db::queries::oidc::{
+    self as queries, InsertHandoffParams, InsertIdentityParams, InsertRequestParams,
+};
 use crate::db::types::AuthTokenPurpose;
 use crate::db::user_identities::models::UserIdentityId;
 use crate::db::users::models::{User, UserId};
@@ -32,6 +38,9 @@ use crate::shared::security::token::{self, SecretToken};
 
 /// How long a sign-in waits at the provider for its callback, in minutes.
 pub const REQUEST_TTL_MINUTES: i64 = 10;
+
+/// How long a mobile App's hand-over code works, in seconds.
+pub const HANDOFF_TTL_SECONDS: i64 = 60;
 
 /// The `oidc` service, built by `app/`.
 #[derive(Clone)]
@@ -48,16 +57,28 @@ pub struct OidcService {
     pub app_url: String,
     /// `REQUIRE_VERIFIED_EMAIL`: a sign-in needs a verified email.
     pub require_verified_email: bool,
+    /// `APP_SCHEME`: the mobile App's deep-link scheme; a sign-in it
+    /// starts (`client=mobile`) comes back to `{app_scheme}://auth/oidc`.
+    /// None, and a mobile sign-in is a `400`.
+    pub app_scheme: Option<String>,
 }
 
 /// How a callback ends, carried to the App in the redirect's fragment.
 enum Outcome {
     /// Signed in: a session.
     Session {
+        /// The account signed in.
+        user: UserId,
         /// The bearer token.
         access_token: String,
         /// Seconds until it expires.
         expires_in: i64,
+    },
+    /// Signed in from the mobile App: the code `POST /auth/oidc/handoff`
+    /// trades for the session.
+    HandedOver {
+        /// The one-minute, single-use hand-over code.
+        code: String,
     },
     /// The account has two-factor on: the token `POST /auth/2fa/verify`
     /// takes with the code.
@@ -89,68 +110,96 @@ fn refused(error: &'static str, message: impl Into<String>) -> Outcome {
 
 /// Starting a sign-in or a link, and the callback.
 impl OidcService {
-    /// Starts signing in at the provider `name`: its authorization URL, to
-    /// send the browser to. No such provider, or none configured, is a
-    /// `404`.
-    pub async fn start(&self, name: &str) -> Result<String, AppError> {
-        self.authorize(name, None).await
+    /// Starts signing in at the provider `name` from `client`: its
+    /// authorization URL, to send the browser to. No such provider, or none
+    /// configured, is a `404`; a mobile App's with no `APP_SCHEME`, a `400`.
+    pub async fn start(&self, name: &str, client: OidcClient) -> Result<String, AppError> {
+        self.authorize(name, None, client).await
     }
 
     /// Starts linking an identity at the provider `name` to the signed-in
-    /// account `user`: its authorization URL, to send the browser to.
-    pub async fn link(&self, user: UserId, name: &str) -> Result<LinkResponse, AppError> {
+    /// account `user` from `client`: its authorization URL, to send the
+    /// browser to.
+    pub async fn link(
+        &self,
+        user: UserId,
+        name: &str,
+        client: OidcClient,
+    ) -> Result<LinkResponse, AppError> {
         Ok(LinkResponse {
-            url: self.authorize(name, Some(user)).await?,
+            url: self.authorize(name, Some(user), client).await?,
         })
     }
 
     /// The provider `name`'s redirect back: where to send the browser
-    /// next, `{app_url}/auth/oidc#…` with a session (`access_token`,
-    /// `expires_in`, `token_type`), a two-factor step (`requires_totp`,
-    /// `pending_token`), a link (`linked`), or a refusal (`error`,
-    /// `message`). Only an unknown provider (a `404`) or a failure of the
-    /// API itself is an error.
+    /// next. For the web App, `{app_url}/auth/oidc#…` with a session
+    /// (`access_token`, `expires_in`, `token_type`), a two-factor step
+    /// (`requires_totp`, `pending_token`), a link (`linked`), or a refusal
+    /// (`error`, `message`). For the mobile App, `{app_scheme}://auth/oidc?…`
+    /// with the same, but a session as a one-minute hand-over `code`. Only
+    /// an unknown provider (a `404`) or a failure of the API itself is an
+    /// error.
     pub async fn callback(&self, name: &str, query: CallbackQuery) -> Result<String, AppError> {
         let provider = self.providers.get(name)?;
+        // The request is spent whatever the redirect says: a state works once.
+        let request = match &query.state {
+            Some(state) => queries::take_request(&self.pool, name, &token::hash(state)).await?,
+            None => None,
+        };
+        // A request that expired or was spent can't say which App it came
+        // from: its refusal goes to the web App.
+        let hands_over = request.as_ref().is_some_and(|request| request.hands_over);
         let outcome = if let Some(error) = query.error {
             refused(
                 "provider_refused",
                 format!("{name} didn't sign you in ({error})"),
             )
-        } else if let (Some(code), Some(state)) = (query.code, query.state) {
-            match queries::take_request(&self.pool, name, &token::hash(&state)).await? {
-                None => refused(
-                    "invalid_request",
-                    "the sign-in expired or was already used: start it again",
-                ),
-                Some(request) => {
-                    let redemption = Redemption {
-                        code: &code,
-                        redirect_uri: &self.redirect_uri(name),
-                        pkce_verifier: &request.pkce_verifier,
-                        nonce: &request.nonce,
-                    };
-                    match provider.connection.redeem(redemption).await {
-                        Err(AppError::BadRequest(message)) => refused("provider_refused", message),
-                        Err(error) => return Err(error),
-                        Ok(identity) => match request.user_id {
-                            Some(user) => self.link_identity(user, name, identity).await?,
-                            None => self.sign_in(name, provider.trust_email, identity).await?,
-                        },
-                    }
-                }
+        } else if query.code.is_none() {
+            refused("invalid_request", "the provider's redirect has no code")
+        } else if let (Some(code), Some(request)) = (query.code, request) {
+            let redemption = Redemption {
+                code: &code,
+                redirect_uri: &self.redirect_uri(name),
+                pkce_verifier: &request.pkce_verifier,
+                nonce: &request.nonce,
+            };
+            match provider.connection.redeem(redemption).await {
+                Err(AppError::BadRequest(message)) => refused("provider_refused", message),
+                Err(error) => return Err(error),
+                Ok(identity) => match request.user_id {
+                    Some(user) => self.link_identity(user, name, identity).await?,
+                    None => self.sign_in(name, provider.trust_email, identity).await?,
+                },
             }
         } else {
-            refused("invalid_request", "the provider's redirect has no code")
+            refused(
+                "invalid_request",
+                "the sign-in expired or was already used: start it again",
+            )
         };
-        Ok(self.app_redirect(outcome))
+        match (hands_over, self.app_scheme.as_deref()) {
+            (true, Some(scheme)) => self.hand_over(scheme, outcome).await,
+            _ => Ok(self.app_redirect(outcome)),
+        }
     }
 
     /// The authorization URL of a sign-in (`user` none) or a link at the
-    /// provider `name`, its single-use state, PKCE verifier and nonce
-    /// stored for the callback.
-    async fn authorize(&self, name: &str, user: Option<UserId>) -> Result<String, AppError> {
+    /// provider `name` from `client`, its single-use state, PKCE verifier
+    /// and nonce stored for the callback.
+    async fn authorize(
+        &self,
+        name: &str,
+        user: Option<UserId>,
+        client: OidcClient,
+    ) -> Result<String, AppError> {
         let provider = self.providers.get(name)?;
+        let hands_over = client == OidcClient::Mobile;
+        if hands_over && self.app_scheme.is_none() {
+            return Err(AppError::BadRequest(
+                "a mobile App's sign-in needs the API's APP_SCHEME, its deep-link scheme"
+                    .to_owned(),
+            ));
+        }
         let state = SecretToken::generate();
         let pkce_verifier = SecretToken::generate().raw;
         let nonce = SecretToken::generate().raw;
@@ -174,6 +223,7 @@ impl OidcService {
                 nonce,
                 user_id: user,
                 expires_at: Utc::now() + TimeDelta::minutes(REQUEST_TTL_MINUTES),
+                hands_over,
             },
         )
         .await?;
@@ -284,6 +334,7 @@ impl OidcService {
             });
         }
         Ok(Outcome::Session {
+            user: user.id,
             access_token: self
                 .keys
                 .issue(user.id.into(), user.role, user.token_version)?,
@@ -302,29 +353,108 @@ impl OidcService {
     /// `{app_url}/auth/oidc#…`, the fragment carrying `outcome`: a fragment
     /// never reaches a server, so the token stays out of every log.
     fn app_redirect(&self, outcome: Outcome) -> String {
-        let mut fragment = url::form_urlencoded::Serializer::new(String::new());
-        match outcome {
-            Outcome::Session {
-                access_token,
-                expires_in,
-            } => fragment
-                .append_pair("access_token", &access_token)
-                .append_pair("expires_in", &expires_in.to_string())
-                .append_pair("token_type", "Bearer"),
-            Outcome::TotpRequired { pending_token } => fragment
-                .append_pair("requires_totp", "true")
-                .append_pair("pending_token", &pending_token),
-            Outcome::Linked { provider } => fragment.append_pair("linked", &provider),
-            Outcome::Refused { error, message } => fragment
-                .append_pair("error", error)
-                .append_pair("message", &message),
-        };
         format!(
             "{}/auth/oidc#{}",
             self.app_url.trim_end_matches('/'),
-            fragment.finish()
+            outcome_params(outcome)
         )
     }
+
+    /// `{scheme}://auth/oidc?…`, the mobile App's deep link carrying
+    /// `outcome`. A session never travels in it: it becomes a one-minute,
+    /// single-use `code` the App trades for one at `POST /auth/oidc/handoff`,
+    /// so another App answering the scheme can't replay it later.
+    async fn hand_over(&self, scheme: &str, outcome: Outcome) -> Result<String, AppError> {
+        let outcome = match outcome {
+            Outcome::Session { user, .. } => {
+                let code = SecretToken::generate();
+                queries::forget_expired_handoffs(&self.pool).await?;
+                queries::insert_handoff(
+                    &self.pool,
+                    InsertHandoffParams {
+                        id: OidcHandoffId::generate(),
+                        user_id: user,
+                        code_hash: code.hash,
+                        expires_at: Utc::now() + TimeDelta::seconds(HANDOFF_TTL_SECONDS),
+                    },
+                )
+                .await?;
+                Outcome::HandedOver { code: code.raw }
+            }
+            other => other,
+        };
+        Ok(format!("{scheme}://auth/oidc?{}", outcome_params(outcome)))
+    }
+}
+
+/// The providers people may sign in with, and the mobile App's hand-over.
+impl OidcService {
+    /// The configured providers, by name, for the Apps' "Continue with …"
+    /// buttons: none, and the Apps show no button.
+    #[must_use]
+    pub fn sign_in_providers(&self) -> Vec<SignInProviderResponse> {
+        self.providers
+            .names()
+            .map(|name| SignInProviderResponse {
+                name: name.to_owned(),
+            })
+            .collect()
+    }
+
+    /// Trades the hand-over `code` of a mobile App's deep link for a
+    /// session: once, within a minute of the callback. A spent, expired or
+    /// unknown code is a `400 invalid_token`.
+    pub async fn exchange_handoff(&self, code: &str) -> Result<TokenResponse, AppError> {
+        if self.providers.is_empty() {
+            return Err(not_configured());
+        }
+        let Some(user) = queries::take_handoff(&self.pool, &token::hash(code)).await? else {
+            return Err(AppError::InvalidToken(
+                "the sign-in code expired or was already used: sign in again".to_owned(),
+            ));
+        };
+        match self.session_for(user).await? {
+            Outcome::Session {
+                access_token,
+                expires_in,
+                ..
+            } => Ok(TokenResponse {
+                access_token,
+                expires_in,
+                token_type: "Bearer".to_owned(),
+            }),
+            Outcome::Refused { message, .. } => Err(AppError::InvalidToken(message)),
+            Outcome::TotpRequired { .. } | Outcome::Linked { .. } | Outcome::HandedOver { .. } => {
+                Err(AppError::InvalidToken(
+                    "the account changed since it signed in: sign in again".to_owned(),
+                ))
+            }
+        }
+    }
+}
+
+/// The URL-encoded parameters that carry `outcome` to an App.
+fn outcome_params(outcome: Outcome) -> String {
+    let mut params = url::form_urlencoded::Serializer::new(String::new());
+    match outcome {
+        Outcome::Session {
+            access_token,
+            expires_in,
+            ..
+        } => params
+            .append_pair("access_token", &access_token)
+            .append_pair("expires_in", &expires_in.to_string())
+            .append_pair("token_type", "Bearer"),
+        Outcome::HandedOver { code } => params.append_pair("code", &code),
+        Outcome::TotpRequired { pending_token } => params
+            .append_pair("requires_totp", "true")
+            .append_pair("pending_token", &pending_token),
+        Outcome::Linked { provider } => params.append_pair("linked", &provider),
+        Outcome::Refused { error, message } => params
+            .append_pair("error", error)
+            .append_pair("message", &message),
+    };
+    params.finish()
 }
 
 /// The signed-in account's Linked identities.

@@ -295,7 +295,11 @@ documents each one, the settings, sending real mail and adding a flow
 - **Sign-in with a provider.** `src/features/oidc/` signs people in with
   an OpenID provider such as Google (`GET /api/v1/auth/oidc/{provider}/start`),
   and lists, links and unlinks a signed-in account's identities under
-  `/api/v1/auth/oidc/identities`. It is off until `OIDC_PROVIDERS` names a
+  `/api/v1/auth/oidc/identities`. A mobile App signs in with
+  `start?client=mobile`: the callback opens its deep link (`APP_SCHEME`)
+  with a one-minute code it trades at `POST /api/v1/auth/oidc/handoff`.
+  `GET /api/v1/auth/oidc/providers` names the providers for the Apps'
+  buttons. It is off until `OIDC_PROVIDERS` names a
   provider (its routes answer 404); `OIDC_<NAME>_TRUST_EMAIL` decides
   whether an email an account has links. The guide's "Sign in with
   Google" has the setup.

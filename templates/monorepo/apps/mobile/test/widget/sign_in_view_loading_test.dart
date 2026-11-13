@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:mobile/app/core/config/feature_flags.dart';
 import 'package:mobile/app/modules/auth/auth_bloc.dart';
+import 'package:mobile/app/modules/auth/continue_with/continue_with_cubit.dart';
 import 'package:mobile/app/modules/auth/sign_in/sign_in_cubit.dart';
 import 'package:mobile/app/modules/auth/sign_in/sign_in_view.dart';
 import 'package:mobile/app/services/auth_service.dart';
@@ -17,6 +18,14 @@ class MockSignInCubit extends MockCubit<SignInState> implements SignInCubit {
 }
 
 class MockAuthBloc extends MockBloc<AuthEvent, AuthState> implements AuthBloc {}
+
+/// No provider configured: no "Continue with" buttons.
+class NoProvidersCubit extends MockCubit<List<String>>
+    implements ContinueWithCubit {
+  NoProvidersCubit() {
+    when(() => state).thenReturn(const []);
+  }
+}
 
 class MockAuthService extends Mock implements AuthService {
   @override
@@ -45,6 +54,7 @@ Widget _buildSut({
               providers: [
                 BlocProvider<AuthBloc>.value(value: authBloc),
                 BlocProvider<SignInCubit>.value(value: cubit),
+                BlocProvider<ContinueWithCubit>.value(value: NoProvidersCubit()),
               ],
               child: const SignInView(),
             ),

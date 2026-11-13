@@ -15,6 +15,7 @@ CREATE TABLE "oidc_requests" (
     "pkce_verifier" TEXT NOT NULL,
     "nonce" TEXT NOT NULL,
     "user_id" UUID,
+    "hands_over" BOOLEAN NOT NULL DEFAULT false,
     "expires_at" TIMESTAMPTZ NOT NULL,
     "created_at" TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT "oidc_requests_pkey" PRIMARY KEY ("id"),

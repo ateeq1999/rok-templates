@@ -15,20 +15,28 @@ use axum::extract::{Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Redirect, Response};
 
-use super::dto::{CallbackQuery, IdentityResponse, LinkResponse};
+use super::dto::{
+    CallbackQuery, ClientQuery, HandoffDto, IdentityResponse, LinkResponse, SignInProviderResponse,
+    TokenResponse,
+};
 use super::service::OidcService;
 use crate::db::user_identities::models::UserIdentityId;
 use crate::error::AppError;
 use crate::shared::auth::AuthUser;
 use crate::shared::response::ErrorBody;
+use crate::shared::validation::ValidatedJson;
 
 /// `GET /api/v1/auth/oidc/{provider}/start`: `303` to the provider's
-/// sign-in page.
+/// sign-in page. `?client=mobile` comes back to the mobile App
+/// (`<APP_SCHEME>://auth/oidc?…`) instead of the web App.
 pub async fn start(
     State(service): State<Arc<OidcService>>,
     Path(provider): Path<String>,
+    Query(query): Query<ClientQuery>,
 ) -> Result<Response, AppError> {
-    let url = service.start(&provider).await?;
+    let url = service
+        .start(&provider, query.client.unwrap_or_default())
+        .await?;
     Ok(Redirect::to(&url).into_response())
 }
 
@@ -73,7 +81,10 @@ pub async fn list_identities(
     path = "/api/v1/auth/oidc/{provider}/link",
     tag = "auth",
     operation_id = "link_identity",
-    params(("provider" = String, Path, description = "The provider's name, such as `google`")),
+    params(
+        ("provider" = String, Path, description = "The provider's name, such as `google`"),
+        ClientQuery,
+    ),
     responses(
         (status = 200, description = "The provider's authorization URL; its callback links the identity", body = LinkResponse),
         (status = 401, description = "No valid bearer token", body = ErrorBody),
@@ -86,8 +97,10 @@ pub async fn link_identity(
     State(service): State<Arc<OidcService>>,
     caller: AuthUser,
     Path(provider): Path<String>,
+    Query(query): Query<ClientQuery>,
 ) -> Result<Response, AppError> {
-    let link = service.link(caller.id.into(), &provider).await?;
+    let client = query.client.unwrap_or_default();
+    let link = service.link(caller.id.into(), &provider, client).await?;
     Ok(Json(link).into_response())
 }
 
@@ -115,4 +128,47 @@ pub async fn unlink_identity(
 ) -> Result<Response, AppError> {
     service.unlink(caller.id.into(), id).await?;
     Ok(StatusCode::NO_CONTENT.into_response())
+}
+
+/// `GET /api/v1/auth/oidc/providers`: the providers people may sign in
+/// with, for the Apps' "Continue with …" buttons, `200`. None configured
+/// is an empty list, so the Apps hide the buttons.
+#[utoipa::path(
+    get,
+    path = "/api/v1/auth/oidc/providers",
+    tag = "auth",
+    operation_id = "list_sign_in_providers",
+    responses(
+        (status = 200, description = "The configured providers, by name; empty when none is", body = Vec<SignInProviderResponse>),
+        (status = 429, description = "Too many requests from this IP", body = ErrorBody),
+    ),
+)]
+pub async fn list_sign_in_providers(
+    State(service): State<Arc<OidcService>>,
+) -> Result<Response, AppError> {
+    Ok(Json(service.sign_in_providers()).into_response())
+}
+
+/// `POST /api/v1/auth/oidc/handoff`: trades the code of the mobile App's
+/// deep link (`<APP_SCHEME>://auth/oidc?code=…`) for a session, `200`.
+#[utoipa::path(
+    post,
+    path = "/api/v1/auth/oidc/handoff",
+    tag = "auth",
+    operation_id = "exchange_handoff",
+    request_body = HandoffDto,
+    responses(
+        (status = 200, description = "A session", body = TokenResponse),
+        (status = 400, description = "The code expired, was already used, or never existed", body = ErrorBody),
+        (status = 404, description = "No OpenID provider is configured", body = ErrorBody),
+        (status = 422, description = "No code", body = ErrorBody),
+        (status = 429, description = "Too many requests from this IP", body = ErrorBody),
+    ),
+)]
+pub async fn exchange_handoff(
+    State(service): State<Arc<OidcService>>,
+    body: ValidatedJson<HandoffDto>,
+) -> Result<Response, AppError> {
+    let session = service.exchange_handoff(&body.into_inner().code).await?;
+    Ok(Json(session).into_response())
 }

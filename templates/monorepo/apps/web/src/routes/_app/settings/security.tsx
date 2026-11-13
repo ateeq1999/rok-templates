@@ -25,6 +25,7 @@ import { useLogout } from "@/features/auth/session-actions"
 import { PasswordStrengthMeter } from "@/features/auth/components/password-strength-meter"
 import { isWrongCurrentPassword } from "@/features/auth/errors"
 import { TwoFactorCard } from "@/features/two-factor/components/two-factor-card"
+import { LinkedIdentitiesCard } from "@/features/oidc/components/linked-identities-card"
 import { meQueryOptions } from "@/features/users/queries"
 import { useApiForm } from "@/lib/use-api-form"
 
@@ -48,6 +49,7 @@ function SecuritySettings() {
         hasPassword={me.has_password}
         account={me.email}
       />
+      <LinkedIdentitiesCard />
 
       <Card>
         <CardHeader>

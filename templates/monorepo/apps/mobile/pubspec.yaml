@@ -46,6 +46,8 @@ dependencies:
 
   # Deep Links
   app_links: 7.0.0
+  # Opening a provider's sign-in page in the system browser.
+  url_launcher: 6.3.3
 
   # Connectivity
   connectivity_plus: 6.1.5

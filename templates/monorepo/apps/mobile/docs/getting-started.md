@@ -55,17 +55,26 @@ changes all three:
 2. [android/app/src/main/AndroidManifest.xml](../android/app/src/main/AndroidManifest.xml) — `<data android:scheme="myapp"/>`
 3. `ios/Runner/Info.plist` → `CFBundleURLSchemes`
 
-Inbound links (handled in [main.dart](../lib/main.dart)):
+Inbound links (mapped to screens in
+[deep_links.dart](../lib/app/core/router/deep_links.dart)):
 
 | URL | Effect |
 |---|---|
 | `myapp://auth/verify-email?token=...` | → `/verify-email` |
 | `myapp://auth/reset-password?token=...` | → `/reset-password` |
+| `myapp://auth/oidc?code=...` (or `requires_totp`, `linked`, `error`) | → `/auth/oidc`, which finishes a sign-in with a provider |
 
 `apps/api` mails links to `{APP_URL}/verify-email?token=...` and
 `{APP_URL}/reset-password?token=...`; to have them open the App, route
 them to the scheme above (an App Link / Universal Link on `APP_URL`, or a
 redirect page there).
+
+Sign-in with a provider (Google, say) opens the provider in the system
+browser; the API's callback opens `myapp://auth/oidc` with a one-minute
+code the App trades for a session. Set the API's `APP_SCHEME` to the same
+scheme: without it, the API refuses a mobile sign-in. The App shows a
+"Continue with …" button for each provider the API is configured with,
+and none while it has none.
 
 ## 6. Run
 

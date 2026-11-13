@@ -246,6 +246,17 @@ impl Auth<'_> {
         call.json_answer().await
     }
 
+    /// `POST /api/v1/auth/oidc/handoff`: trades the code of the mobile App's
+    /// deep link (`<APP_SCHEME>://auth/oidc?code=…`) for a session, `200`.
+    pub async fn exchange_handoff(
+        &self,
+        body: &types::HandoffDto,
+    ) -> Result<types::TokenResponse, ApiError> {
+        let path = "/api/v1/auth/oidc/handoff";
+        let call = self.client.call(Method::POST, path, false)?;
+        call.json(body).json_answer().await
+    }
+
     /// `GET /api/v1/auth/oidc/identities`: the caller's Linked identities,
     /// `200`.
     ///
@@ -267,15 +278,30 @@ impl Auth<'_> {
         call.empty_answer().await
     }
 
+    /// `GET /api/v1/auth/oidc/providers`: the providers people may sign in
+    /// with, for the Apps' "Continue with …" buttons, `200`. None configured
+    /// is an empty list, so the Apps hide the buttons.
+    pub async fn list_sign_in_providers(
+        &self,
+    ) -> Result<Vec<types::SignInProviderResponse>, ApiError> {
+        let path = "/api/v1/auth/oidc/providers";
+        let call = self.client.call(Method::GET, path, false)?;
+        call.json_answer().await
+    }
+
     /// `POST /api/v1/auth/oidc/{provider}/link`: where to send the browser to
     /// link an identity at `provider` to the caller, `200`.
     ///
     /// Sends the session's token.
-    pub async fn link_identity(&self, provider: &str) -> Result<types::LinkResponse, ApiError> {
+    pub async fn link_identity(
+        &self,
+        provider: &str,
+        query: &types::AuthLinkIdentityQuery,
+    ) -> Result<types::LinkResponse, ApiError> {
         let provider = crate::segment(provider);
         let path = format!("/api/v1/auth/oidc/{provider}/link");
         let call = self.client.call(Method::POST, &path, true)?;
-        call.json_answer().await
+        call.query(query).json_answer().await
     }
 
     /// `POST /api/v1/auth/password/change`: replaces the signed-in user's

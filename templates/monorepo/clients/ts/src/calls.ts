@@ -7,6 +7,7 @@ import type {
   ApiKeyResponse,
   AuditLogEntryResponse,
   AuditLogListQuery,
+  AuthLinkIdentityQuery,
   AvatarResponse,
   ChangeEmailDto,
   ChangePasswordDto,
@@ -17,6 +18,7 @@ import type {
   DownloadUrl,
   EnableTotpDto,
   ForgotPasswordDto,
+  HandoffDto,
   IdentityResponse,
   InviteUserDto,
   JobsListQuery,
@@ -32,6 +34,7 @@ import type {
   PaginatedResponse_MediaResponse,
   PaginatedResponse_UserResponse,
   ResetPasswordDto,
+  SignInProviderResponse,
   StartUploadDto,
   TokenResponse,
   TotpEnabledResponse,
@@ -306,6 +309,24 @@ export const api = {
         options
       ),
     /**
+     * `POST /api/v1/auth/oidc/handoff`: trades the code of the mobile App's
+     * deep link (`<APP_SCHEME>://auth/oidc?code=…`) for a session, `200`.
+     */
+    exchangeHandoff: (
+      body: HandoffDto,
+      options?: RequestOptions
+    ) =>
+      request<TokenResponse>(
+        {
+          method: "POST",
+          path: "/api/v1/auth/oidc/handoff",
+          json: body,
+          secured: false,
+          response: "json",
+        },
+        options
+      ),
+    /**
      * `GET /api/v1/auth/oidc/identities`: the caller's Linked identities,
      * `200`.
      */
@@ -339,17 +360,36 @@ export const api = {
         options
       ),
     /**
+     * `GET /api/v1/auth/oidc/providers`: the providers people may sign in
+     * with, for the Apps' "Continue with …" buttons, `200`. None configured
+     * is an empty list, so the Apps hide the buttons.
+     */
+    listSignInProviders: (
+      options?: RequestOptions
+    ) =>
+      request<SignInProviderResponse[]>(
+        {
+          method: "GET",
+          path: "/api/v1/auth/oidc/providers",
+          secured: false,
+          response: "json",
+        },
+        options
+      ),
+    /**
      * `POST /api/v1/auth/oidc/{provider}/link`: where to send the browser to
      * link an identity at `provider` to the caller, `200`.
      */
     linkIdentity: (
       provider: string,
+      query?: AuthLinkIdentityQuery,
       options?: RequestOptions
     ) =>
       request<LinkResponse>(
         {
           method: "POST",
           path: `/api/v1/auth/oidc/${encodeURIComponent(String(provider))}/link`,
+          query,
           secured: true,
           response: "json",
         },

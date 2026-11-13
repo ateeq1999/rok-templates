@@ -153,6 +153,7 @@ impl AppState {
             providers: Arc::new(IdentityProviders::from_settings(&config.oidc_providers)),
             app_url: config.app_url.clone(),
             require_verified_email: config.require_verified_email,
+            app_scheme: config.app_scheme.clone(),
         });
         Ok(AppState {
             storage,

@@ -6,6 +6,7 @@ import '../../../core/config/feature_flags.dart';
 import '../../../core/utils/snackbar_helper.dart';
 import '../../../routes/app_routes.dart';
 import '../auth_bloc.dart';
+import '../continue_with/continue_with_buttons.dart';
 import 'sign_in_cubit.dart';
 
 class SignInView extends StatefulWidget {
@@ -150,7 +151,9 @@ class _SignInViewState extends State<SignInView> {
                           )
                         : const Text('Sign In'),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 16),
+                  const ContinueWithButtons(),
+                  const SizedBox(height: 8),
                   if (flags.signUp)
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,

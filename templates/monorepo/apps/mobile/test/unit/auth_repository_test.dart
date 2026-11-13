@@ -29,6 +29,7 @@ void main() {
       AuthRepository(
         fakeApi(answer, session: session, requests: requests),
         session,
+        apiUrl: apiOrigin,
       );
 
   group('AuthRepository.signIn', () {

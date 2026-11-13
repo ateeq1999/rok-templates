@@ -1124,6 +1124,77 @@
         ]
       }
     },
+    "/api/v1/auth/oidc/handoff": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "`POST /api/v1/auth/oidc/handoff`: trades the code of the mobile App's\ndeep link (`<APP_SCHEME>://auth/oidc?code=…`) for a session, `200`.",
+        "operationId": "exchange_handoff",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/HandoffDto"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "A session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TokenResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "The code expired, was already used, or never existed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No OpenID provider is configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "No code",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this IP",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/oidc/identities": {
       "get": {
         "tags": [
@@ -1253,6 +1324,40 @@
         ]
       }
     },
+    "/api/v1/auth/oidc/providers": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "`GET /api/v1/auth/oidc/providers`: the providers people may sign in\nwith, for the Apps' \"Continue with …\" buttons, `200`. None configured\nis an empty list, so the Apps hide the buttons.",
+        "operationId": "list_sign_in_providers",
+        "responses": {
+          "200": {
+            "description": "The configured providers, by name; empty when none is",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SignInProviderResponse"
+                  }
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many requests from this IP",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/auth/oidc/{provider}/link": {
       "post": {
         "tags": [
@@ -1268,6 +1373,15 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "name": "client",
+            "in": "query",
+            "description": "The App to come back to: `web` (the default) or `mobile`.",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/OidcClient"
             }
           }
         ],
@@ -3572,6 +3686,19 @@
           }
         }
       },
+      "HandoffDto": {
+        "type": "object",
+        "description": "`POST /auth/oidc/handoff`'s body: the code the mobile App's deep link\nbrought.",
+        "required": [
+          "code"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "The `code` of `<APP_SCHEME>://auth/oidc?code=…`."
+          }
+        }
+      },
       "IdentityResponse": {
         "type": "object",
         "description": "One of the signed-in account's Linked identities.",
@@ -3856,6 +3983,14 @@
             "description": "Whether two-factor sign-in is on."
           }
         }
+      },
+      "OidcClient": {
+        "type": "string",
+        "description": "Which App a sign-in or a link comes back to.",
+        "enum": [
+          "web",
+          "mobile"
+        ]
       },
       "PaginatedResponse_AuditLogEntryResponse": {
         "type": "object",
@@ -4223,6 +4358,19 @@
           "user",
           "admin"
         ]
+      },
+      "SignInProviderResponse": {
+        "type": "object",
+        "description": "One provider people may sign in with, for an App's \"Continue with …\"\nbutton.",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Its name in the routes (`/auth/oidc/{name}/start`), such as `google`."
+          }
+        }
       },
       "SortOrder": {
         "type": "string",

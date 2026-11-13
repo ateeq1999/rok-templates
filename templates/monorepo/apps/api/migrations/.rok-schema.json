@@ -747,6 +747,17 @@
           ]
         },
         {
+          "name": "hands_over",
+          "sql_type": "BOOLEAN",
+          "nullable": false,
+          "default": "false",
+          "doc": [
+            "A mobile App's (`start?client=mobile`): the callback hands the",
+            "outcome over at `<APP_SCHEME>://auth/oidc`, a session as a one-minute",
+            "code (`oidc_handoffs`), instead of sending the browser to `APP_URL`."
+          ]
+        },
+        {
           "name": "expires_at",
           "sql_type": "TIMESTAMPTZ",
           "nullable": false

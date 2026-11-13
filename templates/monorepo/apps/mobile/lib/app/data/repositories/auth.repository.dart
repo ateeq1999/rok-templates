@@ -1,6 +1,7 @@
 import 'package:api_client/api_client.dart';
 
 import '../../services/auth_service.dart';
+import '../oidc_start_url.dart';
 
 /// What signing in answered: a session, or the second step two-factor
 /// sign-in asks for.
@@ -25,10 +26,14 @@ final class TwoFactorRequired extends SignInResult {
 /// The account flows, through the generated client's `auth` operations.
 /// Every failure is the client's [ApiException].
 class AuthRepository {
-  AuthRepository(this._api, this._session);
+  /// `apiUrl` is the API's origin, which the system browser opens a
+  /// sign-in with a provider at.
+  AuthRepository(this._api, this._session, {required String apiUrl})
+      : _apiUrl = apiUrl;
 
   final ApiClient _api;
   final AuthService _session;
+  final String _apiUrl;
 
   /// The two-factor calls are secured, but their `401` is a wrong code or
   /// password, not an expired session.
@@ -130,4 +135,40 @@ class AuthRepository {
         DisableTotpDto(currentPassword: currentPassword),
         options: _keepSession,
       );
+
+  /// The providers people may sign in with, by name (such as `google`):
+  /// none, and the App shows no "Continue with …" button.
+  Future<List<String>> signInProviders() async {
+    final providers = await _api.auth.listSignInProviders();
+    return [for (final provider in providers) provider.name];
+  }
+
+  /// Where the system browser starts signing in with `provider`; the
+  /// provider ends at the deep link [signInWithHandoff] takes the code of.
+  Uri signInStartUrl(String provider) =>
+      oidcStartUrl(apiUrl: _apiUrl, provider: provider);
+
+  /// Finishes a sign-in with a provider: trades the one-minute `code` of
+  /// the deep link `<APP_SCHEME>://auth/oidc?code=…` for a session.
+  Future<SignedIn> signInWithHandoff(String code) async {
+    final session = await _api.auth.exchangeHandoff(HandoffDto(code: code));
+    return _startSession(session.accessToken);
+  }
+
+  /// The signed-in account's Linked identities, oldest first.
+  Future<List<IdentityResponse>> identities() => _api.auth.listIdentities();
+
+  /// Where the system browser goes to link an identity at `provider` to
+  /// the signed-in account; it comes back by `<APP_SCHEME>://auth/oidc?linked=…`.
+  Future<Uri> linkUrl(String provider) async {
+    final link = await _api.auth.linkIdentity(
+      provider,
+      client: OidcClient.mobile,
+    );
+    return Uri.parse(link.url);
+  }
+
+  /// Unlinks the identity `id`. The API refuses the account's last way in
+  /// (a `422` saying why).
+  Future<void> unlink(String id) => _api.auth.unlinkIdentity(id);
 }

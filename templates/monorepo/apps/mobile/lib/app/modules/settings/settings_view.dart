@@ -8,6 +8,7 @@ import '../../core/utils/snackbar_helper.dart';
 import '../../routes/app_routes.dart';
 import '../auth/auth_bloc.dart';
 import 'settings_cubit.dart';
+import 'linked_identities/linked_identities_section.dart';
 
 class SettingsView extends StatelessWidget {
   const SettingsView({super.key});
@@ -78,6 +79,7 @@ class SettingsView extends StatelessWidget {
                         ),
                       ),
                     const Divider(),
+                    const LinkedIdentitiesSection(),
                     if (flags.themeCustomization)
                       ListTile(
                         leading: const Icon(Icons.palette_outlined),

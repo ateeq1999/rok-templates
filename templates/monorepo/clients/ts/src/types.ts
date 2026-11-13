@@ -144,6 +144,11 @@ export type ForgotPasswordDto = {
   email: string
 }
 
+export type HandoffDto = {
+  /** The `code` of `<APP_SCHEME>://auth/oidc?code=…`. */
+  code: string
+}
+
 export type IdentityResponse = {
   /** When it was linked. */
   created_at: string
@@ -242,6 +247,8 @@ export type NewAccountResponse = {
   /** Whether two-factor sign-in is on. */
   totp_enabled: boolean
 }
+
+export type OidcClient = "web" | "mobile"
 
 export type PaginatedResponse_AuditLogEntryResponse = {
   /** The page's rows. */
@@ -359,6 +366,11 @@ export type ResetPasswordDto = {
 }
 
 export type Role = "user" | "admin"
+
+export type SignInProviderResponse = {
+  /** Its name in the routes (`/auth/oidc/{name}/start`), such as `google`. */
+  name: string
+}
 
 export type SortOrder = "asc" | "desc"
 
@@ -485,6 +497,12 @@ export type AuditLogListQuery = {
   sort?: AuditLogEntrySort
   /** The sort's direction. Defaults to `desc`. */
   order?: SortOrder
+}
+
+/** The query of `POST /api/v1/auth/oidc/{provider}/link`. */
+export type AuthLinkIdentityQuery = {
+  /** The App to come back to: `web` (the default) or `mobile`. */
+  client?: OidcClient
 }
 
 /** The query of `GET /api/v1/jobs`. */

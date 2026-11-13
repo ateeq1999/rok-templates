@@ -5,8 +5,10 @@
 //! identity signs in as its account; a new email signs up; an email an
 //! account already has links only from a provider trusted with emails. A
 //! signed-in account lists, links and unlinks its identities, but never
-//! unlinks its last way in. With no provider configured, every route
-//! answers 404.
+//! unlinks its last way in. A mobile App's sign-in comes back to its deep
+//! link (`<APP_SCHEME>://auth/oidc`) with a one-minute, single-use code it
+//! trades for a session. The Apps read the providers for their buttons.
+//! With no provider configured, every route but that list answers 404.
 
 mod support;
 
@@ -18,7 +20,9 @@ use actix_api::app::AppState;
 use actix_api::shared::oidc::{FakeIdentityProvider, Identity, IdentityProviders};
 use actix_web::http::{Method, StatusCode};
 use serde_json::{Value, json};
-use support::{APP_URL, Database, PASSWORD, TestResult, call_with, register_verified, send, state};
+use support::{
+    APP_URL, Database, PASSWORD, TestResult, call_with, register_verified, send, state, state_with,
+};
 use totp_rs::{Algorithm, Secret, TOTP};
 
 type Error = Box<dyn std::error::Error>;
@@ -440,5 +444,165 @@ async fn with_no_provider_configured_every_route_answers_404() -> TestResult {
     let uri = format!("{uri}/{}", uuid::Uuid::now_v7());
     let answer = call_with(&unconfigured, Some(&token), Method::DELETE, &uri, None).await?;
     assert_eq!(answer.status, StatusCode::NOT_FOUND, "{}", answer.body);
+    db.drop().await
+}
+
+/// The mobile App's deep-link scheme in these tests.
+const APP_SCHEME: &str = "myapp";
+
+/// The application over `pool` with the fake provider `fake` configured as
+/// [`PROVIDER`] and the mobile App's scheme [`APP_SCHEME`].
+fn configured_for_mobile(
+    pool: &sqlx::PgPool,
+    fake: &FakeIdentityProvider,
+) -> Result<AppState, Error> {
+    let providers = IdentityProviders::default().with(PROVIDER, Arc::new(fake.clone()), false);
+    Ok(state_with(pool, &[("APP_SCHEME", APP_SCHEME)])?.with_identity_providers(providers))
+}
+
+/// Signs `identity` in from the mobile App (`start?client=mobile`): the
+/// callback's deep link, which must be `myapp://auth/oidc`, as its query
+/// parameters.
+async fn sign_in_from_mobile(
+    state: &AppState,
+    fake: &FakeIdentityProvider,
+    identity: Identity,
+) -> Result<HashMap<String, String>, Error> {
+    let uri = format!("/api/v1/auth/oidc/{PROVIDER}/start?client=mobile");
+    let answer = send(state, None, Method::GET, &uri, &[], Vec::new()).await?;
+    assert_eq!(answer.status, StatusCode::SEE_OTHER, "{:?}", answer.json());
+    let provider_url = answer.header("location").ok_or("no location")?.to_owned();
+    let csrf = query_param(&provider_url, "state")?;
+    let code = fake.code_for(identity);
+    let uri = format!("/api/v1/auth/oidc/{PROVIDER}/callback?code={code}&state={csrf}");
+    let answer = send(state, None, Method::GET, &uri, &[], Vec::new()).await?;
+    assert_eq!(answer.status, StatusCode::SEE_OTHER, "{:?}", answer.json());
+    let location = answer.header("location").ok_or("no location")?;
+    let (base, query) = location
+        .split_once('?')
+        .ok_or_else(|| format!("no query in {location}"))?;
+    assert_eq!(base, format!("{APP_SCHEME}://auth/oidc"));
+    Ok(url::form_urlencoded::parse(query.as_bytes())
+        .into_owned()
+        .collect())
+}
+
+/// `POST /auth/oidc/handoff` with the deep link's `code`.
+async fn exchange(state: &AppState, code: &str) -> Result<support::Answer, Error> {
+    let uri = "/api/v1/auth/oidc/handoff";
+    call_with(state, None, Method::POST, uri, Some(json!({"code": code}))).await
+}
+
+/// Moves every hand-over of `pool` `seconds` into the past, as if that long
+/// had gone by since the callback.
+async fn age_handoffs(pool: &sqlx::PgPool, seconds: i32) -> Result<(), Error> {
+    sqlx::query(
+        "UPDATE oidc_handoffs SET created_at = created_at - make_interval(secs => $1), \
+         expires_at = expires_at - make_interval(secs => $1)",
+    )
+    .bind(f64::from(seconds))
+    .execute(pool)
+    .await?;
+    Ok(())
+}
+
+#[actix_web::test]
+async fn a_mobile_sign_in_hands_over_a_code_that_works_once() -> TestResult {
+    let Some(db) = Database::fresh().await? else {
+        return Ok(());
+    };
+    let fake = FakeIdentityProvider::new();
+    let state = configured_for_mobile(&db.pool, &fake)?;
+
+    let link = sign_in_from_mobile(&state, &fake, person("ada", "ada@example.com")).await?;
+    assert!(!link.contains_key("access_token"), "{link:?}");
+    let code = link.get("code").ok_or("no code")?;
+
+    let answer = exchange(&state, code).await?;
+    assert_eq!(answer.status, StatusCode::OK, "{}", answer.body);
+    assert_eq!(answer.body["token_type"], "Bearer");
+    let token = answer.body["access_token"].as_str().ok_or("no token")?;
+    assert_eq!(me(&state, token).await?["email"], "ada@example.com");
+
+    let again = exchange(&state, code).await?;
+    assert_eq!(again.status, StatusCode::BAD_REQUEST, "{}", again.body);
+    assert_eq!(again.body["error"]["code"], "invalid_token");
+    let never = exchange(&state, "a-code-never-issued").await?;
+    assert_eq!(never.status, StatusCode::BAD_REQUEST, "{}", never.body);
+    db.drop().await
+}
+
+#[actix_web::test]
+async fn a_hand_over_code_expires_after_a_minute() -> TestResult {
+    let Some(db) = Database::fresh().await? else {
+        return Ok(());
+    };
+    let fake = FakeIdentityProvider::new();
+    let state = configured_for_mobile(&db.pool, &fake)?;
+    let ada = person("ada", "ada@example.com");
+
+    let link = sign_in_from_mobile(&state, &fake, ada.clone()).await?;
+    age_handoffs(&db.pool, 55).await?;
+    let answer = exchange(&state, link.get("code").ok_or("no code")?).await?;
+    assert_eq!(answer.status, StatusCode::OK, "{}", answer.body);
+
+    let link = sign_in_from_mobile(&state, &fake, ada).await?;
+    age_handoffs(&db.pool, 61).await?;
+    let answer = exchange(&state, link.get("code").ok_or("no code")?).await?;
+    assert_eq!(answer.status, StatusCode::BAD_REQUEST, "{}", answer.body);
+    assert_eq!(answer.body["error"]["code"], "invalid_token");
+    db.drop().await
+}
+
+#[actix_web::test]
+async fn a_mobile_sign_in_hands_over_a_refusal() -> TestResult {
+    let Some(db) = Database::fresh().await? else {
+        return Ok(());
+    };
+    let fake = FakeIdentityProvider::new();
+    let state = configured_for_mobile(&db.pool, &fake)?;
+    register_verified(&db.pool, "grace@example.com", PASSWORD).await?;
+
+    let link = sign_in_from_mobile(&state, &fake, person("grace", "grace@example.com")).await?;
+    assert_eq!(link.get("error").map(String::as_str), Some("email_in_use"));
+    assert!(!link.contains_key("code"), "{link:?}");
+    db.drop().await
+}
+
+#[actix_web::test]
+async fn a_mobile_sign_in_needs_the_apps_scheme() -> TestResult {
+    let Some(db) = Database::fresh().await? else {
+        return Ok(());
+    };
+    let fake = FakeIdentityProvider::new();
+    let state = configured(&db.pool, &fake, false)?;
+    let uri = format!("/api/v1/auth/oidc/{PROVIDER}/start?client=mobile");
+    let answer = call_with(&state, None, Method::GET, &uri, None).await?;
+    assert_eq!(answer.status, StatusCode::BAD_REQUEST, "{}", answer.body);
+    assert!(
+        answer.body["error"]["message"]
+            .as_str()
+            .is_some_and(|message| message.contains("APP_SCHEME")),
+        "{}",
+        answer.body
+    );
+    db.drop().await
+}
+
+#[actix_web::test]
+async fn the_apps_read_the_providers_for_their_buttons() -> TestResult {
+    let Some(db) = Database::fresh().await? else {
+        return Ok(());
+    };
+    let uri = "/api/v1/auth/oidc/providers";
+    let answer = call_with(&state(&db.pool)?, None, Method::GET, uri, None).await?;
+    assert_eq!(answer.status, StatusCode::OK, "{}", answer.body);
+    assert_eq!(answer.body, json!([]));
+
+    let fake = FakeIdentityProvider::new();
+    let state = configured(&db.pool, &fake, false)?;
+    let answer = call_with(&state, None, Method::GET, uri, None).await?;
+    assert_eq!(answer.status, StatusCode::OK, "{}", answer.body);
+    assert_eq!(answer.body, json!([{"name": PROVIDER}]));
     db.drop().await
 }

@@ -236,6 +236,10 @@ CREATE TABLE oidc_requests (
     nonce TEXT NOT NULL,
     -- The signed-in account linking an identity; none for a sign-in.
     user_id UUID REFERENCES users (id) ON DELETE CASCADE,
+    -- A mobile App's (`start?client=mobile`): the callback hands the
+    -- outcome over at `<APP_SCHEME>://auth/oidc`, a session as a one-minute
+    -- code (`oidc_handoffs`), instead of sending the browser to `APP_URL`.
+    hands_over BOOLEAN NOT NULL DEFAULT false,
     expires_at TIMESTAMPTZ NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT oidc_requests_state_hash_key UNIQUE (state_hash)
