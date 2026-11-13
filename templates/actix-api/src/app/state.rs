@@ -73,6 +73,9 @@ pub struct AppState {
     /// `APP_URL`: where the `oidc` callback is, and where it sends the
     /// browser on to.
     pub app_url: String,
+    /// `APP_SCHEME`: the mobile App's deep-link scheme, where `oidc`
+    /// hands a sign-in it started over.
+    pub app_scheme: Option<String>,
     /// The per-IP limit on every route but health (`GLOBAL_RATE_LIMIT`,
     /// off by default), counted apart from `rate_limit`.
     pub global_rate_limit: RateLimit,
@@ -122,6 +125,7 @@ impl AppState {
             totp: Arc::new(TotpCipher::new(&config.totp_encryption_key)),
             identity_providers: Arc::new(IdentityProviders::from_settings(&config.oidc_providers)),
             app_url: config.app_url.clone(),
+            app_scheme: config.app_scheme.clone(),
             global_rate_limit: RateLimit::per_minute(config.global_rate_limit, config.trust_proxy),
             cors_allowed_origins: config.cors_allowed_origins.clone(),
             https: config.https(),

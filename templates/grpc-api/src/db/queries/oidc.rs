@@ -2,6 +2,7 @@
 
 //! Functions for the annotated queries in the query file.
 
+use super::super::oidc_handoffs::models::OidcHandoffId;
 use super::super::oidc_requests::models::OidcRequestId;
 use super::super::user_identities::models::UserIdentityId;
 use super::super::users::models::UserId;
@@ -23,6 +24,8 @@ pub struct InsertRequestParams {
     pub user_id: Option<UserId>,
     /// Bound to `$7`.
     pub expires_at: chrono::DateTime<chrono::Utc>,
+    /// Bound to `$8`.
+    pub hands_over: bool,
 }
 
 /// Runs the `InsertRequest` query (`:exec`).
@@ -35,8 +38,8 @@ where
 {
     rok_data::raw(
         r#"
-        INSERT INTO oidc_requests (id, provider, state_hash, pkce_verifier, nonce, user_id, expires_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO oidc_requests (id, provider, state_hash, pkce_verifier, nonce, user_id, expires_at, hands_over)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         "#,
     )
     .bind(params.id)
@@ -46,6 +49,7 @@ where
     .bind(params.nonce)
     .bind(params.user_id)
     .bind(params.expires_at)
+    .bind(params.hands_over)
     .execute(executor)
     .await?;
     Ok(())
@@ -76,6 +80,8 @@ pub struct TakeRequestRow {
     pub nonce: String,
     /// The `user_id` column.
     pub user_id: Option<UserId>,
+    /// The `hands_over` column.
+    pub hands_over: bool,
 }
 
 /// Runs the `TakeRequest` query (`:maybe_one`).
@@ -91,7 +97,7 @@ where
         r#"
         DELETE FROM oidc_requests
         WHERE provider = $1 AND state_hash = $2 AND expires_at > now()
-        RETURNING pkce_verifier, nonce, user_id
+        RETURNING pkce_verifier, nonce, user_id, hands_over
         "#,
     )
     .bind(provider)
@@ -288,4 +294,77 @@ where
     .bind(user_id)
     .execute(executor)
     .await
+}
+
+/// Parameters of `insert_handoff`.
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct InsertHandoffParams {
+    /// Bound to `$1`.
+    pub id: OidcHandoffId,
+    /// Bound to `$2`.
+    pub user_id: UserId,
+    /// Bound to `$3`.
+    pub code_hash: String,
+    /// Bound to `$4`.
+    pub expires_at: chrono::DateTime<chrono::Utc>,
+}
+
+/// Runs the `InsertHandoff` query (`:exec`).
+pub async fn insert_handoff<'e, E>(
+    executor: E,
+    params: InsertHandoffParams,
+) -> Result<(), rok_data::Error>
+where
+    E: rok_data::Executor<'e>,
+{
+    rok_data::raw(
+        r#"
+        INSERT INTO oidc_handoffs (id, user_id, code_hash, expires_at)
+        VALUES ($1, $2, $3, $4)
+        "#,
+    )
+    .bind(params.id)
+    .bind(params.user_id)
+    .bind(params.code_hash)
+    .bind(params.expires_at)
+    .execute(executor)
+    .await?;
+    Ok(())
+}
+
+/// Runs the `TakeHandoff` query (`:maybe_one`).
+pub async fn take_handoff<'e, E>(
+    executor: E,
+    code_hash: &str,
+) -> Result<Option<UserId>, rok_data::Error>
+where
+    E: rok_data::Executor<'e>,
+{
+    rok_data::raw(
+        r#"
+        UPDATE oidc_handoffs
+        SET used_at = now()
+        WHERE code_hash = $1 AND used_at IS NULL AND expires_at > now()
+        RETURNING user_id
+        "#,
+    )
+    .bind(code_hash)
+    .scalar_optional(executor)
+    .await
+}
+
+/// Runs the `ForgetExpiredHandoffs` query (`:exec`).
+pub async fn forget_expired_handoffs<'e, E>(executor: E) -> Result<(), rok_data::Error>
+where
+    E: rok_data::Executor<'e>,
+{
+    rok_data::raw(
+        r#"
+        DELETE FROM oidc_handoffs
+        WHERE expires_at <= now()
+        "#,
+    )
+    .execute(executor)
+    .await?;
+    Ok(())
 }

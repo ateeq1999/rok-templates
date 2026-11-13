@@ -42,6 +42,8 @@ use crate::features::GeneratedApiDoc;
         crate::features::oidc::handlers::list_identities,
         crate::features::oidc::handlers::link_identity,
         crate::features::oidc::handlers::unlink_identity,
+        crate::features::oidc::handlers::list_sign_in_providers,
+        crate::features::oidc::handlers::exchange_handoff,
         crate::features::api_keys::handlers::list,
         crate::features::api_keys::handlers::create,
         crate::features::api_keys::handlers::revoke,
@@ -59,7 +61,8 @@ use crate::features::GeneratedApiDoc;
         crate::features::media::handlers::put_object,
         crate::features::media::handlers::get_object,
     ),
-    components(schemas()),
+    // `OidcClient` is a query parameter's type, which no body names.
+    components(schemas(crate::features::oidc::dto::OidcClient)),
     tags((name = "auth"), (name = "api-keys"), (name = "jobs")),
 )]
 pub struct ApiDoc;

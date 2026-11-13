@@ -5,9 +5,10 @@
 -- name: InsertRequest :exec
 -- A sign-in at the provider `$2` waiting for its callback: the hash of its
 -- state, the PKCE verifier and the nonce the code is redeemed with, and,
--- for a link, the signed-in account `$6`. It waits until `$7`.
-INSERT INTO oidc_requests (id, provider, state_hash, pkce_verifier, nonce, user_id, expires_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7);
+-- for a link, the signed-in account `$6`. It waits until `$7`; `$8` hands
+-- its outcome over to a mobile App.
+INSERT INTO oidc_requests (id, provider, state_hash, pkce_verifier, nonce, user_id, expires_at, hands_over)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
 
 -- name: ForgetExpiredRequests :exec
 -- Forgets every request whose callback never came in time.
@@ -19,7 +20,7 @@ WHERE expires_at <= now();
 -- `$2`: one statement, so a callback can't be redeemed twice.
 DELETE FROM oidc_requests
 WHERE provider = $1 AND state_hash = $2 AND expires_at > now()
-RETURNING pkce_verifier, nonce, user_id;
+RETURNING pkce_verifier, nonce, user_id, hands_over;
 
 -- name: FindIdentity :maybe_one
 -- The account the identity `$2` at the provider `$1` is linked to.
@@ -74,3 +75,22 @@ WHERE id = $1 AND user_id = $2
             SELECT 1 FROM user_identities AS other WHERE other.user_id = $2 AND other.id <> $1
         )
     );
+
+-- name: InsertHandoff :exec
+-- A sign-in handed over to a mobile App as the code hashing to `$3`: the
+-- account `$2` signs in with it once, until `$4`.
+INSERT INTO oidc_handoffs (id, user_id, code_hash, expires_at)
+VALUES ($1, $2, $3, $4);
+
+-- name: TakeHandoff :maybe_one
+-- Spends the unused, unexpired hand-over whose code hashes to `$1`: the
+-- account it signs in. One statement, so a code can't be spent twice.
+UPDATE oidc_handoffs
+SET used_at = now()
+WHERE code_hash = $1 AND used_at IS NULL AND expires_at > now()
+RETURNING user_id;
+
+-- name: ForgetExpiredHandoffs :exec
+-- Forgets every hand-over past its minute, used or not.
+DELETE FROM oidc_handoffs
+WHERE expires_at <= now();

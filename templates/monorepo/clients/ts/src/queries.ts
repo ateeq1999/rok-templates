@@ -5,6 +5,7 @@ import { api } from "./calls"
 import type { RequestOptions } from "./runtime"
 import type {
   AuditLogListQuery,
+  AuthLinkIdentityQuery,
   ChangeEmailDto,
   ChangePasswordDto,
   CreateApiKeyDto,
@@ -12,6 +13,7 @@ import type {
   DisableTotpDto,
   EnableTotpDto,
   ForgotPasswordDto,
+  HandoffDto,
   InviteUserDto,
   JobsListQuery,
   MediaListQuery,
@@ -70,6 +72,11 @@ export const queries = {
       queryOptions({
         queryKey: ["auth", "listIdentities"] as const,
         queryFn: ({ signal }) => api.auth.listIdentities({ signal }),
+      }),
+    listSignInProviders: () =>
+      queryOptions({
+        queryKey: ["auth", "listSignInProviders"] as const,
+        queryFn: ({ signal }) => api.auth.listSignInProviders({ signal }),
       }),
   },
   avatars: {
@@ -229,6 +236,12 @@ export const mutations = {
         mutationFn: (body: CredentialsDto) =>
           api.auth.login(body, options),
       }),
+    exchangeHandoff: (options?: RequestOptions) =>
+      mutationOptions({
+        mutationKey: ["auth", "exchangeHandoff"] as const,
+        mutationFn: (body: HandoffDto) =>
+          api.auth.exchangeHandoff(body, options),
+      }),
     unlinkIdentity: (options?: RequestOptions) =>
       mutationOptions({
         mutationKey: ["auth", "unlinkIdentity"] as const,
@@ -238,8 +251,8 @@ export const mutations = {
     linkIdentity: (options?: RequestOptions) =>
       mutationOptions({
         mutationKey: ["auth", "linkIdentity"] as const,
-        mutationFn: (provider: string) =>
-          api.auth.linkIdentity(provider, options),
+        mutationFn: (variables: { provider: string; query?: AuthLinkIdentityQuery }) =>
+          api.auth.linkIdentity(variables.provider, variables.query, options),
       }),
     change: (options?: RequestOptions) =>
       mutationOptions({

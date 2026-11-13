@@ -67,6 +67,8 @@ pub struct OidcRequest {
     /// The `user_id` column.
     #[rok(belongs_to = User)]
     pub user_id: Option<UserId>,
+    /// The `hands_over` column.
+    pub hands_over: bool,
     /// The `expires_at` column.
     pub expires_at: chrono::DateTime<chrono::Utc>,
     /// The `created_at` column.
@@ -74,6 +76,9 @@ pub struct OidcRequest {
 }
 
 /// Input for `create`: every column the caller may supply.
+///
+/// `Option` fields are columns with a database default: `None` leaves the
+/// column out of the `INSERT` so the default applies.
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize, rok_data::Input)]
 pub struct NewOidcRequest {
     /// The `id` column.
@@ -89,6 +94,9 @@ pub struct NewOidcRequest {
     pub nonce: String,
     /// The `user_id` column.
     pub user_id: Option<UserId>,
+    /// The `hands_over` column.
+    /// `None` applies the column default.
+    pub hands_over: Option<bool>,
     /// The `expires_at` column.
     pub expires_at: chrono::DateTime<chrono::Utc>,
 }
@@ -121,6 +129,9 @@ pub struct UpdateOidcRequest {
         skip_serializing_if = "Option::is_none"
     )]
     pub user_id: Option<Option<UserId>>,
+    /// The new value of the `hands_over` column.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hands_over: Option<bool>,
     /// The new value of the `expires_at` column.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<chrono::DateTime<chrono::Utc>>,
@@ -135,6 +146,7 @@ impl UpdateOidcRequest {
             && self.pkce_verifier.is_none()
             && self.nonce.is_none()
             && self.user_id.is_none()
+            && self.hands_over.is_none()
             && self.expires_at.is_none()
     }
 }

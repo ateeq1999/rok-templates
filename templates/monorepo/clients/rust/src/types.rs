@@ -248,6 +248,13 @@ pub struct ForgotPasswordDto {
     pub email: String,
 }
 
+/// The API's `HandoffDto`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct HandoffDto {
+    /// The `code` of `<APP_SCHEME>://auth/oidc?code=…`.
+    pub code: String,
+}
+
 /// The API's `IdentityResponse`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct IdentityResponse {
@@ -406,6 +413,33 @@ pub struct NewAccountResponse {
     pub totp_enabled: bool,
 }
 
+/// The API's `OidcClient`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum OidcClient {
+    /// `web`.
+    #[serde(rename = "web")]
+    Web,
+    /// `mobile`.
+    #[serde(rename = "mobile")]
+    Mobile,
+}
+
+impl OidcClient {
+    /// Its value on the wire.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            OidcClient::Web => "web",
+            OidcClient::Mobile => "mobile",
+        }
+    }
+}
+
+impl std::fmt::Display for OidcClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
 /// The API's `PaginatedResponse_AuditLogEntryResponse`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PaginatedResponseAuditLogEntryResponse {
@@ -492,6 +526,13 @@ impl std::fmt::Display for Role {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(self.as_str())
     }
+}
+
+/// The API's `SignInProviderResponse`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct SignInProviderResponse {
+    /// Its name in the routes (`/auth/oidc/{name}/start`), such as `google`.
+    pub name: String,
 }
 
 /// The API's `SortOrder`.
@@ -698,6 +739,14 @@ pub struct AuditLogListQuery {
     /// The sort's direction. Defaults to `desc`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub order: Option<SortOrder>,
+}
+
+/// The query of `POST /api/v1/auth/oidc/{provider}/link`.
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+pub struct AuthLinkIdentityQuery {
+    /// The App to come back to: `web` (the default) or `mobile`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub client: Option<OidcClient>,
 }
 
 /// The query of `GET /api/v1/jobs`.

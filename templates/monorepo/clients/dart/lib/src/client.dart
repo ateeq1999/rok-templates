@@ -310,6 +310,21 @@ final class AuthApi {
     options,
   );
 
+  /// `POST /api/v1/auth/oidc/handoff`: trades the code of the mobile App's
+  /// deep link (`<APP_SCHEME>://auth/oidc?code=…`) for a session, `200`.
+  Future<TokenResponse> exchangeHandoff(
+    HandoffDto body, {
+    RequestOptions? options,
+  }) => _transport.json<TokenResponse>(
+    Call(
+      'POST',
+      '/api/v1/auth/oidc/handoff',
+      json: body.toJson(),
+    ),
+    (json) => TokenResponse.fromJson(json as Map<String, Object?>),
+    options,
+  );
+
   /// `GET /api/v1/auth/oidc/identities`: the caller's Linked identities,
   /// `200`.
   Future<List<IdentityResponse>> listIdentities({
@@ -338,15 +353,31 @@ final class AuthApi {
     options,
   );
 
+  /// `GET /api/v1/auth/oidc/providers`: the providers people may sign in
+  /// with, for the Apps' "Continue with …" buttons, `200`. None configured
+  /// is an empty list, so the Apps hide the buttons.
+  Future<List<SignInProviderResponse>> listSignInProviders({
+    RequestOptions? options,
+  }) => _transport.json<List<SignInProviderResponse>>(
+    Call(
+      'GET',
+      '/api/v1/auth/oidc/providers',
+    ),
+    (json) => (json as List<Object?>).map((v) => SignInProviderResponse.fromJson(v as Map<String, Object?>)).toList(),
+    options,
+  );
+
   /// `POST /api/v1/auth/oidc/{provider}/link`: where to send the browser to
   /// link an identity at `provider` to the caller, `200`.
   Future<LinkResponse> linkIdentity(
     String provider, {
+    OidcClient? client,
     RequestOptions? options,
   }) => _transport.json<LinkResponse>(
     Call(
       'POST',
       '/api/v1/auth/oidc/${Uri.encodeComponent(provider)}/link',
+      query: {'client': client?.toJson()},
       secured: true,
     ),
     (json) => LinkResponse.fromJson(json as Map<String, Object?>),

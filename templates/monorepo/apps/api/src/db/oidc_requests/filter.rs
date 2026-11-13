@@ -40,6 +40,8 @@ pub struct OidcRequestFilter {
     pub user_id: Vec<Equality<UserId>>,
     /// Whether the `user_id` column is `NULL`.
     pub user_id_is_null: Option<bool>,
+    /// Conditions on the `hands_over` column.
+    pub hands_over: Vec<Equality<bool>>,
     /// Conditions on the `expires_at` column.
     pub expires_at: Vec<Ordered<chrono::DateTime<chrono::Utc>>>,
     /// Conditions on the `created_at` column.
@@ -95,6 +97,9 @@ impl OidcRequestFilter {
             condition.push("user_id", query);
         }
         push_null_check("user_id", self.user_id_is_null, query);
+        for condition in self.hands_over {
+            condition.push("hands_over", query);
+        }
         for condition in self.expires_at {
             condition.push("expires_at", query);
         }
@@ -128,6 +133,8 @@ pub enum OidcRequestSortKey {
     Nonce,
     /// Sorts by the `user_id` column.
     UserId,
+    /// Sorts by the `hands_over` column.
+    HandsOver,
     /// Sorts by the `expires_at` column.
     ExpiresAt,
     /// Sorts by the `created_at` column.
@@ -145,6 +152,7 @@ impl OidcRequestSortKey {
             Self::PkceVerifier => OidcRequest::PKCE_VERIFIER,
             Self::Nonce => OidcRequest::NONCE,
             Self::UserId => OidcRequest::USER_ID,
+            Self::HandsOver => OidcRequest::HANDS_OVER,
             Self::ExpiresAt => OidcRequest::EXPIRES_AT,
             Self::CreatedAt => OidcRequest::CREATED_AT,
         };

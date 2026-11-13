@@ -195,7 +195,8 @@ stands in for one in tests. Nothing is Google-only: a provider is a
 name you choose and its issuer (workspace ADR 0035).
 
 It is off until a provider is configured: with no `OIDC_PROVIDERS`, every
-route below answers `404`.
+route below but `GET /providers` answers `404`, and that one answers an
+empty list, so the Apps show no "Continue with …" button.
 
 **Setting Google up.** In the Google Cloud console, create an OAuth client
 of type *Web application* and add the callback as an authorized redirect
@@ -219,10 +220,12 @@ reads `OIDC_WORK_SSO_ISSUER` and so on.
 
 | Route | Does |
 |---|---|
-| `GET /{provider}/start` | `303` to the provider's sign-in page |
-| `GET /{provider}/callback` | the provider's redirect back: `303` to `{APP_URL}/auth/oidc#…` |
+| `GET /providers` | the configured providers' names, for the Apps' buttons (`[]` when none) |
+| `GET /{provider}/start` | `303` to the provider's sign-in page; `?client=mobile` comes back to the mobile App |
+| `GET /{provider}/callback` | the provider's redirect back: `303` to `{APP_URL}/auth/oidc#…`, or to `<APP_SCHEME>://auth/oidc?…` for the mobile App |
+| `POST /handoff` | trades the mobile App's one-minute hand-over `code` for a session |
 | `GET /identities` | the caller's Linked identities |
-| `POST /{provider}/link` | the authorization URL that links an identity to the caller |
+| `POST /{provider}/link` | the authorization URL that links an identity to the caller (`?client=mobile` from the mobile App) |
 | `DELETE /identities/{id}` | unlinks one (`204`) |
 
 The callback sends the browser to the App with the outcome in the URL's
@@ -234,11 +237,25 @@ after a link; or `error` and `message` when it didn't sign in
 (`email_in_use`, `identity_in_use`, `invalid_request` for an expired or
 replayed callback, `provider_refused`, …).
 
+**The mobile App.** A phone opens the provider in its system browser,
+which can't hand a token back to the App the way it can to a web page. So
+the App starts with `start?client=mobile` (or links with
+`link?client=mobile`), and the callback opens its deep link,
+`<APP_SCHEME>://auth/oidc?…`, with the same parameters in the query, but
+never a session: a sign-in becomes a one-minute, single-use `code`, which
+the App trades for a session at `POST /handoff`. Another App that answers
+the same scheme could see the link, so the code is worth nothing a minute
+later or once spent; only its hash is kept (`oidc_handoffs`). Set
+`APP_SCHEME` to the mobile App's scheme (its `APP_SCHEME` too); without
+it, `client=mobile` is a `400`.
+
 `start` and `callback` answer only redirects, and the released `rok`'s
 contract reader still refuses an operation with no `2xx`, so they are
 not in the `OpenAPI` document or the Clients yet: they join them with the
-next `rok` release, which reads Browser routes. The other three are
-ordinary routes in the document.
+next `rok` release, which reads Browser routes. Until then the Apps build
+the start URL themselves, in one place each (`features/oidc/start-url.ts`,
+`lib/app/data/oidc_start_url.dart`). The other routes are ordinary
+routes in the document.
 
 **Who signs in.** A Linked identity is matched by its provider and its
 subject (the ID token's `sub`), never by email: a returning identity signs
@@ -357,6 +374,7 @@ development only (`app/seed.rs`, its SQL in `queries/seed.sql`).
 | `OIDC_PROVIDERS` | unset | the OpenID providers people may sign in with, by name; unset, off ([Sign in with Google](#sign-in-with-google)) |
 | `OIDC_<NAME>_ISSUER`, `_CLIENT_ID`, `_CLIENT_SECRET` | required for each provider | its issuer URL and the client the provider issued |
 | `OIDC_<NAME>_TRUST_EMAIL` | `false` | link an unknown identity to the account with its verified email |
+| `APP_SCHEME` | unset | the mobile App's deep-link scheme, where its sign-in with a provider comes back |
 
 The upload settings (`STORAGE_URL`, `MEDIA_MAX_UPLOAD_BYTES`,
 `MEDIA_ALLOWED_TYPES`) are on [Files and storage](files.md#settings).

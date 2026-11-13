@@ -21,6 +21,7 @@
 //! | `OIDC_<NAME>_CLIENT_ID` | required for each provider | the client id the provider issued |
 //! | `OIDC_<NAME>_CLIENT_SECRET` | required for each provider | its client secret |
 //! | `OIDC_<NAME>_TRUST_EMAIL` | `false` | an unknown identity whose verified email belongs to an account signs in as that account; set it only for a provider that owns the emails it verifies (docs/guide/auth.md) |
+//! | `APP_SCHEME` | unset | the mobile App's deep-link scheme, such as `myapp`: a sign-in with a provider it starts comes back to `<APP_SCHEME>://auth/oidc`; unset, a mobile App can't sign in with a provider |
 //! | `MAIL_TRANSPORT` | `log` | `log` (mails are logged) or `smtp` |
 //! | `SMTP_URL` | required for `smtp` | such as `smtps://user:pass@host:465` |
 //! | `MAIL_FROM` | `Axum API <no-reply@localhost>` | the sender of every mail |
@@ -304,6 +305,9 @@ pub struct Config {
     /// `OIDC_PROVIDERS` and each one's `OIDC_<NAME>_*`: the `OpenID` providers
     /// people may sign in with; none, and sign-in with a provider is off.
     pub oidc_providers: Vec<OidcProviderSettings>,
+    /// `APP_SCHEME`: the mobile App's deep-link scheme, where a sign-in
+    /// with a provider it starts comes back to (`<APP_SCHEME>://auth/oidc`).
+    pub app_scheme: Option<String>,
     /// The pool's size and timeouts, `DB_*`.
     pub pool: PoolSettings,
 }
@@ -477,6 +481,9 @@ impl Config {
             ),
             storage_public_endpoint: var("STORAGE_PUBLIC_ENDPOINT").filter(|url| !url.is_empty()),
             oidc_providers: oidc_providers(&vars, &var),
+            app_scheme: var("APP_SCHEME")
+                .map(|scheme| scheme.trim().to_owned())
+                .filter(|scheme| !scheme.is_empty()),
             pool,
         };
         vars.finish(config)
@@ -570,6 +577,7 @@ impl Config {
                         .join(",")
                 },
             ),
+            ("APP_SCHEME", self.app_scheme.clone().unwrap_or_else(unset)),
             ("DB_MAX_CONNECTIONS", self.pool.max_connections.to_string()),
             ("DB_MIN_CONNECTIONS", self.pool.min_connections.to_string()),
             ("DB_ACQUIRE_TIMEOUT_SECS", secs(self.pool.acquire_timeout)),

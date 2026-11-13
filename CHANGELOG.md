@@ -10,6 +10,21 @@ are this file's `## [X.Y.Z]` section.
 
 **Added**
 
+- Sign-in with an OpenID provider on mobile and web (starter-feedback
+  ticket 89). `start?client=mobile` (and `link?client=mobile`) comes back
+  to the mobile App's deep link, `<APP_SCHEME>://auth/oidc?…`, a session
+  as a one-minute, single-use code that `POST /api/v1/auth/oidc/handoff`
+  trades for one; the new `APP_SCHEME` setting names the scheme, and
+  `oidc_requests` gains `hands_over` (in migration `0009_oidc`).
+  `GET /api/v1/auth/oidc/providers` names the configured providers (an
+  empty list when none). Both join the contract and the Clients. The web
+  App shows "Continue with <provider>" on its sign-in page, finishes the
+  sign-in at `/auth/oidc`, and lists, links and unlinks identities in its
+  security settings; the Flutter App opens the provider in the system
+  browser (`url_launcher`), finishes from the deep link, and does the same
+  in its settings. Both hide it all while no provider is configured. The
+  Apps build the start URL by hand until the next `rok` release generates
+  a builder for it.
 - Sign-in with an OpenID provider, the `oidc` feature (axum, actix and the
   monorepo's API), off until `OIDC_PROVIDERS` names a provider (its routes
   answer 404 until then). Providers are generic, keyed by name, each with

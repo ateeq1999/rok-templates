@@ -12,14 +12,15 @@ import 'package:hydrated_bloc/hydrated_bloc.dart';
 import 'app/core/config/app_config.dart';
 import 'app/core/config/feature_flags.dart';
 import 'app/core/router/app_router.dart';
+import 'app/core/router/deep_links.dart';
 import 'app/core/theme/app_theme.dart';
 import 'app/core/widgets/offline_banner.dart';
 import 'app/modules/theme/theme_cubit.dart';
 import 'app/data/repositories/auth.repository.dart';
 import 'app/data/repositories/user.repository.dart';
 import 'app/modules/auth/auth_bloc.dart';
-import 'app/routes/app_routes.dart';
 import 'app/services/auth_service.dart';
+import 'app/services/browser.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -38,7 +39,8 @@ Future<void> main() async {
   // the session store gives it the bearer token and hears when it expires.
   final authService = AuthService();
   final api = ApiClient(baseUrl: AppConfig.apiUrl, session: authService);
-  final authRepository = AuthRepository(api, authService);
+  final authRepository =
+      AuthRepository(api, authService, apiUrl: AppConfig.apiUrl);
   final userRepository = UserRepository(api);
 
   runApp(
@@ -93,26 +95,11 @@ class _MyAppState extends State<MyApp> {
     );
   }
 
-  /// `<scheme>://auth/verify-email?token=...` and
-  /// `<scheme>://auth/reset-password?token=...` open the screens that use
-  /// the token the API mailed.
+  /// A deep link the App answers (`<scheme>://auth/…`, see
+  /// [deepLinkLocation]) opens its screen.
   void _handleDeepLink(Uri uri) {
-    if (uri.scheme != AppConfig.appScheme || uri.host != 'auth') return;
-    final token = uri.queryParameters['token'];
-    if (token == null) return;
-
-    switch (uri.path) {
-      case '/verify-email':
-        _router.go(Uri(
-          path: AppRoutes.verifyEmail,
-          queryParameters: {'token': token},
-        ).toString());
-      case '/reset-password':
-        _router.go(Uri(
-          path: AppRoutes.resetPassword,
-          queryParameters: {'token': token},
-        ).toString());
-    }
+    final location = deepLinkLocation(uri);
+    if (location != null) _router.go(location);
   }
 
   @override
@@ -131,6 +118,7 @@ class _MyAppState extends State<MyApp> {
         RepositoryProvider<AuthRepository>.value(value: widget.authRepository),
         RepositoryProvider<UserRepository>.value(value: widget.userRepository),
         RepositoryProvider<FeatureFlags>.value(value: widget.featureFlags),
+        RepositoryProvider<Browser>.value(value: const SystemBrowser()),
       ],
       child: MultiBlocProvider(
         providers: [

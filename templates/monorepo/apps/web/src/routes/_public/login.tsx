@@ -13,6 +13,7 @@ import {
 import { FieldGroup } from "@/components/ui/field"
 import { api } from "@/lib/client"
 import { TotpLoginStep } from "@/features/auth/components/totp-login-step"
+import { ContinueWithButtons } from "@/features/oidc/components/continue-with-buttons"
 import { loginStepFor } from "@/features/auth/login-flow"
 import { loginSchema, safeRedirect } from "@/features/auth/schemas"
 import {
@@ -176,6 +177,7 @@ function PasswordStep({
           Forgot password?
         </Link>
       </form>
+      <ContinueWithButtons />
     </AuthCard>
   )
 }

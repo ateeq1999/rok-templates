@@ -15,6 +15,11 @@ pub fn routes(cfg: &mut web::ServiceConfig, limit: &RateLimit) {
     cfg.service(
         web::scope("/api/v1/auth/oidc")
             .wrap(limit.clone())
+            .route(
+                "/providers",
+                web::get().to(handlers::list_sign_in_providers),
+            )
+            .route("/handoff", web::post().to(handlers::exchange_handoff))
             .route("/identities", web::get().to(handlers::list_identities))
             .route(
                 "/identities/{id}",

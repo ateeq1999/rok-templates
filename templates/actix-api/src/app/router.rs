@@ -107,6 +107,7 @@ pub fn configure(cfg: &mut web::ServiceConfig, state: &AppState) {
         providers: state.identity_providers.clone(),
         app_url: state.app_url.clone(),
         require_verified_email: state.require_verified_email,
+        app_scheme: state.app_scheme.clone(),
     }));
     cfg.app_data(web::Data::new(state.media_service()));
     health::routes(cfg);

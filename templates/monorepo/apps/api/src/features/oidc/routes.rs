@@ -16,6 +16,14 @@ use crate::shared::rate_limit::RateLimit;
 pub fn routes(limit: &RateLimit) -> Router<AppState> {
     Router::new()
         .route(
+            "/api/v1/auth/oidc/providers",
+            get(handlers::list_sign_in_providers),
+        )
+        .route(
+            "/api/v1/auth/oidc/handoff",
+            post(handlers::exchange_handoff),
+        )
+        .route(
             "/api/v1/auth/oidc/identities",
             get(handlers::list_identities),
         )

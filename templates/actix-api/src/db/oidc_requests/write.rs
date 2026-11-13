@@ -4,7 +4,8 @@ use super::models::{NewOidcRequest, OidcRequest, OidcRequestId, UpdateOidcReques
 use rok_data::Model;
 
 impl OidcRequest {
-    /// Inserts one row and returns it as stored.
+    /// Inserts one row and returns it as stored. Defaulted columns left as `None`
+    /// are omitted from the `INSERT` so the database default applies.
     pub async fn create<'e, E>(
         executor: E,
         input: NewOidcRequest,
@@ -12,19 +13,22 @@ impl OidcRequest {
     where
         E: rok_data::Executor<'e>,
     {
-        OidcRequest::insert_builder()
-            .set(
-                OidcRequest::ID,
-                input.id.unwrap_or_else(OidcRequestId::generate),
-            )
-            .set(OidcRequest::PROVIDER, input.provider)
-            .set(OidcRequest::STATE_HASH, input.state_hash)
-            .set(OidcRequest::PKCE_VERIFIER, input.pkce_verifier)
-            .set(OidcRequest::NONCE, input.nonce)
-            .set(OidcRequest::USER_ID, input.user_id)
-            .set(OidcRequest::EXPIRES_AT, input.expires_at)
-            .exec(executor)
-            .await
+        let mut insert = OidcRequest::insert_builder();
+        insert = insert.set(
+            OidcRequest::ID,
+            input.id.unwrap_or_else(OidcRequestId::generate),
+        );
+        insert = insert.set(OidcRequest::PROVIDER, input.provider);
+        insert = insert.set(OidcRequest::STATE_HASH, input.state_hash);
+        insert = insert.set(OidcRequest::PKCE_VERIFIER, input.pkce_verifier);
+        insert = insert.set(OidcRequest::NONCE, input.nonce);
+        insert = insert.set(OidcRequest::USER_ID, input.user_id);
+        if let Some(value) = input.hands_over {
+            insert = insert.set(OidcRequest::HANDS_OVER, value);
+        }
+        insert = insert.set(OidcRequest::EXPIRES_AT, input.expires_at);
+
+        insert.exec(executor).await
     }
 
     /// Applies a partial patch and returns the patched row; [`rok_data::Error::NotFound`]
@@ -58,6 +62,9 @@ impl OidcRequest {
         }
         if let Some(value) = input.user_id {
             update = update.set(OidcRequest::USER_ID, value);
+        }
+        if let Some(value) = input.hands_over {
+            update = update.set(OidcRequest::HANDS_OVER, value);
         }
         if let Some(value) = input.expires_at {
             update = update.set(OidcRequest::EXPIRES_AT, value);

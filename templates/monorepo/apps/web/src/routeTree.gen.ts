@@ -30,6 +30,7 @@ import { Route as AppSettingsAccountRouteImport } from './routes/_app/settings/a
 import { Route as AppSettingsApiKeysRouteImport } from './routes/_app/settings/api-keys'
 import { Route as AppSettingsAppearanceRouteImport } from './routes/_app/settings/appearance'
 import { Route as AppSettingsSecurityRouteImport } from './routes/_app/settings/security'
+import { Route as PublicAuthOidcRouteImport } from './routes/_public/auth/oidc'
 import { Route as AppAdminUsersIndexRouteImport } from './routes/_app/admin/users/index'
 import { Route as AppAdminUsersUserIdRouteImport } from './routes/_app/admin/users/$userId'
 
@@ -137,6 +138,11 @@ const AppSettingsSecurityRoute = AppSettingsSecurityRouteImport.update({
   path: '/security',
   getParentRoute: () => AppSettingsRouteRoute,
 } as any)
+const PublicAuthOidcRoute = PublicAuthOidcRouteImport.update({
+  id: '/auth/oidc',
+  path: '/auth/oidc',
+  getParentRoute: () => PublicRouteRoute,
+} as any)
 const AppAdminUsersIndexRoute = AppAdminUsersIndexRouteImport.update({
   id: '/users/',
   path: '/users/',
@@ -166,6 +172,7 @@ export interface FileRoutesByFullPath {
   '/settings/api-keys': typeof AppSettingsApiKeysRoute
   '/settings/appearance': typeof AppSettingsAppearanceRoute
   '/settings/security': typeof AppSettingsSecurityRoute
+  '/auth/oidc': typeof PublicAuthOidcRoute
   '/admin/': typeof AppAdminIndexRoute
   '/settings/': typeof AppSettingsIndexRoute
   '/admin/users/$userId': typeof AppAdminUsersUserIdRoute
@@ -187,6 +194,7 @@ export interface FileRoutesByTo {
   '/settings/api-keys': typeof AppSettingsApiKeysRoute
   '/settings/appearance': typeof AppSettingsAppearanceRoute
   '/settings/security': typeof AppSettingsSecurityRoute
+  '/auth/oidc': typeof PublicAuthOidcRoute
   '/admin': typeof AppAdminIndexRoute
   '/settings': typeof AppSettingsIndexRoute
   '/admin/users/$userId': typeof AppAdminUsersUserIdRoute
@@ -213,6 +221,7 @@ export interface FileRoutesById {
   '/_app/settings/api-keys': typeof AppSettingsApiKeysRoute
   '/_app/settings/appearance': typeof AppSettingsAppearanceRoute
   '/_app/settings/security': typeof AppSettingsSecurityRoute
+  '/_public/auth/oidc': typeof PublicAuthOidcRoute
   '/_app/admin/': typeof AppAdminIndexRoute
   '/_app/settings/': typeof AppSettingsIndexRoute
   '/_app/admin/users/$userId': typeof AppAdminUsersUserIdRoute
@@ -238,6 +247,7 @@ export interface FileRouteTypes {
     | '/settings/api-keys'
     | '/settings/appearance'
     | '/settings/security'
+    | '/auth/oidc'
     | '/admin/'
     | '/settings/'
     | '/admin/users/$userId'
@@ -259,6 +269,7 @@ export interface FileRouteTypes {
     | '/settings/api-keys'
     | '/settings/appearance'
     | '/settings/security'
+    | '/auth/oidc'
     | '/admin'
     | '/settings'
     | '/admin/users/$userId'
@@ -284,6 +295,7 @@ export interface FileRouteTypes {
     | '/_app/settings/api-keys'
     | '/_app/settings/appearance'
     | '/_app/settings/security'
+    | '/_public/auth/oidc'
     | '/_app/admin/'
     | '/_app/settings/'
     | '/_app/admin/users/$userId'
@@ -446,6 +458,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppSettingsSecurityRouteImport
       parentRoute: typeof AppSettingsRouteRoute
     }
+    '/_public/auth/oidc': {
+      id: '/_public/auth/oidc'
+      path: '/auth/oidc'
+      fullPath: '/auth/oidc'
+      preLoaderRoute: typeof PublicAuthOidcRouteImport
+      parentRoute: typeof PublicRouteRoute
+    }
     '/_app/admin/users/': {
       id: '/_app/admin/users/'
       path: '/users'
@@ -525,6 +544,7 @@ interface PublicRouteRouteChildren {
   PublicRegisterRoute: typeof PublicRegisterRoute
   PublicResetPasswordRoute: typeof PublicResetPasswordRoute
   PublicVerifyEmailRoute: typeof PublicVerifyEmailRoute
+  PublicAuthOidcRoute: typeof PublicAuthOidcRoute
 }
 
 const PublicRouteRouteChildren: PublicRouteRouteChildren = {
@@ -534,6 +554,7 @@ const PublicRouteRouteChildren: PublicRouteRouteChildren = {
   PublicRegisterRoute: PublicRegisterRoute,
   PublicResetPasswordRoute: PublicResetPasswordRoute,
   PublicVerifyEmailRoute: PublicVerifyEmailRoute,
+  PublicAuthOidcRoute: PublicAuthOidcRoute,
 }
 
 const PublicRouteRouteWithChildren = PublicRouteRoute._addFileChildren(
