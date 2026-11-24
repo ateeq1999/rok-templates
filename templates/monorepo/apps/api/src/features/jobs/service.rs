@@ -108,9 +108,7 @@ impl JobService {
         let mut tx = self.pool.begin().await?;
         let Some(kind) = queries::cancel_job(&mut *tx, id).await? else {
             return Err(if queries::count_job(&mut *tx, id).await? > 0 {
-                AppError::Conflict(
-                    "a worker is running this job; try again once it settles".to_owned(),
-                )
+                AppError::conflict("a worker is running this job; try again once it settles")
             } else {
                 AppError::NotFound("no job has this id".to_owned())
             });
