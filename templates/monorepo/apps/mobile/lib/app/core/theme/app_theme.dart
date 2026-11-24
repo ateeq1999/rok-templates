@@ -8,6 +8,10 @@ import 'theme_preferences.dart';
 /// Consistent rounded corners, soft surfaces, elevated buttons with a subtle
 /// press feel, and tinted input backgrounds.
 class AppTheme {
+  /// The App's typeface, bundled in `fonts/inter/` (`pubspec.yaml`), set on
+  /// every text style so no text falls back to the platform's font.
+  static const fontFamily = 'Inter';
+
   static ThemeData build(ThemePreferences prefs, Brightness brightness) {
     final scheme = ColorScheme.fromSeed(
       seedColor: prefs.seedColor,
@@ -18,6 +22,7 @@ class AppTheme {
 
     return ThemeData(
       useMaterial3: true,
+      fontFamily: fontFamily,
       colorScheme: scheme,
       brightness: brightness,
       scaffoldBackgroundColor: scheme.surface,
@@ -45,6 +50,7 @@ class AppTheme {
                 statusBarColor: Colors.transparent,
               ),
         titleTextStyle: TextStyle(
+          fontFamily: fontFamily,
           color: scheme.onSurface,
           fontSize: 20,
           fontWeight: FontWeight.w600,
@@ -66,6 +72,7 @@ class AppTheme {
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
           textStyle: const TextStyle(
+            fontFamily: fontFamily,
             fontSize: 15,
             fontWeight: FontWeight.w600,
             letterSpacing: 0.1,
@@ -100,7 +107,11 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(radius - 2),
           ),
-          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(
+            fontFamily: fontFamily,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -127,10 +138,15 @@ class AppTheme {
           borderSide: BorderSide(color: scheme.error),
         ),
         hintStyle: TextStyle(
+          fontFamily: fontFamily,
           color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
           fontSize: 14,
         ),
-        labelStyle: TextStyle(color: scheme.onSurfaceVariant, fontSize: 14),
+        labelStyle: TextStyle(
+          fontFamily: fontFamily,
+          color: scheme.onSurfaceVariant,
+          fontSize: 14,
+        ),
       ),
       dividerTheme: DividerThemeData(
         color: scheme.outlineVariant.withValues(alpha: 0.6),
@@ -143,6 +159,7 @@ class AppTheme {
         ),
         side: BorderSide(color: scheme.outlineVariant),
         labelStyle: TextStyle(
+          fontFamily: fontFamily,
           color: scheme.onSurface,
           fontSize: 12,
           fontWeight: FontWeight.w500,
@@ -154,11 +171,13 @@ class AppTheme {
         ),
         iconColor: scheme.onSurfaceVariant,
         titleTextStyle: TextStyle(
+          fontFamily: fontFamily,
           color: scheme.onSurface,
           fontSize: 15,
           fontWeight: FontWeight.w500,
         ),
         subtitleTextStyle: TextStyle(
+          fontFamily: fontFamily,
           color: scheme.onSurfaceVariant,
           fontSize: 13,
         ),
@@ -176,7 +195,10 @@ class AppTheme {
           borderRadius: BorderRadius.circular(radius),
         ),
         backgroundColor: scheme.inverseSurface,
-        contentTextStyle: TextStyle(color: scheme.onInverseSurface),
+        contentTextStyle: TextStyle(
+          fontFamily: fontFamily,
+          color: scheme.onInverseSurface,
+        ),
       ),
       bottomSheetTheme: BottomSheetThemeData(
         backgroundColor: scheme.surface,
@@ -207,74 +229,97 @@ class AppTheme {
   static TextTheme _buildTextTheme(ColorScheme scheme) {
     return TextTheme(
       displayLarge: TextStyle(
+        fontFamily: fontFamily,
         fontSize: 57,
         fontWeight: FontWeight.w700,
         letterSpacing: -1.0,
         color: scheme.onSurface,
       ),
       displayMedium: TextStyle(
+        fontFamily: fontFamily,
         fontSize: 45,
         fontWeight: FontWeight.w700,
         letterSpacing: -0.6,
         color: scheme.onSurface,
       ),
       displaySmall: TextStyle(
+        fontFamily: fontFamily,
         fontSize: 36,
         fontWeight: FontWeight.w600,
         letterSpacing: -0.4,
         color: scheme.onSurface,
       ),
       headlineLarge: TextStyle(
+        fontFamily: fontFamily,
         fontSize: 32,
         fontWeight: FontWeight.w700,
         letterSpacing: -0.3,
         color: scheme.onSurface,
       ),
       headlineMedium: TextStyle(
+        fontFamily: fontFamily,
         fontSize: 28,
         fontWeight: FontWeight.w600,
         letterSpacing: -0.2,
         color: scheme.onSurface,
       ),
       headlineSmall: TextStyle(
+        fontFamily: fontFamily,
         fontSize: 24,
         fontWeight: FontWeight.w600,
         letterSpacing: -0.1,
         color: scheme.onSurface,
       ),
       titleLarge: TextStyle(
+        fontFamily: fontFamily,
         fontSize: 20,
         fontWeight: FontWeight.w600,
         color: scheme.onSurface,
       ),
       titleMedium: TextStyle(
+        fontFamily: fontFamily,
         fontSize: 16,
         fontWeight: FontWeight.w600,
         color: scheme.onSurface,
       ),
       titleSmall: TextStyle(
+        fontFamily: fontFamily,
         fontSize: 14,
         fontWeight: FontWeight.w600,
         color: scheme.onSurface,
       ),
-      bodyLarge: TextStyle(fontSize: 16, color: scheme.onSurface, height: 1.5),
-      bodyMedium: TextStyle(fontSize: 14, color: scheme.onSurface, height: 1.5),
+      bodyLarge: TextStyle(
+        fontFamily: fontFamily,
+        fontSize: 16,
+        color: scheme.onSurface,
+        height: 1.5,
+      ),
+      bodyMedium: TextStyle(
+        fontFamily: fontFamily,
+        fontSize: 14,
+        color: scheme.onSurface,
+        height: 1.5,
+      ),
       bodySmall: TextStyle(
+        fontFamily: fontFamily,
         fontSize: 12,
         color: scheme.onSurfaceVariant,
         height: 1.4,
       ),
       labelLarge: TextStyle(
+        fontFamily: fontFamily,
         fontSize: 14,
         fontWeight: FontWeight.w600,
         color: scheme.onSurface,
       ),
       labelMedium: TextStyle(
+        fontFamily: fontFamily,
         fontSize: 12,
         fontWeight: FontWeight.w600,
         color: scheme.onSurface,
       ),
       labelSmall: TextStyle(
+        fontFamily: fontFamily,
         fontSize: 11,
         fontWeight: FontWeight.w500,
         color: scheme.onSurfaceVariant,

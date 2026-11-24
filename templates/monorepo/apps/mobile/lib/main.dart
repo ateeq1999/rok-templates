@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:api_client/api_client.dart';
 import 'package:app_links/app_links.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -24,6 +26,15 @@ import 'app/services/browser.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // The bundled font's licence (the OFL asks that it ship with the font),
+  // on the App's licence page.
+  LicenseRegistry.addLicense(() async* {
+    yield LicenseEntryWithLineBreaks(
+      const [AppTheme.fontFamily],
+      await rootBundle.loadString('fonts/inter/OFL.txt'),
+    );
+  });
 
   // HydratedBloc storage (persists bloc state across restarts).
   final storageDir = await getApplicationDocumentsDirectory();
