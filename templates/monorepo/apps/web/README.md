@@ -27,6 +27,20 @@ To change them:
   e.g. `API_PROXY_TARGET=http://127.0.0.1:9090 bun run dev` when the API's
   `BIND_ADDR` is on port 9090.
 
+## Adding a route
+
+Add a file under `src/routes` and run `bun run routes`: the router's own
+CLI (`tsr generate`, pinned to the generator `vite dev` runs) rewrites
+`src/routeTree.gen.ts` without a build. `bun run dev` does the same as you
+save. `tsr.config.json` gives the CLI the footer TanStack Start adds to the
+tree, so both write the same file; the web gate fails when they differ.
+
+## Tests
+
+`bun run test` runs the vitest suite on any Node: its script turns Node's
+own Web Storage off (`NODE_OPTIONS=--no-experimental-webstorage`), which
+since Node 25 puts an unusable `localStorage` over jsdom's.
+
 ## Adding components
 
 To add components to your app, run the following command:

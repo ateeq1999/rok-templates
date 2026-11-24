@@ -115,6 +115,13 @@ are this file's `## [X.Y.Z]` section.
   them; `--promote <email>` makes an existing account an admin.
   `REQUIRE_VERIFIED_EMAIL` stays `true`, and `default-run` keeps
   `cargo run` the server.
+- `bun run routes` in the monorepo's web App (starter-feedback ticket 12):
+  `@tanstack/router-cli`, pinned to the router generator `vite dev` runs,
+  regenerates `src/routeTree.gen.ts` without a build; `tsr.config.json`
+  gives it TanStack Start's footer. The web gate runs it and fails when
+  the shipped tree changes. `bun run test` sets
+  `NODE_OPTIONS=--no-experimental-webstorage`, so the tests run on Node 25
+  and later with no flag added, and CI's web gate pins Node 22.23.4.
 
 **Changed**
 
