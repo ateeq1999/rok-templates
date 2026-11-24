@@ -633,7 +633,9 @@ features follow.
 - `token_version` is bumped to sign an account out everywhere: a token
   carrying an older one is rejected.
 
-`tests/contract.rs` allows additions to a covered route: a new optional
+`tests/contract.rs` is a parity check with the axum starter, not a
+freeze: it is expected to grow entries as the project changes its own
+schema. It allows additions to a covered route: a new optional
 request property or query parameter (the `?permanent=` and list
 `sort`/`order` every generated API has among them) and a new response
 property, so a project grows the starter's routes instead of adding
@@ -642,18 +644,23 @@ a changed success status still fail. `KNOWN` lists the differences that
 remain, each with its reason: the account routes' answers, named
 `AccountResponse` and `NewAccountResponse` so they don't replace the
 `users` feature's `UserResponse` (utoipa keeps one schema per name;
-`tests/openapi_schemas.rs` fails when two collide).
+`tests/openapi_schemas.rs` fails when two collide). `KNOWN_SCHEMAS`
+marks a whole schema as the project's own, with its reason, so its
+differences are skipped in one line instead of a `KNOWN` entry each:
 
-## Coming next
+```rust
+const KNOWN_SCHEMAS: &[(&str, &str)] = &[("UserResponse", "users carry our own fields")];
+```
 
-Later releases port the rest of the axum starter as hand-written
-features on top of this one, for this template and the axum one:
+Both lists stay true: a `KNOWN` difference no longer found, or a
+`KNOWN_SCHEMAS` schema that no longer differs, fails the test until it is
+removed.
 
-- `api-keys` (create returning the key once, revoke, an unpaginated list),
-  with an `ApiKey` extractor;
-- avatars (`avatar_url`), stored through the `Storage` port;
-- `POST /users` with a password, and the business rules of `update` and
-  `remove` (not yourself, not the last admin), with their audit-log
-  entries.
+## Not ported yet
 
-OAuth, passkeys and QR sign-in are not planned.
+Neither this template nor the axum one has these yet: `POST /users`
+(an account made with a password), and the business rules of `update`
+and `remove` (not yourself, not the last admin) with their audit-log
+entries. API keys and avatars, once listed here, are in both.
+Sign-in with an OpenID provider is the `oidc` feature (see Accounts);
+passkeys and QR sign-in are not planned.
