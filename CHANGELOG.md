@@ -10,6 +10,13 @@ are this file's `## [X.Y.Z]` section.
 
 **Added**
 
+- The `TOTP_ISSUER` setting (starter-feedback ticket 07): the name
+  authenticator apps show beside the account, in every Template with
+  two-factor (axum, actix, gRPC and the monorepo's API). It defaults to
+  the project name without a trailing `-api` (`karibupass` for
+  `karibupass-api`), where the issuer used to be the crate's name; a `:`
+  is refused at start-up. `totp::enroll` takes the issuer, and
+  `totp::default_issuer` gives the default.
 - Sign-in with an OpenID provider on mobile and web (starter-feedback
   ticket 89). `start?client=mobile` (and `link?client=mobile`) comes back
   to the mobile App's deep link, `<APP_SCHEME>://auth/oidc?…`, a session
@@ -134,6 +141,16 @@ are this file's `## [X.Y.Z]` section.
 - The API templates' READMEs name `[api] include`, the allowlist
   alternative to `[api] exclude`, and `rok gen`'s notice of a newly served
   table.
+- A constraint violation says which constraint it broke (starter-feedback
+  ticket 32). `AppError::Conflict(String)` is now
+  `Conflict { kind, constraint, message }` in every API template (axum,
+  actix, gRPC and the monorepo's API): `kind` is a `ConflictKind`
+  (`Unique` or `ForeignKey` from the database, `State` for a conflict a
+  feature raises with `AppError::conflict(message)`), and
+  `err.constraint()` names the violated constraint, so a feature maps a
+  constraint to its own error by name. The answer is unchanged: `409
+  conflict` with the same message (gRPC: `ALREADY_EXISTS`). A project's
+  own `AppError::Conflict(message)` becomes `AppError::conflict(message)`.
 
 **Fixed**
 

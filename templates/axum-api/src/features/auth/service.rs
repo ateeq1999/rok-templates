@@ -25,7 +25,7 @@ use super::dto::{
 use crate::db::queries::auth::{self as queries, InviteUserParams};
 use crate::db::types::{AuthTokenPurpose, Role};
 use crate::db::users::models::{User, UserId};
-use crate::error::AppError;
+use crate::error::{AppError, ConflictKind};
 use crate::shared::mail::{Outbox, Templates};
 use crate::shared::metrics::{self, LoginOutcome};
 use crate::shared::security::auth_token::{self, invalid_token};
@@ -244,14 +244,17 @@ impl AuthService {
 
 /// The `409` of an email a live account already uses.
 fn email_taken() -> AppError {
-    AppError::Conflict("this email is already registered".to_owned())
+    AppError::conflict("this email is already registered")
 }
 
 /// Maps an error to [`AppError`], answering `replacement` instead for a
 /// unique violation (a `409`): what a taken email means to the flow.
 fn conflict_as<E: Into<AppError>>(replacement: fn() -> AppError) -> impl FnOnce(E) -> AppError {
     move |err| match err.into() {
-        AppError::Conflict(_) => replacement(),
+        AppError::Conflict {
+            kind: ConflictKind::Unique,
+            ..
+        } => replacement(),
         other => other,
     }
 }
