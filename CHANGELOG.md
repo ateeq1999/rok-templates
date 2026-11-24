@@ -10,6 +10,12 @@ are this file's `## [X.Y.Z]` section.
 
 **Added**
 
+- A golden test of the monorepo mobile App's sign-in screen
+  (starter-feedback ticket 13), `test/golden/`, run by `flutter test` and
+  the mobile gate. The App bundles its font, Inter (SIL Open Font License
+  1.1), in `fonts/inter/` with its `OFL.txt`, which the App's licence page
+  also shows; the theme sets it on every text style, so the screen draws
+  the same glyphs on every machine.
 - The `TOTP_ISSUER` setting (starter-feedback ticket 07): the name
   authenticator apps show beside the account, in every Template with
   two-factor (axum, actix, gRPC and the monorepo's API). It defaults to

@@ -40,6 +40,13 @@ flutter analyze
 flutter test
 ```
 
+`flutter test` includes a golden test, `test/golden/`: the sign-in screen,
+drawn with the App's bundled font (Inter, `fonts/inter/`, under the SIL
+Open Font License in `fonts/inter/OFL.txt`) and checked against
+`test/golden/goldens/sign_in_view.png`, without an API. After a deliberate
+change to the screen or the theme, redraw it with
+`flutter test --update-goldens test/golden` and review the image.
+
 ## What's in the box
 
 | Module | Flag | Calls |

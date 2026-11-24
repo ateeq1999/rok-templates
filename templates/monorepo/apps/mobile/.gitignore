@@ -48,3 +48,5 @@ todo.*
 .claude
 api-docs/
 Nestjs_*
+# A failed golden test's diff images
+**/failures/
