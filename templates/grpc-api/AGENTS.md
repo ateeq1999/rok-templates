@@ -68,6 +68,7 @@ under `src/` may be named `utils`, `helpers` or `common`.
 | Who is calling | `app/auth.rs` puts the `AuthUser` in the request's extensions | a service |
 | Env variable | `config.rs` (a debug build reads `.env` too) | `std::env` anywhere else |
 | Background or slow work | a job (`shared/jobs/`), registered in `app/run.rs` | request path |
+| A flow other features may compose (an audit entry) | its service, twice: `<verb>_in(conn, …)` runs on the caller's connection and never commits; `<verb>` opens a transaction, calls it, and commits (the audit log, written only inside a change, has `record_in` alone) | a copy of the flow in the caller |
 
 ## The six rules
 

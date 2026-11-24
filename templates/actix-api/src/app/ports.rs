@@ -14,7 +14,7 @@ use crate::features::auth::service::{AuditEntry, AuditTrail};
 use crate::features::jobs::{JobAudit, JobAuditEntry};
 
 /// `auth`'s [`AuditTrail`] port onto the `audit_log` feature: each entry is
-/// written by [`AuditLogEntryService::create_in`] on the flow's own
+/// written by [`AuditLogEntryService::record_in`] on the flow's own
 /// connection, so it commits with the change it records.
 pub struct AuditLog(pub AuditLogEntryService);
 
@@ -22,7 +22,7 @@ pub struct AuditLog(pub AuditLogEntryService);
 impl AuditTrail for AuditLog {
     async fn record_in(&self, conn: &mut PgConnection, entry: AuditEntry) -> Result<(), AppError> {
         self.0
-            .create_in(
+            .record_in(
                 conn,
                 NewAuditLogEntry {
                     id: None,
@@ -48,7 +48,7 @@ impl JobAudit for AuditLog {
         entry: JobAuditEntry,
     ) -> Result<(), AppError> {
         self.0
-            .create_in(
+            .record_in(
                 conn,
                 NewAuditLogEntry {
                     id: None,

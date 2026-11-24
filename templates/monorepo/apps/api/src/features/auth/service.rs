@@ -69,21 +69,35 @@ impl AuthService {
     /// password is a `400 breached_password`; a live account with the
     /// same email is a `409`.
     pub async fn register(&self, input: CredentialsDto) -> Result<User, AppError> {
+        let mut tx = self.pool.begin().await?;
+        let user = self.register_in(&mut tx, input).await?;
+        self.outbox.commit(tx).await?;
+        Ok(user)
+    }
+
+    /// [`register`](Self::register) on `conn`, the caller's transaction,
+    /// for a flow of another feature that signs someone up as part of its
+    /// own change: the account and its mail commit or roll back with it.
+    /// Commit through [`Outbox::commit`] (or call [`Outbox::wake`] after
+    /// committing) so the mail leaves now.
+    pub async fn register_in(
+        &self,
+        conn: &mut PgConnection,
+        input: CredentialsDto,
+    ) -> Result<User, AppError> {
         self.reject_breached(&input.password).await?;
         let hash = password::hash(input.password).await?;
-        let mut tx = self.pool.begin().await?;
-        let user = queries::create_user(&mut *tx, UserId::generate(), &input.email, Some(&hash))
+        let user = queries::create_user(&mut *conn, UserId::generate(), &input.email, Some(&hash))
             .await
             .map_err(conflict_as(email_taken))?;
         self.mail_link(
-            &mut tx,
+            conn,
             user.id,
             &user.email,
             AuthTokenPurpose::EmailVerification,
             None,
         )
         .await?;
-        self.outbox.commit(tx).await?;
         Ok(user)
     }
 
@@ -424,18 +438,34 @@ impl AuthService {
     /// is a `409`.
     pub async fn invite(&self, actor: UserId, input: InviteUserDto) -> Result<User, AppError> {
         let mut tx = self.pool.begin().await?;
+        let user = self.invite_in(&mut tx, actor, input).await?;
+        self.outbox.commit(tx).await?;
+        Ok(user)
+    }
+
+    /// [`invite`](Self::invite) on `conn`, the caller's transaction, for a
+    /// flow of another feature that invites someone as part of its own
+    /// change: the account, its audit entry and its mail commit or roll
+    /// back with it. Commit through [`Outbox::commit`] (or call
+    /// [`Outbox::wake`] after committing) so the mail leaves now.
+    pub async fn invite_in(
+        &self,
+        conn: &mut PgConnection,
+        actor: UserId,
+        input: InviteUserDto,
+    ) -> Result<User, AppError> {
         let params = InviteUserParams {
             id: UserId::generate(),
             email: input.email,
             display_name: input.display_name,
             role: input.role.unwrap_or(Role::User),
         };
-        let user = queries::invite_user(&mut *tx, params)
+        let user = queries::invite_user(&mut *conn, params)
             .await
             .map_err(conflict_as(email_taken))?;
         self.audit
             .record_in(
-                &mut tx,
+                &mut *conn,
                 AuditEntry {
                     actor,
                     target: Some(user.id),
@@ -444,14 +474,13 @@ impl AuthService {
             )
             .await?;
         self.mail_link(
-            &mut tx,
+            conn,
             user.id,
             &user.email,
             AuthTokenPurpose::Invitation,
             None,
         )
         .await?;
-        self.outbox.commit(tx).await?;
         Ok(user)
     }
 }
