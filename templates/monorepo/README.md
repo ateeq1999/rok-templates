@@ -94,7 +94,7 @@ bun install --frozen-lockfile
 bun run dev
 ```
 
-The dev server (port 3001) forwards `/api` and `/health` to the API;
+The dev server (`127.0.0.1:3001`) forwards `/api` and `/health` to the API;
 `API_PROXY_TARGET` points it elsewhere (see `apps/web/.env.example`).
 `bun run typecheck` and `bun run test` are its checks.
 
