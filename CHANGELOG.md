@@ -10,6 +10,12 @@ are this file's `## [X.Y.Z]` section.
 
 **Added**
 
+- rust-analyzer builds in its own folder (starter-feedback ticket 53):
+  every Template (the monorepo at its root) ships `.vscode/settings.json`,
+  scaffolded once and the user's, with `"rust-analyzer.cargo.targetDir":
+  true`, so the editor builds in `target/rust-analyzer` and never holds
+  the build lock `cargo test` waits on. Each README's "Your editor" says
+  how to set the same in Neovim, Helix and Zed.
 - The `TOTP_ISSUER` setting (starter-feedback ticket 07): the name
   authenticator apps show beside the account, in every Template with
   two-factor (axum, actix, gRPC and the monorepo's API). It defaults to

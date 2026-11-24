@@ -239,6 +239,18 @@ print_stdout = "deny"
 [workspace]
 ```
 
+## Your editor
+
+`.vscode/settings.json` (yours, at the workspace root) sets
+`"rust-analyzer.cargo.targetDir": true`:
+rust-analyzer builds in `target/rust-analyzer`, so it never holds the build
+lock `cargo test` waits on. Other editors take the same rust-analyzer
+setting, `cargo.targetDir = true`:
+
+- Neovim (`nvim-lspconfig`): `settings = { ["rust-analyzer"] = { cargo = { targetDir = true } } }`
+- Helix (`languages.toml`): `[language-server.rust-analyzer.config.cargo]` with `targetDir = true`
+- Zed (`settings.json`): `"lsp": { "rust-analyzer": { "initialization_options": { "cargo": { "targetDir": true } } } }`
+
 ## Checks
 
 ```sh
