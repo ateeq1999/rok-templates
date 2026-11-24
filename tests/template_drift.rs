@@ -253,8 +253,15 @@ fn the_grpc_template_shares_the_axum_templates_files() -> Result<()> {
 /// GitHub runs workflows from the root's `.github/workflows` only (the
 /// App's is the root's `api.yml`), and the image builds from the root,
 /// where the workspace's `Cargo.lock` is (its ignore list is
-/// `Dockerfile.dockerignore`, read for `-f apps/api/Dockerfile`).
-const BUILT_FROM_THE_ROOT: &[&str] = &[".github/workflows/ci.yml", ".dockerignore", "Dockerfile"];
+/// `Dockerfile.dockerignore`, read for `-f apps/api/Dockerfile`). The
+/// editor opens the workspace at the root too, so the root holds the
+/// editor settings (`.vscode/settings.json`).
+const BUILT_FROM_THE_ROOT: &[&str] = &[
+    ".github/workflows/ci.yml",
+    ".dockerignore",
+    "Dockerfile",
+    ".vscode/settings.json",
+];
 
 /// The monorepo's api App is the axum template file for file (workspace
 /// ADR 0027): every file of `templates/axum-api` but its manifest and lock
