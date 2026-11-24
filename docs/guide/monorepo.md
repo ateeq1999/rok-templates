@@ -63,7 +63,7 @@ and the root `Cargo.toml` holds only the Rust members.
 The API listens on `127.0.0.1:8080` (its `BIND_ADDR`), and every App calls
 it there by default:
 
-- the web dev server (port 3001) forwards `/api` and `/health` to it;
+- the web dev server (`127.0.0.1:3001`) forwards `/api` and `/health` to it;
   `API_PROXY_TARGET` points it elsewhere (`apps/web/.env.example`);
 - the desktop App reads `ROK_API_URL`;
 - the mobile App reads `API_URL` from a `--dart-define`, or from a `.env`

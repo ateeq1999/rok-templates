@@ -3,7 +3,8 @@
 //! the scaffolded `apps/web`, the web App's own checks with its own
 //! tooling — `bun install --frozen-lockfile` (the template's `bun.lock`
 //! must match its `package.json`), `bun run typecheck` and `bun run test`
-//! (the App's vitest suite; `bun test`, bun's own runner, is not it).
+//! (the App's vitest suite; `bun test`, bun's own runner, is not it), and
+//! `bun run dev` answers at `127.0.0.1:3001`.
 //! The App calls the API through the generated `clients/ts`, which init
 //! emits beside it; a contract change is followed through `rok gen` and
 //! the same checks. Skips with a printed note when bun is absent.
@@ -100,7 +101,7 @@ fn monorepo_scaffold_writes_the_web_app_whole() -> Result<()> {
 }
 
 /// The gate: scaffold the monorepo, then install the web App's locked
-/// dependencies, typecheck it and run its tests.
+/// dependencies, typecheck it, run its tests and start its dev server.
 #[test]
 fn monorepo_web_app_installs_typechecks_and_tests() -> Result<()> {
     if crate::generator_missing() {
@@ -117,7 +118,98 @@ fn monorepo_web_app_installs_typechecks_and_tests() -> Result<()> {
     run(&bun, &web, &["install", "--frozen-lockfile"])?;
     run(&bun, &web, &["run", "typecheck"])?;
     run(&bun, &web, &["run", "test"])?;
+    dev_server_answers_on_ipv4(&bun, &web)?;
     Ok(())
+}
+
+/// The port `bun run dev` serves on (`package.json`).
+const DEV_PORT: u16 = 3001;
+
+/// `bun run dev` answers `GET /` at `127.0.0.1:3001`, the address scripts
+/// use on every OS: Vite's default host, `localhost`, is `::1` alone on
+/// some systems (Windows among them).
+fn dev_server_answers_on_ipv4(bun: &Path, web: &Path) -> Result<()> {
+    use std::io::{Read, Write};
+    use std::net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream};
+    use std::time::{Duration, Instant};
+
+    let address = SocketAddr::from((Ipv4Addr::LOCALHOST, DEV_PORT));
+    // A server already on the port would answer for the one under test.
+    drop(TcpListener::bind(address).with_context(|| {
+        format!("{address} is taken: stop what listens there to run the web gate")
+    })?);
+    let server = DevServer::start(bun, web)?;
+    let deadline = Instant::now() + Duration::from_secs(60);
+    let response = loop {
+        let attempt =
+            TcpStream::connect_timeout(&address, Duration::from_secs(2)).and_then(|mut stream| {
+                stream.set_read_timeout(Some(Duration::from_secs(30)))?;
+                stream.write_all(
+                    format!(
+                        "GET / HTTP/1.1\r\nHost: 127.0.0.1:{DEV_PORT}\r\nConnection: close\r\n\r\n"
+                    )
+                    .as_bytes(),
+                )?;
+                let mut response = Vec::new();
+                stream.read_to_end(&mut response)?;
+                Ok(String::from_utf8_lossy(&response).into_owned())
+            });
+        match attempt {
+            Ok(response) => break response,
+            Err(error) if Instant::now() >= deadline => {
+                drop(server);
+                anyhow::bail!(
+                    "`bun run dev` did not answer at http://{address} within 60s ({error}): \
+                     vite.config.ts's `server.host` should be \"127.0.0.1\""
+                );
+            }
+            Err(_) => std::thread::sleep(Duration::from_millis(500)),
+        }
+    };
+    drop(server);
+    ensure!(
+        response.starts_with("HTTP/1.1 200"),
+        "`bun run dev` answered GET / at http://{address} with:\n{}",
+        response.lines().next().unwrap_or_default()
+    );
+    Ok(())
+}
+
+/// `bun run dev`, stopped with the processes it started (Vite among them)
+/// when dropped.
+struct DevServer(std::process::Child);
+
+impl DevServer {
+    fn start(bun: &Path, web: &Path) -> Result<Self> {
+        let mut command = Command::new(bun);
+        command
+            .args(["run", "dev"])
+            .current_dir(web)
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null());
+        #[cfg(unix)]
+        std::os::unix::process::CommandExt::process_group(&mut command, 0);
+        Ok(Self(
+            command.spawn().context("failed to start `bun run dev`")?,
+        ))
+    }
+}
+
+impl Drop for DevServer {
+    fn drop(&mut self) {
+        let pid = self.0.id().to_string();
+        // Killing bun alone would leave Vite holding the port.
+        #[cfg(windows)]
+        let _ = Command::new("taskkill")
+            .args(["/T", "/F", "/PID", &pid])
+            .output();
+        #[cfg(unix)]
+        let _ = Command::new("kill")
+            .args(["-KILL", "--", &format!("-{pid}")])
+            .output();
+        let _ = self.0.kill();
+        let _ = self.0.wait();
+    }
 }
 
 /// A contract change round-trips through regeneration and the gate: a

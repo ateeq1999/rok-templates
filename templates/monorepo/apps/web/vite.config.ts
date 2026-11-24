@@ -31,6 +31,9 @@ const config = defineConfig({
   // imports TanStack Query, which resolves to this App's copy.
   resolve: { tsconfigPaths: true, dedupe: ["@tanstack/react-query"] },
   server: {
+    // IPv4, like the API: Vite's default, `localhost`, is `::1` alone on some
+    // systems (Windows among them), where `127.0.0.1:3001` would not answer.
+    host: "127.0.0.1",
     proxy: {
       "/api": { target: API_TARGET, changeOrigin: true },
       "/health": { target: API_TARGET, changeOrigin: true },
