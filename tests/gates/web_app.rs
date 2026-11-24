@@ -2,7 +2,8 @@
 //! it: `rok init shop --template monorepo` into a scratch directory, then, in
 //! the scaffolded `apps/web`, the web App's own checks with its own
 //! tooling — `bun install --frozen-lockfile` (the template's `bun.lock`
-//! must match its `package.json`), `bun run typecheck` and `bun run test`
+//! must match its `package.json`), `bun run routes` (which must leave the
+//! shipped route tree as it is), `bun run typecheck` and `bun run test`
 //! (the App's vitest suite; `bun test`, bun's own runner, is not it), and
 //! `bun run dev` answers at `127.0.0.1:3001`.
 //! The App calls the API through the generated `clients/ts`, which init
@@ -34,32 +35,15 @@ fn bun() -> Option<PathBuf> {
         })
 }
 
-/// The major version of the `node` on `PATH`, when there is one.
-fn node_major() -> Option<u32> {
-    let output = Command::new("node").arg("--version").output().ok()?;
-    let version = String::from_utf8(output.stdout).ok()?;
-    version
-        .trim()
-        .strip_prefix('v')?
-        .split('.')
-        .next()?
-        .parse()
-        .ok()
-}
-
-/// `bun <args>` in `dir`, which must succeed.
+/// `bun <args>` in `dir`, which must succeed. No Node flag is added: the
+/// App's `test` script turns Node's own Web Storage off itself, so the gate
+/// runs it as a developer does, on any Node.
 fn run(bun: &Path, dir: &Path, args: &[&str]) -> Result<()> {
-    let mut command = Command::new(bun);
-    command.args(args).current_dir(dir);
-    // Node 25 turned Web Storage on by default: its global `localStorage`
-    // (unusable without `--localstorage-file`) shadows jsdom's in vitest,
-    // and the App's session tests read `window.localStorage`. Turned off,
-    // jsdom's storage is the one the tests see, as on the Node the App was
-    // written for.
-    if node_major().is_some_and(|major| major >= 25) {
-        command.env("NODE_OPTIONS", "--no-experimental-webstorage");
-    }
-    let output = command.output().context("failed to run bun")?;
+    let output = Command::new(bun)
+        .args(args)
+        .current_dir(dir)
+        .output()
+        .context("failed to run bun")?;
     ensure!(
         output.status.success(),
         "bun {args:?} in {} failed:\n{}{}",
@@ -116,10 +100,45 @@ fn monorepo_web_app_installs_typechecks_and_tests() -> Result<()> {
     let project = crate::monorepo_template::scaffold()?;
     let web = project.path().join("apps/web");
     run(&bun, &web, &["install", "--frozen-lockfile"])?;
+    route_tree_is_current(&bun, &web)?;
     run(&bun, &web, &["run", "typecheck"])?;
     run(&bun, &web, &["run", "test"])?;
     dev_server_answers_on_ipv4(&bun, &web)?;
     Ok(())
+}
+
+/// `bun run routes` (the router's own `tsr generate`, no build) leaves the
+/// shipped `routeTree.gen.ts` as it is: it writes the tree Vite's router
+/// plugin writes, so a developer adds a route without starting Vite.
+fn route_tree_is_current(bun: &Path, web: &Path) -> Result<()> {
+    let tree = web.join("src/routeTree.gen.ts");
+    let shipped =
+        std::fs::read_to_string(&tree).context("the web App has no src/routeTree.gen.ts")?;
+    run(bun, web, &["run", "routes"])?;
+    let generated = std::fs::read_to_string(&tree)?;
+    if let Some(line) = first_difference(&shipped, &generated) {
+        anyhow::bail!(
+            "`bun run routes` changed apps/web/src/routeTree.gen.ts at line {line}: the \
+             shipped tree is stale (regenerate it with `bun run routes`), or tsr.config.json's \
+             `routeTreeFileFooter` no longer matches TanStack Start's"
+        );
+    }
+    Ok(())
+}
+
+/// The first line (from 1) at which `a` and `b` differ, if they do.
+fn first_difference(a: &str, b: &str) -> Option<usize> {
+    if a == b {
+        return None;
+    }
+    let (mut a_lines, mut b_lines) = (a.lines(), b.lines());
+    let mut line = 1;
+    loop {
+        match (a_lines.next(), b_lines.next()) {
+            (Some(x), Some(y)) if x == y => line += 1,
+            _ => return Some(line),
+        }
+    }
 }
 
 /// The port `bun run dev` serves on (`package.json`).

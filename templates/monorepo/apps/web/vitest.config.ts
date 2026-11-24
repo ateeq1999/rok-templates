@@ -15,6 +15,8 @@ export default defineConfig({
     // Node 25+ defines its own `localStorage` global, `undefined` unless
     // `--localstorage-file` is given, and it hides jsdom's. Turning Node's
     // Web Storage off lets the tests use jsdom's storage on every Node.
+    // `bun run test` sets it in NODE_OPTIONS for the whole run; this covers
+    // vitest started some other way (an editor's test runner).
     execArgv: ["--no-experimental-webstorage"],
   },
 })
