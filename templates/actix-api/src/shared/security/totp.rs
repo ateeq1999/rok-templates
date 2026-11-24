@@ -50,8 +50,13 @@ pub const KEY_BYTES: usize = 32;
 /// The bytes of an AES-GCM nonce.
 const NONCE_BYTES: usize = 12;
 
-/// The name authenticator apps show beside the account: the crate's.
-const ISSUER: &str = env!("CARGO_PKG_NAME");
+/// What `TOTP_ISSUER` is when it is not set: the project name `package` (the
+/// crate's, such as `karibupass-api`) without a trailing `-api`, so
+/// authenticator apps show `karibupass` beside the account.
+#[must_use]
+pub fn default_issuer(package: &str) -> &str {
+    package.strip_suffix("-api").unwrap_or(package)
+}
 
 /// The characters of a recovery code: no `0`/`O` or `1`/`I`, which read
 /// alike.
@@ -196,11 +201,12 @@ pub struct Enrollment {
     pub qr_code_data_uri: String,
 }
 
-/// A new random secret for `account` (the email the app shows), with its
+/// A new random secret for `account` (the email the app shows) under
+/// `issuer` (the name it shows beside it, `TOTP_ISSUER`), with its
 /// provisioning URI and QR code.
-pub fn enroll(account: &str) -> Result<Enrollment, AppError> {
+pub fn enroll(issuer: &str, account: &str) -> Result<Enrollment, AppError> {
     let secret = Zeroizing::new(rand::random::<[u8; SECRET_BYTES]>().to_vec());
-    let totp = authenticator(secret.to_vec(), account);
+    let totp = authenticator(secret.to_vec(), Some(issuer), account);
     let provisioning_uri = totp.get_url();
     let qr = QrCode::new(provisioning_uri.as_bytes())
         .map_err(|err| AppError::Internal(format!("drawing the QR code failed: {err}").into()))?
@@ -232,7 +238,7 @@ pub fn matching_step(secret: &[u8], code: &str, now: i64, last: Option<i64>) -> 
     if !is_code(code) {
         return None;
     }
-    let totp = authenticator(secret.to_vec(), "");
+    let totp = authenticator(secret.to_vec(), None, "");
     (now - DRIFT_STEPS..=now + DRIFT_STEPS)
         .filter(|step| *step >= 0 && last.is_none_or(|last| *step > last))
         .find(|step| {
@@ -257,15 +263,16 @@ pub struct RecoveryCode {
     pub hash: String,
 }
 
-/// The authenticator of `secret` for `account`, under [`ISSUER`].
-fn authenticator(secret: Vec<u8>, account: &str) -> TOTP {
+/// The authenticator of `secret` for `account`, under `issuer` (`None` for
+/// checking a code, which the issuer has no part in).
+fn authenticator(secret: Vec<u8>, issuer: Option<&str>, account: &str) -> TOTP {
     TOTP::new_unchecked(
         Algorithm::SHA1,
         DIGITS,
         0,
         STEP_SECS,
         secret,
-        Some(ISSUER.to_owned()),
+        issuer.map(str::to_owned),
         account.to_owned(),
     )
 }
@@ -352,10 +359,10 @@ mod tests {
         assert!(cipher.open(ada, "not base64!").is_err());
         assert!(cipher.open(ada, "c2hvcnQ=").is_err());
 
-        let enrollment = enroll("ada@example.com")?;
+        let enrollment = enroll("Karibupass", "ada@example.com")?;
         let sealed = cipher.seal(ada, &enrollment.secret)?;
         let now = current_step();
-        let code = authenticator(enrollment.secret.to_vec(), "")
+        let code = authenticator(enrollment.secret.to_vec(), None, "")
             .generate(u64::try_from(now).unwrap_or(0) * STEP_SECS);
         let step = cipher.check(ada, &sealed, &code, None)?;
         assert_eq!(step, Some(now));
@@ -364,8 +371,15 @@ mod tests {
     }
 
     #[test]
+    fn the_default_issuer_is_the_project_name_without_a_trailing_api() {
+        assert_eq!(default_issuer("karibupass-api"), "karibupass");
+        assert_eq!(default_issuer("karibupass"), "karibupass");
+        assert_eq!(default_issuer("api-gateway"), "api-gateway");
+    }
+
+    #[test]
     fn an_enrollment_carries_the_secret_in_base32_its_uri_and_a_qr_code() -> Result<(), AppError> {
-        let enrollment = enroll("ada@example.com")?;
+        let enrollment = enroll("Karibupass", "ada@example.com")?;
         assert_eq!(enrollment.secret.len(), SECRET_BYTES);
         assert_eq!(enrollment.base32.len(), 32);
         assert_eq!(
@@ -375,7 +389,7 @@ mod tests {
         assert_eq!(
             enrollment.provisioning_uri,
             format!(
-                "otpauth://totp/{ISSUER}:ada%40example.com?secret={}&issuer={ISSUER}",
+                "otpauth://totp/Karibupass:ada%40example.com?secret={}&issuer=Karibupass",
                 enrollment.base32
             )
         );
@@ -386,7 +400,10 @@ mod tests {
             .and_then(|bytes| String::from_utf8(bytes).ok())
             .unwrap_or_default();
         assert!(svg.contains("<svg"), "{svg}");
-        assert_ne!(enroll("ada@example.com")?.secret, enrollment.secret);
+        assert_ne!(
+            enroll("Karibupass", "ada@example.com")?.secret,
+            enrollment.secret
+        );
         Ok(())
     }
 

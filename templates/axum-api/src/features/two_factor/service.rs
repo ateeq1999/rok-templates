@@ -42,6 +42,8 @@ pub struct TwoFactorService {
     pub templates: Arc<Templates>,
     /// Encrypts two-factor secrets at rest (`TOTP_ENCRYPTION_KEY`).
     pub totp: Arc<TotpCipher>,
+    /// The name authenticator apps show beside the account (`TOTP_ISSUER`).
+    pub totp_issuer: String,
 }
 
 /// Setup, enable, disable, and a sign-in's second step.
@@ -53,7 +55,7 @@ impl TwoFactorService {
     /// is a `400`.
     pub async fn setup_totp(&self, id: UserId) -> Result<TotpSetupResponse, AppError> {
         let user = self.live_user(id).await?;
-        let enrollment = totp::enroll(&user.email)?;
+        let enrollment = totp::enroll(&self.totp_issuer, &user.email)?;
         let sealed = self.totp.seal(user.id.into(), &enrollment.secret)?;
         if queries::store_totp_secret(&self.pool, user.id, Some(&sealed)).await? == 0 {
             return Err(totp_already_on());

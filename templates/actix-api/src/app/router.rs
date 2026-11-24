@@ -100,6 +100,7 @@ pub fn configure(cfg: &mut web::ServiceConfig, state: &AppState) {
         outbox: state.outbox.clone().into_inner(),
         templates: state.templates.clone().into_inner(),
         totp: state.totp.clone(),
+        totp_issuer: state.totp_issuer.clone(),
     }));
     cfg.app_data(web::Data::new(OidcService {
         pool: state.pool.clone(),

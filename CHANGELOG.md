@@ -10,6 +10,13 @@ are this file's `## [X.Y.Z]` section.
 
 **Added**
 
+- The `TOTP_ISSUER` setting (starter-feedback ticket 07): the name
+  authenticator apps show beside the account, in every Template with
+  two-factor (axum, actix, gRPC and the monorepo's API). It defaults to
+  the project name without a trailing `-api` (`karibupass` for
+  `karibupass-api`), where the issuer used to be the crate's name; a `:`
+  is refused at start-up. `totp::enroll` takes the issuer, and
+  `totp::default_issuer` gives the default.
 - Sign-in with an OpenID provider on mobile and web (starter-feedback
   ticket 89). `start?client=mobile` (and `link?client=mobile`) comes back
   to the mobile App's deep link, `<APP_SCHEME>://auth/oidc?…`, a session

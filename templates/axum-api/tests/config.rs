@@ -5,6 +5,7 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use axum_api::config::{Config, ConfigErrors, MailTransport, log_settings_from};
+use axum_api::shared::security::totp::default_issuer;
 use axum_api::shared::storage::StorageUrl;
 use axum_api::shared::telemetry::LogFormat;
 
@@ -204,6 +205,31 @@ fn the_totp_key_is_32_bytes_in_base64() -> Result<(), ConfigErrors> {
     assert_eq!(
         refusal(&vars).as_deref(),
         Some("environment variable `TOTP_ENCRYPTION_KEY` is not set")
+    );
+    Ok(())
+}
+
+/// The name authenticator apps show: the project's, unless `TOTP_ISSUER`
+/// names another; a `:` would split the app's label, so it is refused.
+#[test]
+fn the_totp_issuer_defaults_to_the_project_name_and_is_read() -> Result<(), ConfigErrors> {
+    assert_eq!(
+        read(REQUIRED)?.totp_issuer,
+        default_issuer(env!("CARGO_PKG_NAME"))
+    );
+    assert_eq!(
+        read(&with(&[("TOTP_ISSUER", "Karibu Pass")]))?.totp_issuer,
+        "Karibu Pass"
+    );
+    assert_eq!(
+        read(&with(&[("TOTP_ISSUER", " ")]))?.totp_issuer,
+        default_issuer(env!("CARGO_PKG_NAME"))
+    );
+    assert_eq!(
+        refusal(&with(&[("TOTP_ISSUER", "Karibu:Pass")])).as_deref(),
+        Some(
+            "environment variable `TOTP_ISSUER` is `Karibu:Pass`, which is not one of a name without `:`"
+        )
     );
     Ok(())
 }
