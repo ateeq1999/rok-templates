@@ -14,6 +14,7 @@
 //! | `JWT_TTL` | 3600 | seconds an issued token lasts |
 //! | `JWT_SECRET_PREVIOUS` | unset | the secret being rotated out: tokens it signed still pass (at least 32 bytes) |
 //! | `TOTP_ENCRYPTION_KEY` | required | the AES-256 key two-factor secrets are stored under: 32 bytes, base64 |
+//! | `TOTP_ISSUER` | the project name without a trailing `-api` | the name authenticator apps show beside the account, such as `karibupass` (no `:`) |
 //! | `REQUIRE_VERIFIED_EMAIL` | `true` | sign-in needs a verified email |
 //! | `APP_URL` | `http://localhost:8080` | the base of the links mails carry |
 //! | `OIDC_PROVIDERS` | unset | the `OpenID` providers people may sign in with, by name, such as `google` (lowercase letters, digits and dashes, comma-separated); unset, sign-in with a provider is off |
@@ -61,7 +62,7 @@ use std::time::Duration;
 
 use crate::db::pool::PoolSettings;
 use crate::shared::security::headers::CorsOrigins;
-use crate::shared::security::totp::KEY_BYTES as TOTP_KEY_BYTES;
+use crate::shared::security::totp::{KEY_BYTES as TOTP_KEY_BYTES, default_issuer};
 use crate::shared::settings::Vars;
 pub use crate::shared::settings::{ConfigError, ConfigErrors};
 use crate::shared::shutdown::ShutdownSettings;
@@ -256,6 +257,8 @@ pub struct Config {
     /// `TOTP_ENCRYPTION_KEY`: the key two-factor secrets are encrypted
     /// with at rest (AES-256-GCM).
     pub totp_encryption_key: [u8; TOTP_KEY_BYTES],
+    /// `TOTP_ISSUER`: the name authenticator apps show beside the account.
+    pub totp_issuer: String,
     /// `REQUIRE_VERIFIED_EMAIL`: sign-in answers `403` until the email is
     /// verified.
     pub require_verified_email: bool,
@@ -410,6 +413,7 @@ impl Config {
             jwt_ttl: Duration::from_secs(jwt_ttl),
             jwt_secret_previous,
             totp_encryption_key,
+            totp_issuer: totp_issuer(&vars, &var),
             require_verified_email: vars.flag("REQUIRE_VERIFIED_EMAIL").unwrap_or(true),
             app_url: var("APP_URL").unwrap_or_else(|| DEFAULT_APP_URL.to_owned()),
             mail_transport,
@@ -525,6 +529,7 @@ impl Config {
                 "TOTP_ENCRYPTION_KEY",
                 format!("<{} bytes>", self.totp_encryption_key.len()),
             ),
+            ("TOTP_ISSUER", self.totp_issuer.clone()),
             ("REQUIRE_VERIFIED_EMAIL", flag(self.require_verified_email)),
             ("APP_URL", self.app_url.clone()),
             (
@@ -589,6 +594,26 @@ impl Config {
             .map(|(name, value)| format!("{name}={value}"))
             .collect::<Vec<_>>()
             .join("\n")
+    }
+}
+
+/// `TOTP_ISSUER`, trimmed; unset or blank, the project's name without a
+/// trailing `-api` ([`default_issuer`]). A `:` would split the account
+/// label authenticator apps read (`issuer:account`), so it is recorded on
+/// `vars`.
+fn totp_issuer(vars: &Vars<'_>, var: &impl Fn(&str) -> Option<String>) -> String {
+    let default = || default_issuer(env!("CARGO_PKG_NAME")).to_owned();
+    match var("TOTP_ISSUER").map(|issuer| issuer.trim().to_owned()) {
+        Some(issuer) if issuer.contains(':') => {
+            vars.fail(ConfigError::NotOneOf {
+                name: "TOTP_ISSUER",
+                value: issuer,
+                expected: "a name without `:`",
+            });
+            default()
+        }
+        Some(issuer) if !issuer.is_empty() => issuer,
+        _ => default(),
     }
 }
 
