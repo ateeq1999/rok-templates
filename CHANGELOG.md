@@ -134,6 +134,16 @@ are this file's `## [X.Y.Z]` section.
 - The API templates' READMEs name `[api] include`, the allowlist
   alternative to `[api] exclude`, and `rok gen`'s notice of a newly served
   table.
+- A constraint violation says which constraint it broke (starter-feedback
+  ticket 32). `AppError::Conflict(String)` is now
+  `Conflict { kind, constraint, message }` in every API template (axum,
+  actix, gRPC and the monorepo's API): `kind` is a `ConflictKind`
+  (`Unique` or `ForeignKey` from the database, `State` for a conflict a
+  feature raises with `AppError::conflict(message)`), and
+  `err.constraint()` names the violated constraint, so a feature maps a
+  constraint to its own error by name. The answer is unchanged: `409
+  conflict` with the same message (gRPC: `ALREADY_EXISTS`). A project's
+  own `AppError::Conflict(message)` becomes `AppError::conflict(message)`.
 
 **Fixed**
 

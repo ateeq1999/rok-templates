@@ -49,7 +49,7 @@ impl ApiKeyService {
             .await?
             .ok_or_else(|| AppError::NotFound("the account no longer exists".to_owned()))?;
         if queries::count_active_api_keys(&mut *tx, owner).await? >= MAX_ACTIVE {
-            return Err(AppError::Conflict(format!(
+            return Err(AppError::conflict(format!(
                 "you can have at most {MAX_ACTIVE} active API keys; revoke one first"
             )));
         }

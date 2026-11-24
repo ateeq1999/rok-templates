@@ -208,8 +208,8 @@ impl MediaService {
             .await?
             .ok_or_else(not_found)?;
         let Some(peek) = self.storage.peek(&pending.storage_key, SNIFF_BYTES).await? else {
-            return Err(AppError::Conflict(
-                "the file's bytes have not been uploaded yet".to_owned(),
+            return Err(AppError::conflict(
+                "the file's bytes have not been uploaded yet",
             ));
         };
         let declared = u64::try_from(pending.size_bytes).unwrap_or(0);
