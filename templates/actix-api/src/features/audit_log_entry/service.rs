@@ -28,7 +28,7 @@ impl AuditLogEntryService {
     /// Records `input` on `conn`, the caller's transaction. The API has no
     /// create (the log is read-only there): the application writes it, and
     /// other features reach this through a port `app/ports.rs` implements.
-    pub async fn create_in(
+    pub async fn record_in(
         &self,
         conn: &mut PgConnection,
         input: NewAuditLogEntry,

@@ -8,10 +8,13 @@ use std::sync::Arc;
 
 use axum::http::{Method, StatusCode};
 use axum_api::app::AuditLog;
-use axum_api::db::audit_log_entry::models::AuditLogEntry;
+use axum_api::db::audit_log_entry::models::{AuditLogEntry, NewAuditLogEntry};
+use axum_api::db::types::Role;
+use axum_api::db::users::models::{User, UserId};
 use axum_api::error::AppError;
 use axum_api::features::audit_log_entry::AuditLogEntryService;
-use axum_api::features::auth::service::{AuditEntry, AuditTrail};
+use axum_api::features::auth::dto::{CredentialsDto, InviteUserDto};
+use axum_api::features::auth::service::{AuditEntry, AuditTrail, AuthService};
 use rok_data::Model;
 use serde_json::json;
 use sqlx::PgConnection;
@@ -163,5 +166,79 @@ async fn a_failed_audit_write_rolls_the_invitation_back() -> TestResult {
     // No account was left behind: the address is still free.
     let answer = call(&db.pool, Some(&admin), Method::POST, INVITE, Some(body)).await?;
     assert_eq!(answer.status, StatusCode::CREATED, "{}", answer.body);
+    db.drop().await
+}
+
+/// What another feature's flow does on its own transaction: invite
+/// someone, sign someone else up, and record its own audit entry.
+async fn book_for_guests(
+    auth: &AuthService,
+    audit_log: &AuditLogEntryService,
+    tx: &mut PgConnection,
+    admin: UserId,
+) -> Result<(), AppError> {
+    let invitation = InviteUserDto {
+        email: "guest@example.com".to_owned(),
+        display_name: None,
+        role: None,
+    };
+    let guest = auth.invite_in(tx, admin, invitation).await?;
+    let sign_up = CredentialsDto {
+        email: "member@example.com".to_owned(),
+        password: PASSWORD.to_owned(),
+    };
+    auth.register_in(tx, sign_up).await?;
+    let entry = NewAuditLogEntry {
+        id: None,
+        actor_user_id: admin,
+        target_user_id: Some(guest.id),
+        action: "booking.made".to_owned(),
+        details: None,
+    };
+    audit_log.record_in(tx, entry).await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn another_feature_invites_and_records_on_its_own_transaction() -> TestResult {
+    let Some(db) = Database::fresh().await? else {
+        return Ok(());
+    };
+    let admin = UserId::from(account(&db.pool, Role::Admin).await?.0);
+    let auth = state(&db.pool)?.auth;
+    let audit_log = AuditLogEntryService::new(db.pool.clone());
+    let invited = ["guest@example.com", "member@example.com"];
+
+    // Rolled back: no account, audit entry or mail is left.
+    let mut tx = db.pool.begin().await?;
+    book_for_guests(&auth, &audit_log, &mut tx, admin).await?;
+    tx.rollback().await?;
+    for email in invited {
+        assert!(User::by_email(email).first(&db.pool).await?.is_none());
+    }
+    assert!(AuditLogEntry::all(&db.pool).await?.is_empty());
+    assert!(mailed(&db.pool).await?.is_empty());
+
+    // Committed: all of it stays.
+    let mut tx = db.pool.begin().await?;
+    book_for_guests(&auth, &audit_log, &mut tx, admin).await?;
+    auth.outbox.commit(tx).await?;
+    for email in invited {
+        assert!(User::by_email(email).first(&db.pool).await?.is_some());
+    }
+    let mut actions: Vec<String> = AuditLogEntry::all(&db.pool)
+        .await?
+        .into_iter()
+        .map(|entry| entry.action)
+        .collect();
+    actions.sort();
+    assert_eq!(actions, ["booking.made", "user.invited"]);
+    let mut recipients: Vec<String> = mailed(&db.pool)
+        .await?
+        .into_iter()
+        .map(|mail| mail.to)
+        .collect();
+    recipients.sort();
+    assert_eq!(recipients, invited);
     db.drop().await
 }
