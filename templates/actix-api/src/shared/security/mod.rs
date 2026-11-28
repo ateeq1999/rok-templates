@@ -6,7 +6,9 @@
 //! ([`auth_token`]), and the session JWT ([`jwt`]). `shared/auth.rs`
 //! checks a caller with them, and with [`api_key`] for a caller sending an
 //! API key. [`guard`] is the shape of an authorization rule a handler
-//! requires by type (`Allowed<G>`).
+//! requires by type (`Allowed<G>`); [`webhook`], the shape of a
+//! provider's signature check a callback's handler requires by type
+//! (`SignedWebhook<V>`).
 
 pub mod api_key;
 pub mod auth_token;
@@ -20,3 +22,5 @@ pub mod token;
 /// Two-factor sign-in: TOTP codes, the secret encrypted at rest, and the
 /// recovery codes.
 pub mod totp;
+/// Signed webhooks: a provider's callback, let in by its signature.
+pub mod webhook;

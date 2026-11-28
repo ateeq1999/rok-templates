@@ -10,6 +10,17 @@ are this file's `## [X.Y.Z]` section.
 
 **Added**
 
+- Signed webhooks (starter-feedback ticket 58): `SignedWebhook<V>`
+  (`shared/auth.rs`, axum, actix and the monorepo's API) hands a handler
+  a provider's callback, headers and raw body, once the `WebhookVerifier`
+  `V` accepts its signature, and answers `401` otherwise.
+  `shared/security/webhook.rs` (shared by every API template, gRPC's
+  too, which has no HTTP routes and so no extractor) holds the trait and
+  `WebhookSecret`, which checks and signs Standard Webhooks callbacks. No
+  vendor ships: the guide's new recipe "A provider that calls back" shows
+  a port, real and fake transports chosen by `<NAME>_TRANSPORT`, a fake
+  that signs its callbacks as the provider does and a test helper
+  swapping it into `AppState`, compiled and tested by the axum gate.
 - rust-analyzer builds in its own folder (starter-feedback ticket 53):
   every Template (the monorepo at its root) ships `.vscode/settings.json`,
   scaffolded once and the user's, with `"rust-analyzer.cargo.targetDir":
