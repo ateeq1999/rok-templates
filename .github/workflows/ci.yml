@@ -135,6 +135,13 @@ jobs:
           git diff --exit-code -- src/routeTree.gen.ts
           bun run typecheck
           bun run test
+      # The browser the gate's smoke flow (`bun run e2e`) drives, with the
+      # system libraries it needs; the scaffolded App's Playwright is the
+      # same pinned version, so it finds this one.
+      - name: Install the smoke flow's browser
+        if: matrix.gate == 'web'
+        working-directory: rok-templates/templates/monorepo/apps/web
+        run: bunx playwright install --with-deps chromium
       - uses: subosito/flutter-action@v2
         if: steps.pin.outputs.ready == 'true' && matrix.gate == 'mobile'
         with:

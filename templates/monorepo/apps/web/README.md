@@ -41,6 +41,24 @@ tree, so both write the same file; the web gate fails when they differ.
 own Web Storage off (`NODE_OPTIONS=--no-experimental-webstorage`), which
 since Node 25 puts an unusable `localStorage` over jsdom's.
 
+`bun run e2e` runs the browser smoke flow (Playwright, in `e2e/`): sign in
+with the dev seed's account, land on home, sign out. It needs the API
+running (`cargo run` in `apps/api`, its database migrated) and starts
+`bun run dev` itself unless one already answers at `127.0.0.1:3001`. Once,
+install the browser it drives:
+
+```sh
+bunx playwright install chromium
+bun run e2e
+```
+
+It signs in as the seed's `user@example.com`, running `cargo run --bin
+seed` in `apps/api` first (a new password every run). To sign in as another
+account instead, set `E2E_EMAIL` and `E2E_PASSWORD`. With no API at
+`API_PROXY_TARGET` (default `http://127.0.0.1:8080`) it skips with a note;
+on CI (`CI` set) it fails instead. The web gate runs it in CI against the
+API and PostgreSQL.
+
 ## Adding components
 
 To add components to your app, run the following command:

@@ -9,14 +9,21 @@
 //! and `bun run dev:web` answers at `127.0.0.1:3001`.
 //! The App calls the API through the generated `clients/ts`, which init
 //! emits beside it; a contract change is followed through `rok gen` and
-//! the same checks. Skips with a printed note when bun is absent.
+//! the same checks. `bun run e2e`, the browser smoke flow, runs against the
+//! scaffolded API on a database of its own. Skips with a printed note when
+//! bun is absent, and the smoke flow when no database is given to run the
+//! API on.
 
+use std::io::{Read, Write};
+use std::net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, ensure};
 
-use crate::common;
+use crate::common::{self, cargo};
+use crate::monorepo_template::API_PACKAGE;
 
 /// The `bun` to run: the one on `PATH`, else the one bun's installer puts
 /// under `~/.bun/bin`; `None` when neither runs.
@@ -151,44 +158,16 @@ const DEV_PORT: u16 = 3001;
 /// `127.0.0.1:3001`, the address scripts use on every OS: Vite's default
 /// host, `localhost`, is `::1` alone on some systems (Windows among them).
 fn dev_server_answers_on_ipv4(bun: &Path, root: &Path) -> Result<()> {
-    use std::io::{Read, Write};
-    use std::net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream};
-    use std::time::{Duration, Instant};
-
-    let address = SocketAddr::from((Ipv4Addr::LOCALHOST, DEV_PORT));
-    // A server already on the port would answer for the one under test.
-    drop(TcpListener::bind(address).with_context(|| {
-        format!("{address} is taken: stop what listens there to run the web gate")
-    })?);
-    let server = DevServer::start(bun, root)?;
-    let deadline = Instant::now() + Duration::from_secs(60);
-    let response = loop {
-        let attempt =
-            TcpStream::connect_timeout(&address, Duration::from_secs(2)).and_then(|mut stream| {
-                stream.set_read_timeout(Some(Duration::from_secs(30)))?;
-                stream.write_all(
-                    format!(
-                        "GET / HTTP/1.1\r\nHost: 127.0.0.1:{DEV_PORT}\r\nConnection: close\r\n\r\n"
-                    )
-                    .as_bytes(),
-                )?;
-                let mut response = Vec::new();
-                stream.read_to_end(&mut response)?;
-                Ok(String::from_utf8_lossy(&response).into_owned())
-            });
-        match attempt {
-            Ok(response) => break response,
-            Err(error) if Instant::now() >= deadline => {
-                drop(server);
-                anyhow::bail!(
-                    "`bun run dev:web` did not answer at http://{address} within 60s ({error}): \
-                     vite.config.ts's `server.host` should be \"127.0.0.1\""
-                );
-            }
-            Err(_) => std::thread::sleep(Duration::from_millis(500)),
-        }
-    };
+    let address = dev_address()?;
+    let server = Spawned::dev_server(bun, root)?;
+    let response = wait_for(address, "/", Duration::from_secs(60));
     drop(server);
+    let response = response.map_err(|error| {
+        anyhow::anyhow!(
+            "`bun run dev:web` did not answer at http://{address} within 60s ({error}): \
+             vite.config.ts's `server.host` should be \"127.0.0.1\""
+        )
+    })?;
     ensure!(
         response.starts_with("HTTP/1.1 200"),
         "`bun run dev:web` answered GET / at http://{address} with:\n{}",
@@ -197,32 +176,72 @@ fn dev_server_answers_on_ipv4(bun: &Path, root: &Path) -> Result<()> {
     Ok(())
 }
 
-/// `bun run dev:web` from the project's root, stopped with the processes
-/// it started (Vite among them) when dropped.
-struct DevServer(std::process::Child);
+/// `127.0.0.1:3001`, once checked to be free: a server already on the port
+/// would answer for the one under test.
+fn dev_address() -> Result<SocketAddr> {
+    let address = SocketAddr::from((Ipv4Addr::LOCALHOST, DEV_PORT));
+    drop(TcpListener::bind(address).with_context(|| {
+        format!("{address} is taken: stop what listens there to run the web gate")
+    })?);
+    Ok(address)
+}
 
-impl DevServer {
-    fn start(bun: &Path, root: &Path) -> Result<Self> {
-        let mut command = Command::new(bun);
+/// `GET path` at `address`, retried until it answers or `patience` runs
+/// out; the whole response.
+fn wait_for(address: SocketAddr, path: &str, patience: Duration) -> std::io::Result<String> {
+    let deadline = Instant::now() + patience;
+    loop {
+        match get(address, path) {
+            Ok(response) => return Ok(response),
+            Err(error) if Instant::now() >= deadline => return Err(error),
+            Err(_) => std::thread::sleep(Duration::from_millis(500)),
+        }
+    }
+}
+
+/// One `GET path` at `address`; the whole response.
+fn get(address: SocketAddr, path: &str) -> std::io::Result<String> {
+    let mut stream = TcpStream::connect_timeout(&address, Duration::from_secs(2))?;
+    stream.set_read_timeout(Some(Duration::from_secs(30)))?;
+    stream.write_all(
+        format!("GET {path} HTTP/1.1\r\nHost: {address}\r\nConnection: close\r\n\r\n").as_bytes(),
+    )?;
+    let mut response = Vec::new();
+    stream.read_to_end(&mut response)?;
+    Ok(String::from_utf8_lossy(&response).into_owned())
+}
+
+/// A process the gate started, stopped with the processes it started in
+/// turn (Vite under `bun run dev`, the server under `cargo run`) when
+/// dropped.
+struct Spawned(std::process::Child);
+
+impl Spawned {
+    /// Starts `command`, its output discarded.
+    fn start(mut command: Command, what: &str) -> Result<Self> {
         command
-            .args(["run", "dev:web"])
-            .current_dir(root)
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null());
         #[cfg(unix)]
         std::os::unix::process::CommandExt::process_group(&mut command, 0);
-        Ok(Self(
-            command
-                .spawn()
-                .context("failed to start `bun run dev:web`")?,
-        ))
+        let child = command
+            .spawn()
+            .with_context(|| format!("failed to start {what}"))?;
+        Ok(Self(child))
+    }
+
+    /// `bun run dev:web` from the project's `root`.
+    fn dev_server(bun: &Path, root: &Path) -> Result<Self> {
+        let mut command = Command::new(bun);
+        command.args(["run", "dev:web"]).current_dir(root);
+        Self::start(command, "`bun run dev:web`")
     }
 }
 
-impl Drop for DevServer {
+impl Drop for Spawned {
     fn drop(&mut self) {
         let pid = self.0.id().to_string();
-        // Killing bun alone would leave Vite holding the port.
+        // Killing bun or cargo alone would leave its child holding the port.
         #[cfg(windows)]
         let _ = Command::new("taskkill")
             .args(["/T", "/F", "/PID", &pid])
@@ -234,6 +253,200 @@ impl Drop for DevServer {
         let _ = self.0.kill();
         let _ = self.0.wait();
     }
+}
+
+/// The browser smoke flow: `bun run e2e` (Playwright) signs in with the dev
+/// seed's account, lands on home and signs out, against the scaffolded API
+/// running on a database of its own. The gate starts the API, so it needs
+/// PostgreSQL: without `ROK_DATA_SQLC_TEST_DATABASE_URL` no API is reachable
+/// and it skips with a note.
+#[test]
+fn monorepo_web_app_signs_in_and_out_in_a_browser() -> Result<()> {
+    if crate::generator_missing() {
+        return Ok(());
+    }
+    let Some(bun) = bun() else {
+        eprintln!(
+            "note: skipping the browser smoke flow: `bun` is not installed (https://bun.sh installs it)"
+        );
+        return Ok(());
+    };
+    let Ok(server) = std::env::var("ROK_DATA_SQLC_TEST_DATABASE_URL") else {
+        eprintln!(
+            "note: skipping the browser smoke flow: no API is reachable to run it against \
+             (set ROK_DATA_SQLC_TEST_DATABASE_URL and the gate starts one)"
+        );
+        return Ok(());
+    };
+    let dev = dev_address()?;
+    let project = crate::monorepo_template::materialize()?;
+    let dir = project.path();
+    let database = Database::create(dir, &server)?;
+    rok(
+        dir,
+        &[
+            "migrate",
+            "up",
+            "--dir",
+            "apps/api/migrations",
+            "--database-url",
+            &database.url,
+        ],
+    )?;
+
+    // The API's settings, which the seed `bun run e2e` runs reads too.
+    let api = {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))?;
+        listener.local_addr()?
+    };
+    let settings = [
+        ("DATABASE_URL", database.url.clone()),
+        (
+            "JWT_SECRET",
+            "a-gate-only-secret-of-at-least-32-bytes".to_owned(),
+        ),
+        (
+            "TOTP_ENCRYPTION_KEY",
+            "MDEyMzQ1Njc4OTAxMjM0NTY3ODkwMTIzNDU2Nzg5MDE=".to_owned(),
+        ),
+        ("BIND_ADDR", api.to_string()),
+        ("APP_ROLE", "web".to_owned()),
+        ("AUTH_RATE_LIMIT", "0".to_owned()),
+    ];
+    let build = cargo(dir, &["build", "-p", API_PACKAGE, "--bins"]).status()?;
+    ensure!(
+        build.success(),
+        "`cargo build -p {API_PACKAGE}` failed: {build}"
+    );
+    let mut command = cargo(dir, &["run", "-p", API_PACKAGE]);
+    command.envs(settings.clone());
+    let server = Spawned::start(command, "the API")?;
+    let health = wait_for(api, "/health/live", Duration::from_secs(120))
+        .with_context(|| format!("the API did not answer at http://{api} within 120s"))?;
+    ensure!(
+        health.starts_with("HTTP/1.1 200"),
+        "the API answered GET /health/live with:\n{health}"
+    );
+
+    let web = dir.join("apps/web");
+    run(&bun, &web, &["install", "--frozen-lockfile"])?;
+    run(&bun, &web, &["x", "playwright", "install", "chromium"])?;
+    // `CI` turns an unreachable API into a failure instead of a skip, and
+    // starts a dev server of the run's own; the seed `bun run e2e` runs
+    // builds in the gates' target directory.
+    let mut e2e = Command::new(&bun);
+    e2e.args(["run", "e2e"])
+        .current_dir(&web)
+        .envs(settings)
+        .env("API_PROXY_TARGET", format!("http://{api}"))
+        .env("CI", "1");
+    for (key, value) in cargo(dir, &[]).get_envs() {
+        if let Some(value) = value {
+            e2e.env(key, value);
+        }
+    }
+    let output = e2e.output().context("failed to run `bun run e2e`")?;
+    drop(server);
+    ensure!(
+        output.status.success(),
+        "`bun run e2e` against the API at http://{api} (the App at http://{dev}) failed:\n{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    drop(database);
+    Ok(())
+}
+
+/// `rok <args>` in `dir`, which must succeed.
+fn rok(dir: &Path, args: &[&str]) -> Result<()> {
+    let output = Command::new(crate::rok_data_bin()?)
+        .args(args)
+        .current_dir(dir)
+        .output()
+        .context("failed to run rok")?;
+    ensure!(
+        output.status.success(),
+        "rok {args:?} failed:\n{}{}",
+        String::from_utf8_lossy(&output.stdout),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    Ok(())
+}
+
+/// A database of the gate's own on the test server (`rok db create`),
+/// dropped with it (`rok db drop`).
+struct Database {
+    dir: PathBuf,
+    server: String,
+    name: String,
+    url: String,
+}
+
+impl Database {
+    fn create(dir: &Path, server: &str) -> Result<Self> {
+        let name = format!("web_e2e_{}", std::process::id());
+        // A database left by an earlier run that stopped half way.
+        let _ = rok(
+            dir,
+            &["db", "drop", &name, "--database-url", server, "--yes"],
+        );
+        rok(dir, &["db", "create", &name, "--database-url", server])?;
+        Ok(Self {
+            dir: dir.to_owned(),
+            server: server.to_owned(),
+            url: with_database(server, &name),
+            name,
+        })
+    }
+}
+
+impl Drop for Database {
+    fn drop(&mut self) {
+        let _ = rok(
+            &self.dir,
+            &[
+                "db",
+                "drop",
+                &self.name,
+                "--database-url",
+                &self.server,
+                "--yes",
+            ],
+        );
+    }
+}
+
+/// `url` with its database replaced by `name`.
+fn with_database(url: &str, name: &str) -> String {
+    let (base, query) = url
+        .split_once('?')
+        .map_or((url, None), |(b, q)| (b, Some(q)));
+    let authority_end = base.find("://").map_or(0, |at| at + 3);
+    let path = base[authority_end..]
+        .find('/')
+        .map_or(base.len(), |at| authority_end + at);
+    let mut out = format!("{}/{name}", &base[..path]);
+    if let Some(query) = query {
+        out.push('?');
+        out.push_str(query);
+    }
+    out
+}
+
+#[test]
+fn with_database_replaces_only_the_database() {
+    assert_eq!(
+        with_database("postgres://u:p@localhost:5432/postgres", "e2e"),
+        "postgres://u:p@localhost:5432/e2e"
+    );
+    assert_eq!(
+        with_database("postgres://u:p@localhost/app?sslmode=disable", "e2e"),
+        "postgres://u:p@localhost/e2e?sslmode=disable"
+    );
+    assert_eq!(
+        with_database("postgres://localhost", "e2e"),
+        "postgres://localhost/e2e"
+    );
 }
 
 /// A contract change round-trips through regeneration and the gate: a
