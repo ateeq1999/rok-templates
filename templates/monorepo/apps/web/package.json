@@ -8,6 +8,7 @@
     "routes": "tsr generate",
     "preview": "vite preview",
     "test": "NODE_OPTIONS=--no-experimental-webstorage vitest run",
+    "e2e": "playwright test",
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx}\"",
     "check": "prettier --check \"**/*.{ts,tsx,js,jsx}\"",
@@ -53,6 +54,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@playwright/test": "1.65.1",
     "@tanstack/devtools-vite": "0.8.5",
     "@tanstack/eslint-config": "0.4.0",
     "@tanstack/eslint-plugin-query": "^5.103.2",

@@ -108,7 +108,8 @@ bun run dev
 
 The dev server (`127.0.0.1:3001`) forwards `/api` and `/health` to the API;
 `API_PROXY_TARGET` points it elsewhere (see `apps/web/.env.example`).
-`bun run typecheck` and `bun run test` are its checks.
+`bun run typecheck` and `bun run test` are its checks; `bun run e2e`, with
+the API running, its browser smoke flow (`apps/web/README.md`).
 
 ## Running the desktop app
 
