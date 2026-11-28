@@ -388,7 +388,11 @@ The upload settings (`STORAGE_URL`, `MEDIA_MAX_UPLOAD_BYTES`,
 
 The defaults suit development: mail is logged (`RUST_LOG=debug` shows
 each body, links included), the breach check is off, and email
-verification is required.
+verification is required. The `log` transport is for running locally;
+tests read the queued mail through the memory transport instead
+(`MemoryMailer`: `tests/support`'s `mailed(pool)` sends the queue through
+one and returns what it sent), as they would an SMS port added the same
+way ([A provider that calls back](recipes/provider-callbacks.md)).
 
 **The breach check** sends Have I Been Pwned's range API the first five hex
 characters of the password's SHA-1, never the password. If the service

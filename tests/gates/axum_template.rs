@@ -255,6 +255,94 @@ fn axum_template_guards_recipe_compiles_and_holds() -> Result<()> {
     )
 }
 
+/// The guide's provider recipe (`docs/guide/recipes/provider-callbacks.md`),
+/// added to a project made from the template as a user would: the port and
+/// its transports in `src/shared/payments.rs`, `PAYMENTS_TRANSPORT` read in
+/// `config.rs`, the transport in `AppState` with `with_payments` for tests,
+/// and a test driving a signed callback through `SignedWebhook`. The project
+/// still passes `check-arch`, rustfmt and the lint gate, and the test passes
+/// (it needs no database).
+#[test]
+fn axum_template_provider_recipe_compiles_and_holds() -> Result<()> {
+    if crate::generator_missing() {
+        return Ok(());
+    }
+    let project = materialize()?;
+    let dir = project.path();
+    if let Some(reason) = common::generated_code_skip_reason(dir) {
+        eprintln!("{reason}");
+        return Ok(());
+    }
+    let recipe: &[(&str, &str)] = &[
+        (
+            "src/shared/payments.rs",
+            include_str!("provider/payments.rs"),
+        ),
+        (
+            "tests/payments_recipe.rs",
+            include_str!("provider/recipe.rs"),
+        ),
+    ];
+    for (path, text) in recipe {
+        std::fs::write(dir.join(path), text.replace("\r\n", "\n"))?;
+    }
+    edit(
+        dir,
+        "src/shared/mod.rs",
+        "pub mod pagination;\n",
+        "pub mod pagination;\npub mod payments;\n",
+    )?;
+    edit(
+        dir,
+        "src/config.rs",
+        "    pub oidc_providers: Vec<OidcProviderSettings>,\n",
+        "    pub oidc_providers: Vec<OidcProviderSettings>,\n    \
+         /// `PAYMENTS_*`: the payment provider.\n    \
+         pub payments: crate::shared::payments::PaymentSettings,\n",
+    )?;
+    edit(
+        dir,
+        "src/config.rs",
+        "            oidc_providers: oidc_providers(&vars, &var),\n",
+        "            oidc_providers: oidc_providers(&vars, &var),\n            \
+         payments: crate::shared::payments::PaymentSettings::read(&vars, &var),\n",
+    )?;
+    edit(
+        dir,
+        "src/app/state.rs",
+        "use crate::shared::oidc::IdentityProviders;\n",
+        "use crate::shared::oidc::IdentityProviders;\n\
+         use crate::shared::payments::{self, Payments};\n",
+    )?;
+    edit(
+        dir,
+        "src/app/state.rs",
+        "    pub live: Topics,\n",
+        "    pub live: Topics,\n    \
+         /// Where charges are made (`PAYMENTS_TRANSPORT`).\n    \
+         pub payments: Arc<dyn Payments>,\n",
+    )?;
+    edit(
+        dir,
+        "src/app/state.rs",
+        "            live: Topics::new(&config.jwt_secret),\n",
+        "            live: Topics::new(&config.jwt_secret),\n            \
+         payments: payments::from_settings(&config.payments),\n",
+    )?;
+    let state = dir.join("src/app/state.rs");
+    let mut text = std::fs::read_to_string(&state)?.replace("\r\n", "\n");
+    text.push_str(&include_str!("provider/state.rs").replace("\r\n", "\n"));
+    std::fs::write(&state, text)?;
+    rok_data_sqlc(dir, &["check-arch"])?;
+    cargo_clean(dir, &["fmt", "--check"], None)?;
+    cargo_clean(
+        dir,
+        &["clippy", "--quiet", "--all-targets", "--", "-D", "warnings"],
+        None,
+    )?;
+    cargo_clean(dir, &["test", "--quiet", "--test", "payments_recipe"], None)
+}
+
 /// Replaces `from` with `to` in the project file `path`, which must hold it.
 fn edit(dir: &Path, path: &str, from: &str, to: &str) -> Result<()> {
     let path = dir.join(path);

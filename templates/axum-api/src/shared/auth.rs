@@ -26,12 +26,17 @@
 //! [`Allowed`] goes further: it runs a [`Guard`], an authorization rule
 //! written once, and hands the handler its grant. It reads the
 //! [`AppState`], so it serves the hand-written routes.
+//!
+//! [`SignedWebhook`] lets in a provider calling back instead of a person:
+//! a [`WebhookVerifier`] checks the callback's signature over its raw body.
 
+use std::marker::PhantomData;
 use std::sync::Arc;
 
-use axum::extract::{FromRef, FromRequestParts, OriginalUri};
+use axum::body::Bytes;
+use axum::extract::{FromRef, FromRequest, FromRequestParts, OriginalUri, Request};
 use axum::http::request::Parts;
-use axum::http::{HeaderMap, header};
+use axum::http::{HeaderMap, StatusCode, header};
 use sqlx::PgPool;
 use uuid::Uuid;
 
@@ -43,6 +48,7 @@ pub use crate::shared::security::api_key::Credential;
 use crate::shared::security::api_key::{self, Presented};
 pub use crate::shared::security::guard::{Guard, require};
 pub use crate::shared::security::jwt::{Claims, JwtKeys};
+pub use crate::shared::security::webhook::{Delivery, WebhookSecret, WebhookVerifier};
 use crate::shared::telemetry;
 use crate::shared::validation::Path;
 
@@ -159,6 +165,68 @@ where
         let Path(path) = Path::<G::Path>::from_request_parts(parts, state).await?;
         let grant = require::<G>(&caller, &AppState::from_ref(state), &path).await?;
         Ok(Allowed(grant))
+    }
+}
+
+/// A provider's callback whose signature the verifier `V` accepted: its
+/// headers and its raw body, for the handler to parse. Take it in a
+/// handler instead of a body extractor (it reads the body itself):
+///
+/// ```text
+/// webhook: SignedWebhook<PaymentsSignature>
+/// let event: PaymentEvent = serde_json::from_slice(&webhook.body)?;
+/// ```
+///
+/// A callback `V` refuses is a `401`, and the handler is not called. A
+/// body over the route's `DefaultBodyLimit` is a `413`.
+pub struct SignedWebhook<V: WebhookVerifier> {
+    /// The callback's headers.
+    pub headers: HeaderMap,
+    /// The callback's body, exactly as it arrived.
+    pub body: Bytes,
+    verifier: PhantomData<fn() -> V>,
+}
+
+impl<V: WebhookVerifier> std::fmt::Debug for SignedWebhook<V> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SignedWebhook")
+            .field("headers", &self.headers)
+            .field("body", &self.body)
+            .finish()
+    }
+}
+
+impl<V, S> FromRequest<S> for SignedWebhook<V>
+where
+    V: WebhookVerifier,
+    AppState: FromRef<S>,
+    S: Send + Sync,
+{
+    type Rejection = AppError;
+
+    async fn from_request(req: Request, state: &S) -> Result<Self, AppError> {
+        let headers = req.headers().clone();
+        let body = Bytes::from_request(req, state).await.map_err(|rejection| {
+            if rejection.status() == StatusCode::PAYLOAD_TOO_LARGE {
+                AppError::PayloadTooLarge(rejection.body_text())
+            } else {
+                AppError::BadRequest(rejection.body_text())
+            }
+        })?;
+        let named: Vec<(&str, &str)> = headers
+            .iter()
+            .filter_map(|(name, value)| Some((name.as_str(), value.to_str().ok()?)))
+            .collect();
+        if !V::verify(&AppState::from_ref(state), &Delivery::new(&named, &body)) {
+            return Err(AppError::Unauthorized(
+                "the callback's signature is not valid".to_owned(),
+            ));
+        }
+        Ok(SignedWebhook {
+            headers,
+            body,
+            verifier: PhantomData,
+        })
     }
 }
 

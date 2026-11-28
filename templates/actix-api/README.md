@@ -291,7 +291,10 @@ documents each one, the settings, sending real mail and adding a flow
   token goes to `POST /api/v1/auth/email/verify`; a signed-in user asks for
   a new link with `POST /api/v1/auth/email/verification/resend`. With
   `MAIL_TRANSPORT=log` (the default) the mail is logged, and
-  `RUST_LOG=debug` shows its body.
+  `RUST_LOG=debug` shows its body. `log` is for running locally: tests
+  read the queued mail through the memory transport (`MemoryMailer`,
+  `tests/support`'s `mailed`), as they would an SMS port built the same
+  way (the guide's "A provider that calls back" recipe).
 - **Sign-in with a provider.** `src/features/oidc/` signs people in with
   an OpenID provider such as Google (`GET /api/v1/auth/oidc/{provider}/start`),
   and lists, links and unlinks a signed-in account's identities under
@@ -395,6 +398,19 @@ the extractor, no rules: the guide's
 page has a recipe (staff roles, a member's role at a partner from the
 path, and a guard generic over the kind of partner), each rule backed by
 one read query in `queries/shared/`.
+
+### Signed webhooks
+
+A provider calling back (a payment settled, a parcel delivered) is let
+in by its signature, not a session: implement a `WebhookVerifier`
+(`src/shared/security/webhook.rs`) on a unit struct named after the
+provider, and take `SignedWebhook<V>` (`src/shared/auth.rs`) in the
+handler. It hands the handler the callback's headers and raw body once
+`V` accepts the signature, and answers `401` otherwise. `WebhookSecret`
+checks (and signs, for a test's fake) the Standard Webhooks scheme. The
+template ships no provider: the guide's
+[A provider that calls back](https://github.com/ateeq1999/rok-templates/blob/main/docs/guide/recipes/provider-callbacks.md)
+recipe adds one.
 
 ### Live updates
 
