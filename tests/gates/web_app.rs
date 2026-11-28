@@ -3,9 +3,10 @@
 //! the scaffolded `apps/web`, the web App's own checks with its own
 //! tooling — `bun install --frozen-lockfile` (the template's `bun.lock`
 //! must match its `package.json`), `bun run routes` (which must leave the
-//! shipped route tree as it is), `bun run typecheck` and `bun run test`
-//! (the App's vitest suite; `bun test`, bun's own runner, is not it), and
-//! `bun run dev` answers at `127.0.0.1:3001`.
+//! shipped route tree as it is) and `bun run typecheck`; then, from the
+//! project's root and its scripts-only `package.json`, `bun run test:web`
+//! (the App's vitest suite; `bun test`, bun's own runner, is not it) passes
+//! and `bun run dev:web` answers at `127.0.0.1:3001`.
 //! The App calls the API through the generated `clients/ts`, which init
 //! emits beside it; a contract change is followed through `rok gen` and
 //! the same checks. Skips with a printed note when bun is absent.
@@ -102,8 +103,10 @@ fn monorepo_web_app_installs_typechecks_and_tests() -> Result<()> {
     run(&bun, &web, &["install", "--frozen-lockfile"])?;
     route_tree_is_current(&bun, &web)?;
     run(&bun, &web, &["run", "typecheck"])?;
-    run(&bun, &web, &["run", "test"])?;
-    dev_server_answers_on_ipv4(&bun, &web)?;
+    // From the root, through its scripts-only `package.json`: whatever the
+    // shell's directory, `test:web` and `dev:web` run the App's own scripts.
+    run(&bun, project.path(), &["run", "test:web"])?;
+    dev_server_answers_on_ipv4(&bun, project.path())?;
     Ok(())
 }
 
@@ -144,10 +147,10 @@ fn first_difference(a: &str, b: &str) -> Option<usize> {
 /// The port `bun run dev` serves on (`package.json`).
 const DEV_PORT: u16 = 3001;
 
-/// `bun run dev` answers `GET /` at `127.0.0.1:3001`, the address scripts
-/// use on every OS: Vite's default host, `localhost`, is `::1` alone on
-/// some systems (Windows among them).
-fn dev_server_answers_on_ipv4(bun: &Path, web: &Path) -> Result<()> {
+/// `bun run dev:web` from the project's `root` answers `GET /` at
+/// `127.0.0.1:3001`, the address scripts use on every OS: Vite's default
+/// host, `localhost`, is `::1` alone on some systems (Windows among them).
+fn dev_server_answers_on_ipv4(bun: &Path, root: &Path) -> Result<()> {
     use std::io::{Read, Write};
     use std::net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream};
     use std::time::{Duration, Instant};
@@ -157,7 +160,7 @@ fn dev_server_answers_on_ipv4(bun: &Path, web: &Path) -> Result<()> {
     drop(TcpListener::bind(address).with_context(|| {
         format!("{address} is taken: stop what listens there to run the web gate")
     })?);
-    let server = DevServer::start(bun, web)?;
+    let server = DevServer::start(bun, root)?;
     let deadline = Instant::now() + Duration::from_secs(60);
     let response = loop {
         let attempt =
@@ -178,7 +181,7 @@ fn dev_server_answers_on_ipv4(bun: &Path, web: &Path) -> Result<()> {
             Err(error) if Instant::now() >= deadline => {
                 drop(server);
                 anyhow::bail!(
-                    "`bun run dev` did not answer at http://{address} within 60s ({error}): \
+                    "`bun run dev:web` did not answer at http://{address} within 60s ({error}): \
                      vite.config.ts's `server.host` should be \"127.0.0.1\""
                 );
             }
@@ -188,28 +191,30 @@ fn dev_server_answers_on_ipv4(bun: &Path, web: &Path) -> Result<()> {
     drop(server);
     ensure!(
         response.starts_with("HTTP/1.1 200"),
-        "`bun run dev` answered GET / at http://{address} with:\n{}",
+        "`bun run dev:web` answered GET / at http://{address} with:\n{}",
         response.lines().next().unwrap_or_default()
     );
     Ok(())
 }
 
-/// `bun run dev`, stopped with the processes it started (Vite among them)
-/// when dropped.
+/// `bun run dev:web` from the project's root, stopped with the processes
+/// it started (Vite among them) when dropped.
 struct DevServer(std::process::Child);
 
 impl DevServer {
-    fn start(bun: &Path, web: &Path) -> Result<Self> {
+    fn start(bun: &Path, root: &Path) -> Result<Self> {
         let mut command = Command::new(bun);
         command
-            .args(["run", "dev"])
-            .current_dir(web)
+            .args(["run", "dev:web"])
+            .current_dir(root)
             .stdout(std::process::Stdio::null())
             .stderr(std::process::Stdio::null());
         #[cfg(unix)]
         std::os::unix::process::CommandExt::process_group(&mut command, 0);
         Ok(Self(
-            command.spawn().context("failed to start `bun run dev`")?,
+            command
+                .spawn()
+                .context("failed to start `bun run dev:web`")?,
         ))
     }
 }

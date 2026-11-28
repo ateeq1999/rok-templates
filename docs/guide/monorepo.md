@@ -34,6 +34,7 @@ project:
 my-shop/
   Cargo.toml       the root workspace: apps/api, apps/desktop, clients/rust
   Cargo.lock
+  package.json     scripts only: dev:web, dev:api, test:web
   rok.toml         the Apps rok gen regenerates, the contract, the Clients
   AGENTS.md
   README.md        how to run and check each App
@@ -51,12 +52,21 @@ my-shop/
 There is no JavaScript monorepo tool: `apps/web` is a plain bun project,
 and the root `Cargo.toml` holds only the Rust members.
 
+Each App runs from the root, whatever the shell's directory inside the
+project. The root `package.json` holds scripts only, with no workspaces
+and no dependencies: `bun run dev:web` starts the web App's dev server,
+`bun run test:web` runs its tests, and `bun run dev:api` is `cargo run -p
+my-shop-api`. The root `Cargo.toml`'s `default-members = ["apps/api"]`
+makes a bare `cargo run` (or `cargo build`, `cargo test`) there act on the
+API alone; `cargo test --workspace` checks every Rust member, the desktop
+App and the Rust Client among them.
+
 ## The Apps
 
 | App | What it is | Run it | Its checks |
 | --- | --- | --- | --- |
-| `apps/api` | The `axum` template file for file (`tests/template_drift.rs` checks it), plus the contract's export (`examples/openapi.rs`) and the tests that drive it through `clients/rust` (`tests/client/`). Every other page of this guide is about it. | `cargo run -p my-shop-api` from the root | `cargo test -p my-shop-api` (with `DATABASE_URL`, exported or in `apps/api/.env`; without it the database tests print a note and pass, except in CI, where they fail) |
-| `apps/web` | TanStack Start (React, TypeScript, shadcn/ui), on `clients/ts`. | `bun install --frozen-lockfile`, then `bun run dev` in `apps/web` | `bun run typecheck`, `bun run test` |
+| `apps/api` | The `axum` template file for file (`tests/template_drift.rs` checks it), plus the contract's export (`examples/openapi.rs`) and the tests that drive it through `clients/rust` (`tests/client/`). Every other page of this guide is about it. | `cargo run` (or `bun run dev:api`) from the root | `cargo test -p my-shop-api` (with `DATABASE_URL`, exported or in `apps/api/.env`; without it the database tests print a note and pass, except in CI, where they fail) |
+| `apps/web` | TanStack Start (React, TypeScript, shadcn/ui), on `clients/ts`. | `bun install --frozen-lockfile` in `apps/web`, then `bun run dev:web` from the root (or `bun run dev` in `apps/web`) | `bun run typecheck`, `bun run test` (`bun run test:web` from the root) |
 | `apps/desktop` | rok-ui's bloc-http starter on GPUI, imported at rok-ui 0.9.1, its data layer on `clients/rust`. | `cargo run -p my-shop-desktop` from the root | `cargo test -p my-shop-desktop` |
 | `apps/mobile` | Flutter (`flutter_bloc`, `go_router`) for iOS and Android, on `clients/dart`. | `flutter pub get`, then `flutter run` in `apps/mobile` | `flutter analyze`, `flutter test` |
 

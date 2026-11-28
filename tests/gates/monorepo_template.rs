@@ -274,6 +274,74 @@ fn monorepo_rust_client_passes_its_checks() -> Result<()> {
     Ok(())
 }
 
+/// The scaffold's root runs the API whatever the shell's directory: a
+/// bare `cargo run` there acts on the workspace's one default member, the
+/// renamed api App, while every Rust App and the Rust Client stay members
+/// (for `cargo test --workspace`); the root `package.json`'s `dev:api`
+/// names the same package.
+#[test]
+fn monorepo_root_runs_the_api() -> Result<()> {
+    if crate::generator_missing() {
+        return Ok(());
+    }
+    let project = scaffold()?;
+    let root = project.path();
+    let output = cargo(
+        root,
+        &[
+            "metadata",
+            "--no-deps",
+            "--format-version",
+            "1",
+            "--offline",
+        ],
+    )
+    .output()?;
+    ensure!(
+        output.status.success(),
+        "`cargo metadata` at the scaffold's root failed:\n{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let metadata = String::from_utf8(output.stdout)?;
+    // The packages a `cargo metadata` id list names: each id ends
+    // `#<package>@<version>`.
+    let packages_of = |key: &str| -> Result<Vec<String>> {
+        let needle = format!("\"{key}\":[");
+        let start = metadata
+            .find(&needle)
+            .with_context(|| format!("`cargo metadata` printed no {key}"))?
+            + needle.len();
+        let end = start + metadata[start..].find(']').context("an unclosed list")?;
+        let mut names: Vec<String> = metadata[start..end]
+            .split(',')
+            .map(|id| {
+                let id = id.trim_matches('"');
+                let tail = id.rsplit_once('#').map_or(id, |(_, tail)| tail);
+                tail.split('@').next().unwrap_or(tail).to_owned()
+            })
+            .collect();
+        names.sort();
+        Ok(names)
+    };
+    let default_members = packages_of("workspace_default_members")?;
+    ensure!(
+        default_members == [API_PACKAGE],
+        "the scaffold's default members are not the api App alone: {default_members:?}"
+    );
+    let members = packages_of("workspace_members")?;
+    ensure!(
+        members.len() == 3 && members.iter().any(|name| name == "api-client"),
+        "the scaffold's workspace is not the api, desktop and Rust Client: {members:?}"
+    );
+    let package = std::fs::read_to_string(root.join("package.json"))?;
+    let dev_api = format!("\"dev:api\": \"cargo run -p {API_PACKAGE}\"");
+    ensure!(
+        package.contains(&dev_api),
+        "the scaffold's root package.json has no `{dev_api}`:\n{package}"
+    );
+    Ok(())
+}
+
 /// The api App's `openapi.json` is the document the App serves, as `rok
 /// gen` re-exported it: a contract change re-exports it, nobody edits it.
 /// The document is titled after the api App's package (`CARGO_PKG_NAME`):
