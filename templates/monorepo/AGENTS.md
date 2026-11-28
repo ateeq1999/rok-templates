@@ -9,6 +9,11 @@ one API contract (workspace ADRs 0027 and 0031).
   README is the reference for its settings and files.
 - `apps/web/` — the web app (TanStack Start, plain bun); its checks are
   `bun install --frozen-lockfile`, `bun run typecheck`, `bun run test`.
+- The root `package.json` holds scripts only (`dev:web`, `dev:api`,
+  `test:web`), never workspaces or dependencies: the web App stays a
+  plain bun project in `apps/web`. A bare `cargo run` or `cargo test` at
+  the root acts on `apps/api` alone (`default-members`); pass
+  `--workspace` to check every Rust member.
 - `apps/desktop/` — the desktop app (rok-ui on GPUI, package `desktop`, a
   root workspace member); run it with `cargo run -p desktop` while
   `apps/api` runs (`ROK_API_URL` when the API is not at

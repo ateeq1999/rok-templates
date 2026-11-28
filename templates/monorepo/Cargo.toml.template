@@ -3,6 +3,10 @@
 # tests call the API through. Non-Rust Apps (the web and
 # the mobile app) have no root here; their files live under their Apps'
 # directories and their toolchains mind them.
+#
+# A bare `cargo run` (or `cargo build`, `cargo test`) at the root acts on
+# the default member, the API; `--workspace` acts on every member.
 [workspace]
 resolver = "3"
 members = ["apps/api", "apps/desktop", "clients/rust"]
+default-members = ["apps/api"]

@@ -21,6 +21,12 @@ are this file's `## [X.Y.Z]` section.
   a port, real and fake transports chosen by `<NAME>_TRANSPORT`, a fake
   that signs its callbacks as the provider does and a test helper
   swapping it into `AppState`, compiled and tested by the axum gate.
+- Root scripts in the monorepo (starter-feedback ticket 50): a
+  scripts-only root `package.json` (`dev:web`, `dev:api`, `test:web`; no
+  workspaces, no dependencies, no JS monorepo tool), and the root
+  `Cargo.toml`'s `default-members = ["apps/api"]`, so a bare `cargo run`
+  at the root starts the API. `cargo test --workspace` still checks every
+  Rust member.
 - rust-analyzer builds in its own folder (starter-feedback ticket 53):
   every Template (the monorepo at its root) ships `.vscode/settings.json`,
   scaffolded once and the user's, with `"rust-analyzer.cargo.targetDir":
