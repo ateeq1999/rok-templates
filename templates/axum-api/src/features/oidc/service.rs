@@ -19,8 +19,8 @@ use rok_data::Model;
 use sqlx::PgPool;
 
 use super::dto::{
-    CallbackQuery, IdentityResponse, LinkResponse, OidcClient, SignInProviderResponse,
-    TokenResponse,
+    CallbackQuery, IdentityResponse, LinkResponse, OidcClient, OidcTokenResponse,
+    SignInProviderResponse,
 };
 use crate::db::oidc_handoffs::models::OidcHandoffId;
 use crate::db::oidc_requests::models::OidcRequestId;
@@ -404,7 +404,7 @@ impl OidcService {
     /// Trades the hand-over `code` of a mobile App's deep link for a
     /// session: once, within a minute of the callback. A spent, expired or
     /// unknown code is a `400 invalid_token`.
-    pub async fn exchange_handoff(&self, code: &str) -> Result<TokenResponse, AppError> {
+    pub async fn exchange_handoff(&self, code: &str) -> Result<OidcTokenResponse, AppError> {
         if self.providers.is_empty() {
             return Err(not_configured());
         }
@@ -418,7 +418,7 @@ impl OidcService {
                 access_token,
                 expires_in,
                 ..
-            } => Ok(TokenResponse {
+            } => Ok(OidcTokenResponse {
                 access_token,
                 expires_in,
                 token_type: "Bearer".to_owned(),

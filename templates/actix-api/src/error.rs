@@ -43,9 +43,17 @@ pub enum AppError {
     #[error("{0}")]
     NotFound(String),
     /// `409 conflict`: a unique or foreign-key violation, naming the
-    /// constraint.
-    #[error("{0}")]
-    Conflict(String),
+    /// constraint ([`constraint`](AppError::constraint)), or a change the
+    /// current state forbids ([`conflict`](AppError::conflict)).
+    #[error("{message}")]
+    Conflict {
+        /// What the change conflicts with.
+        kind: ConflictKind,
+        /// The violated constraint's name, when the database gave one.
+        constraint: Option<String>,
+        /// What happened.
+        message: String,
+    },
     /// `413 payload_too_large`: a body over the limit.
     #[error("{0}")]
     PayloadTooLarge(String),
@@ -81,7 +89,48 @@ pub enum AppError {
     Internal(#[source] Box<dyn std::error::Error + Send + Sync>),
 }
 
+/// What an [`AppError::Conflict`] conflicts with.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConflictKind {
+    /// A unique constraint: the value is already taken.
+    Unique,
+    /// A foreign key: the change breaks a reference.
+    ForeignKey,
+    /// The current state of what the change is to, such as a job a worker
+    /// is running: a conflict a feature raises with
+    /// [`AppError::conflict`].
+    State,
+}
+
 impl AppError {
+    /// The conflict of a change the current state forbids, such as
+    /// cancelling a job a worker is running.
+    #[must_use]
+    pub fn conflict(message: impl Into<String>) -> Self {
+        AppError::Conflict {
+            kind: ConflictKind::State,
+            constraint: None,
+            message: message.into(),
+        }
+    }
+
+    /// The constraint a unique or foreign-key violation broke, by name, so
+    /// a feature can answer it its own way:
+    ///
+    /// ```ignore
+    /// .map_err(|err| match err.constraint() {
+    ///     Some("users_email_key") => email_taken(),
+    ///     _ => err,
+    /// })
+    /// ```
+    #[must_use]
+    pub fn constraint(&self) -> Option<&str> {
+        match self {
+            AppError::Conflict { constraint, .. } => constraint.as_deref(),
+            _ => None,
+        }
+    }
+
     /// The `413 payload_too_large` of a `what` (such as `file`) over
     /// `limit` bytes.
     #[must_use]
@@ -100,7 +149,7 @@ impl AppError {
             AppError::Unauthorized(_) => "unauthorized",
             AppError::Forbidden(_) => "forbidden",
             AppError::NotFound(_) => "not_found",
-            AppError::Conflict(_) => "conflict",
+            AppError::Conflict { .. } => "conflict",
             AppError::PayloadTooLarge(_) => "payload_too_large",
             AppError::UnsupportedMediaType(_) => "unsupported_media_type",
             AppError::Validation { .. } => "validation_failed",
@@ -122,7 +171,7 @@ impl ResponseError for AppError {
             AppError::Unauthorized(_) => StatusCode::UNAUTHORIZED,
             AppError::Forbidden(_) => StatusCode::FORBIDDEN,
             AppError::NotFound(_) => StatusCode::NOT_FOUND,
-            AppError::Conflict(_) => StatusCode::CONFLICT,
+            AppError::Conflict { .. } => StatusCode::CONFLICT,
             AppError::PayloadTooLarge(_) => StatusCode::PAYLOAD_TOO_LARGE,
             AppError::UnsupportedMediaType(_) => StatusCode::UNSUPPORTED_MEDIA_TYPE,
             AppError::Validation { .. } => StatusCode::UNPROCESSABLE_ENTITY,
@@ -166,30 +215,31 @@ impl From<ValidationErrors> for AppError {
     }
 }
 
-/// A unique or foreign-key violation is a `Conflict` naming the constraint,
-/// a check violation is a `Validation`, `RowNotFound` is a `NotFound`, and
-/// anything else is `Internal`.
+/// A unique or foreign-key violation is a `Conflict` naming its kind and
+/// constraint, a check violation is a `Validation`, `RowNotFound` is a
+/// `NotFound`, and anything else is `Internal`.
 impl From<sqlx::Error> for AppError {
     fn from(error: sqlx::Error) -> Self {
         if let sqlx::Error::RowNotFound = error {
             return AppError::NotFound("no such row".to_owned());
         }
         if let sqlx::Error::Database(database) = &error {
-            let constraint = database.constraint().unwrap_or("unnamed");
+            let name = database.constraint().unwrap_or("unnamed");
+            let conflict = |kind, what: &str| AppError::Conflict {
+                kind,
+                constraint: database.constraint().map(str::to_owned),
+                message: format!("{what} (constraint `{name}`)"),
+            };
             match database.kind() {
                 ErrorKind::UniqueViolation => {
-                    return AppError::Conflict(format!(
-                        "the value is already taken (constraint `{constraint}`)"
-                    ));
+                    return conflict(ConflictKind::Unique, "the value is already taken");
                 }
                 ErrorKind::ForeignKeyViolation => {
-                    return AppError::Conflict(format!(
-                        "the change breaks a reference (constraint `{constraint}`)"
-                    ));
+                    return conflict(ConflictKind::ForeignKey, "the change breaks a reference");
                 }
                 ErrorKind::CheckViolation => {
                     return AppError::Validation {
-                        message: format!("the value breaks the check `{constraint}`"),
+                        message: format!("the value breaks the check `{name}`"),
                         details: None,
                     };
                 }

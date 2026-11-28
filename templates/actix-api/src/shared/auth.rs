@@ -28,12 +28,16 @@
 //! `422` before the caller's `401` or `403`. A wrong `Content-Type` or a
 //! `Content-Length` over the limit is still answered first (see
 //! [`body`]).
+//!
+//! [`SignedWebhook`] lets in a provider calling back instead of a person:
+//! a [`WebhookVerifier`] checks the callback's signature over its raw body.
 
 use std::future::Future;
+use std::marker::PhantomData;
 use std::pin::Pin;
 
 use actix_web::dev::Payload;
-use actix_web::http::header;
+use actix_web::http::header::{self, HeaderMap};
 use actix_web::{FromRequest, HttpRequest, web};
 use sqlx::PgPool;
 use uuid::Uuid;
@@ -46,6 +50,7 @@ pub use crate::shared::security::api_key::Credential;
 use crate::shared::security::api_key::{self, Presented};
 pub use crate::shared::security::guard::{Guard, require};
 pub use crate::shared::security::jwt::{Claims, JwtKeys};
+pub use crate::shared::security::webhook::{Delivery, WebhookSecret, WebhookVerifier};
 use crate::shared::{body, telemetry};
 
 /// A signed-in caller with a live, active account. Take it in a handler to
@@ -177,6 +182,66 @@ impl<G: Guard + 'static> FromRequest for Allowed<G> {
             // Let in: the body may be read.
             pass.open();
             Ok(Allowed(grant))
+        })
+    }
+}
+
+/// A provider's callback whose signature the verifier `V` accepted: its
+/// headers and its raw body, for the handler to parse. Take it in a
+/// handler instead of a body extractor (it reads the body itself):
+///
+/// ```text
+/// webhook: SignedWebhook<PaymentsSignature>
+/// let event: PaymentEvent = serde_json::from_slice(&webhook.body)?;
+/// ```
+///
+/// A callback `V` refuses is a `401`, and the handler is not called. A
+/// body over the route's `web::PayloadConfig` limit is a `413`.
+pub struct SignedWebhook<V: WebhookVerifier> {
+    /// The callback's headers.
+    pub headers: HeaderMap,
+    /// The callback's body, exactly as it arrived.
+    pub body: web::Bytes,
+    verifier: PhantomData<fn() -> V>,
+}
+
+impl<V: WebhookVerifier> std::fmt::Debug for SignedWebhook<V> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SignedWebhook")
+            .field("headers", &self.headers)
+            .field("body", &self.body)
+            .finish()
+    }
+}
+
+impl<V: WebhookVerifier + 'static> FromRequest for SignedWebhook<V> {
+    type Error = actix_web::Error;
+    type Future = Pin<Box<dyn Future<Output = Result<Self, actix_web::Error>>>>;
+
+    fn from_request(req: &HttpRequest, payload: &mut Payload) -> Self::Future {
+        let headers = req.headers().clone();
+        let state = req.app_data::<web::Data<AppState>>().cloned();
+        let body = web::Bytes::from_request(req, payload);
+        Box::pin(async move {
+            let body = body.await?;
+            let state = state.ok_or_else(|| {
+                AppError::Internal("`AppState` is not registered as app data".into())
+            })?;
+            let named: Vec<(&str, &str)> = headers
+                .iter()
+                .filter_map(|(name, value)| Some((name.as_str(), value.to_str().ok()?)))
+                .collect();
+            if !V::verify(&state, &Delivery::new(&named, &body)) {
+                return Err(AppError::Unauthorized(
+                    "the callback's signature is not valid".to_owned(),
+                )
+                .into());
+            }
+            Ok(SignedWebhook {
+                headers,
+                body,
+                verifier: PhantomData,
+            })
         })
     }
 }

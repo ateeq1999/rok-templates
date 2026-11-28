@@ -29,6 +29,7 @@ import type {
   MediaUploadQuery,
   MessageResponse,
   NewAccountResponse,
+  OidcTokenResponse,
   PaginatedResponse_AuditLogEntryResponse,
   PaginatedResponse_JobResponse,
   PaginatedResponse_MediaResponse,
@@ -36,9 +37,10 @@ import type {
   ResetPasswordDto,
   SignInProviderResponse,
   StartUploadDto,
-  TokenResponse,
   TotpEnabledResponse,
   TotpSetupResponse,
+  TwoFactorMessageResponse,
+  TwoFactorTokenResponse,
   UpdateProfileDto,
   UpdateUserDto,
   UploadTicket,
@@ -133,7 +135,7 @@ export const api = {
       body: DisableTotpDto,
       options?: RequestOptions
     ) =>
-      request<MessageResponse>(
+      request<TwoFactorMessageResponse>(
         {
           method: "POST",
           path: "/api/v1/auth/2fa/disable",
@@ -185,7 +187,7 @@ export const api = {
       body: VerifyTotpDto,
       options?: RequestOptions
     ) =>
-      request<TokenResponse>(
+      request<TwoFactorTokenResponse>(
         {
           method: "POST",
           path: "/api/v1/auth/2fa/verify",
@@ -316,7 +318,7 @@ export const api = {
       body: HandoffDto,
       options?: RequestOptions
     ) =>
-      request<TokenResponse>(
+      request<OidcTokenResponse>(
         {
           method: "POST",
           path: "/api/v1/auth/oidc/handoff",

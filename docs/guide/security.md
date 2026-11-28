@@ -9,6 +9,7 @@ two-factor, API keys) are in [Accounts and sign-in](auth.md).
 - [Rate limits](#rate-limits)
 - [Secrets](#secrets)
 - [Dependencies](#dependencies)
+- [Signed webhooks](#signed-webhooks)
 - [What stays yours](#what-stays-yours)
 
 ## On every answer
@@ -80,6 +81,36 @@ the project (HS256-only tokens, a build-time `zip`, the configured S3
 store, actix's TLS-only HTTP/2). When `cargo update` clears one, drop its
 entry; review the list on every dependency update. The image runs on
 distroless, as a non-root user, with the one binary in it.
+
+## Signed webhooks
+
+A provider calling back (a payment settled, a parcel delivered) carries
+no session: it proves itself by signing the callback. A
+`WebhookVerifier` (`src/shared/security/webhook.rs`, the same file in
+every API template) is that check, written once per provider:
+
+<!-- source: templates/axum-api/src/shared/security/webhook.rs -->
+```rust
+pub trait WebhookVerifier {
+    /// Whether `delivery` is signed by the provider. `false` is a `401`,
+    /// and the handler is not called.
+    fn verify(state: &AppState, delivery: &Delivery<'_>) -> bool;
+}
+```
+
+A handler takes `SignedWebhook<V>` (`src/shared/auth.rs`, axum and
+actix) in place of a body extractor: it reads the raw body, asks `V`,
+and hands the handler `headers` and `body`, or answers `401`. The
+signature covers the bytes as they arrived, so parse the body only
+after. A provider following [Standard Webhooks](https://www.standardwebhooks.com/)
+is checked with `WebhookSecret::new(secret)?.verify(delivery)`: the
+HMAC-SHA256 compared in constant time, a timestamp more than five minutes
+off refused, one matching signature of several (a rotation) enough. The
+gRPC template has the verifier and `WebhookSecret` (they are shared) but
+no extractor: a provider calls back over plain HTTP, which a tonic server
+doesn't serve. The templates ship no provider:
+[A provider that calls back](recipes/provider-callbacks.md) adds one,
+with its fake for tests.
 
 ## What stays yours
 

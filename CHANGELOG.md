@@ -10,6 +10,42 @@ are this file's `## [X.Y.Z]` section.
 
 **Added**
 
+- Signed webhooks (starter-feedback ticket 58): `SignedWebhook<V>`
+  (`shared/auth.rs`, axum, actix and the monorepo's API) hands a handler
+  a provider's callback, headers and raw body, once the `WebhookVerifier`
+  `V` accepts its signature, and answers `401` otherwise.
+  `shared/security/webhook.rs` (shared by every API template, gRPC's
+  too, which has no HTTP routes and so no extractor) holds the trait and
+  `WebhookSecret`, which checks and signs Standard Webhooks callbacks. No
+  vendor ships: the guide's new recipe "A provider that calls back" shows
+  a port, real and fake transports chosen by `<NAME>_TRANSPORT`, a fake
+  that signs its callbacks as the provider does and a test helper
+  swapping it into `AppState`, compiled and tested by the axum gate.
+- Root scripts in the monorepo (starter-feedback ticket 50): a
+  scripts-only root `package.json` (`dev:web`, `dev:api`, `test:web`; no
+  workspaces, no dependencies, no JS monorepo tool), and the root
+  `Cargo.toml`'s `default-members = ["apps/api"]`, so a bare `cargo run`
+  at the root starts the API. `cargo test --workspace` still checks every
+  Rust member.
+- rust-analyzer builds in its own folder (starter-feedback ticket 53):
+  every Template (the monorepo at its root) ships `.vscode/settings.json`,
+  scaffolded once and the user's, with `"rust-analyzer.cargo.targetDir":
+  true`, so the editor builds in `target/rust-analyzer` and never holds
+  the build lock `cargo test` waits on. Each README's "Your editor" says
+  how to set the same in Neovim, Helix and Zed.
+- A golden test of the monorepo mobile App's sign-in screen
+  (starter-feedback ticket 13), `test/golden/`, run by `flutter test` and
+  the mobile gate. The App bundles its font, Inter (SIL Open Font License
+  1.1), in `fonts/inter/` with its `OFL.txt`, which the App's licence page
+  also shows; the theme sets it on every text style, so the screen draws
+  the same glyphs on every machine.
+- The `TOTP_ISSUER` setting (starter-feedback ticket 07): the name
+  authenticator apps show beside the account, in every Template with
+  two-factor (axum, actix, gRPC and the monorepo's API). It defaults to
+  the project name without a trailing `-api` (`karibupass` for
+  `karibupass-api`), where the issuer used to be the crate's name; a `:`
+  is refused at start-up. `totp::enroll` takes the issuer, and
+  `totp::default_issuer` gives the default.
 - Sign-in with an OpenID provider on mobile and web (starter-feedback
   ticket 89). `start?client=mobile` (and `link?client=mobile`) comes back
   to the mobile App's deep link, `<APP_SCHEME>://auth/oidc?…`, a session
@@ -102,6 +138,13 @@ are this file's `## [X.Y.Z]` section.
   them; `--promote <email>` makes an existing account an admin.
   `REQUIRE_VERIFIED_EMAIL` stays `true`, and `default-run` keeps
   `cargo run` the server.
+- `bun run routes` in the monorepo's web App (starter-feedback ticket 12):
+  `@tanstack/router-cli`, pinned to the router generator `vite dev` runs,
+  regenerates `src/routeTree.gen.ts` without a build; `tsr.config.json`
+  gives it TanStack Start's footer. The web gate runs it and fails when
+  the shipped tree changes. `bun run test` sets
+  `NODE_OPTIONS=--no-experimental-webstorage`, so the tests run on Node 25
+  and later with no flag added, and CI's web gate pins Node 22.23.4.
 
 **Changed**
 
@@ -134,9 +177,29 @@ are this file's `## [X.Y.Z]` section.
 - The API templates' READMEs name `[api] include`, the allowlist
   alternative to `[api] exclude`, and `rok gen`'s notice of a newly served
   table.
+- A constraint violation says which constraint it broke (starter-feedback
+  ticket 32). `AppError::Conflict(String)` is now
+  `Conflict { kind, constraint, message }` in every API template (axum,
+  actix, gRPC and the monorepo's API): `kind` is a `ConflictKind`
+  (`Unique` or `ForeignKey` from the database, `State` for a conflict a
+  feature raises with `AppError::conflict(message)`), and
+  `err.constraint()` names the violated constraint, so a feature maps a
+  constraint to its own error by name. The answer is unchanged: `409
+  conflict` with the same message (gRPC: `ALREADY_EXISTS`). A project's
+  own `AppError::Conflict(message)` becomes `AppError::conflict(message)`.
 
 **Fixed**
 
+- `rok gen` runs on a freshly made project (starter-feedback ticket 96):
+  it refuses two `ToSchema` types of one name, and `auth`, `two_factor`
+  and `oidc` each had a `TokenResponse` (`auth` and `two_factor` each a
+  `MessageResponse`). `auth` keeps its names; `two_factor`'s are
+  `TwoFactorTokenResponse` and `TwoFactorMessageResponse`, and `oidc`'s
+  is `OidcTokenResponse`, in the axum, actix and monorepo API templates.
+  The monorepo's contract and Clients name them too: `verify2fa`,
+  `disable` and `exchangeHandoff` answer the renamed types, of the same
+  shape. `tests/schema_names.rs` fails when two types of one API share a
+  component name, identical copies included.
 - The API templates' database tests can't pass unrun in CI: with `CI` set
   and no `DATABASE_URL` (exported or in `.env`), `Database::fresh` fails
   with "DATABASE_URL is required in CI"; locally they still skip with a

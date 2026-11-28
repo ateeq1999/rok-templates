@@ -67,6 +67,7 @@ rules below follow them.
 | Background or slow work | a job (`shared/jobs/`) enqueued by `service.rs` on its transaction, registered in `app/run.rs` | request path |
 | Telling clients something changed (a live board, a bill) | `shared::live::publish(&mut tx, tenant, "orders.new", payload)` on the feature's transaction; clients subscribe at `/api/v1/live` | a polling timer in the App |
 | Writing another feature's data | a port (trait) declared in your `service.rs`, implemented in `app/ports.rs` with the other service's `_in` method | that feature's files |
+| A flow other features may compose (an invitation, a sign-up, an audit entry) | its service, twice: `<verb>_in(conn, …)` runs on the caller's connection and never commits; `<verb>` opens a transaction, calls it, and commits (`invite` and `invite_in`, `register` and `register_in`; the audit log, written only inside a change, has `record_in` alone) | a copy of the flow in the caller |
 | Register a hand-written feature | `features/mod.rs` and `app/router.rs` | — |
 | An authorization rule (a staff role, a role at the resource in the path) | a `Guard` in `shared/guards.rs`, its read in `queries/shared/`; handlers take `Allowed<G>` | the service, or the handler's body |
 

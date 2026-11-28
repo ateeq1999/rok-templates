@@ -1,13 +1,14 @@
 // Scaffolded once by rok-data-sqlc; this file is yours. It is never regenerated. See docs/guide/architecture.md.
 
 //! The `two_factor` request and response bodies, named as the contract
-//! names them. `TokenResponse` and `MessageResponse` are the same schemas
-//! as `auth`'s: a feature keeps its own copies rather than reach into
-//! another's.
+//! names them. `TwoFactorTokenResponse` and `TwoFactorMessageResponse` have
+//! the shapes of `auth`'s `TokenResponse` and `MessageResponse`: a feature
+//! keeps its own copies rather than reach into another's, under its own
+//! names, since `rok gen` refuses two schemas of one name.
 
 /// A session: a bearer token and how long it lasts.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, utoipa::ToSchema)]
-pub struct TokenResponse {
+pub struct TwoFactorTokenResponse {
     /// The JWT to send as `Authorization: Bearer <access_token>`.
     pub access_token: String,
     /// Seconds until it expires.
@@ -18,16 +19,16 @@ pub struct TokenResponse {
 
 /// A message for people, such as `email verified`.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, utoipa::ToSchema)]
-pub struct MessageResponse {
+pub struct TwoFactorMessageResponse {
     /// What happened.
     pub message: String,
 }
 
-impl MessageResponse {
+impl TwoFactorMessageResponse {
     /// The response saying `message`.
     #[must_use]
     pub fn new(message: &str) -> Self {
-        MessageResponse {
+        TwoFactorMessageResponse {
             message: message.to_owned(),
         }
     }

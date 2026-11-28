@@ -30,9 +30,14 @@
 //! header parameter, a changed success status, a target body the
 //! application doesn't serve.
 //!
+//! This is a parity check with the axum starter, not a freeze: as the project
+//! changes its own schema, it grows [`KNOWN`] and [`KNOWN_SCHEMAS`].
 //! [`KNOWN`] lists the differences the application still has, each with why.
-//! The contract fails on any other difference, and on a known one that is
-//! gone (so the list stays true).
+//! [`KNOWN_SCHEMAS`] lists whole schemas the project has made its own, each
+//! with why: every difference found comparing one is skipped, in one line
+//! instead of a [`KNOWN`] entry per difference. The contract fails on any
+//! other difference, on a known one that is gone, and on a known schema that
+//! no longer differs (so both lists stay true).
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -116,13 +121,32 @@ const KNOWN: &[(&str, &str)] = &[
         "DELETE /api/v1/users/me/avatar: response 200: target refers to `UserResponse`, served to `AccountResponse`",
         NAMED_APART,
     ),
+    (
+        "POST /api/v1/auth/2fa/disable: response 200: target refers to `MessageResponse`, served to `TwoFactorMessageResponse`",
+        TWO_FACTOR_NAMED_APART,
+    ),
+    (
+        "POST /api/v1/auth/2fa/verify: response 200: target refers to `TokenResponse`, served to `TwoFactorTokenResponse`",
+        TWO_FACTOR_NAMED_APART,
+    ),
 ];
+
+/// Whole schemas the project has made its own, and why: every difference
+/// found comparing one, where either document refers to it, is skipped. For
+/// example `("UserResponse", "the users carry the project's own fields")`.
+const KNOWN_SCHEMAS: &[(&str, &str)] = &[];
 
 /// Why the account routes' answers are not named `UserResponse`.
 const NAMED_APART: &str = "the `users` feature's `UserResponse` is generated from the table; the \
      `account` and `auth` features may not import it, and their own copies under the same name \
      would replace it in the document (utoipa keeps one schema per name), so they are \
      `AccountResponse` and `NewAccountResponse`, of the same shape";
+
+/// Why the `two_factor` feature's answers are not named like `auth`'s.
+const TWO_FACTOR_NAMED_APART: &str = "`two_factor` may not import `auth`'s `TokenResponse` and \
+     `MessageResponse`, and `rok gen` refuses its own copies under the same names (one schema \
+     per name), so they are `TwoFactorTokenResponse` and `TwoFactorMessageResponse`, of the same \
+     shape";
 
 /// The keywords that describe a schema rather than constrain it.
 const ANNOTATIONS: &[&str] = &[
@@ -179,20 +203,50 @@ struct Compare<'a> {
     served: Doc<'a>,
     /// What is being compared, which decides the additions allowed.
     side: Side,
+    /// The schemas whose differences are skipped (see [`KNOWN_SCHEMAS`]).
+    known_schemas: &'a [(&'a str, &'a str)],
+    found: Found,
+}
+
+/// What a comparison found.
+#[derive(Default)]
+struct Found {
+    /// The differences, each a line naming the operation and where.
     differences: Vec<String>,
+    /// The known schemas that differed, their differences skipped.
+    known_schemas_differing: BTreeSet<String>,
 }
 
 impl Compare<'_> {
     fn differ(&mut self, at: &str, what: String) {
         if at.is_empty() || at.ends_with(": ") {
-            self.differences.push(format!("{at}{what}"));
+            self.found.differences.push(format!("{at}{what}"));
         } else {
-            self.differences.push(format!("{at}: {what}"));
+            self.found.differences.push(format!("{at}: {what}"));
         }
     }
 
-    /// Compares two schemas.
+    /// Compares two schemas, skipping (and noting) the differences of a known
+    /// schema either refers to.
     fn schema(&mut self, at: &str, target: &Value, served: &Value) {
+        let known = [ref_name(target), ref_name(served)]
+            .into_iter()
+            .flatten()
+            .find(|name| self.known_schemas.iter().any(|(known, _)| known == name));
+        let Some(known) = known else {
+            self.schema_keywords(at, target, served);
+            return;
+        };
+        let before = self.found.differences.len();
+        self.schema_keywords(at, target, served);
+        if self.found.differences.len() > before {
+            self.found.differences.truncate(before);
+            self.found.known_schemas_differing.insert(known.to_owned());
+        }
+    }
+
+    /// Compares two schemas: their `$ref`s, then their keywords.
+    fn schema_keywords(&mut self, at: &str, target: &Value, served: &Value) {
         let (target_ref, served_ref) = (ref_name(target), ref_name(served));
         match (target_ref, served_ref) {
             (Some(target_name), Some(served_name)) if target_name != served_name => {
@@ -460,8 +514,13 @@ fn success(operation: &Value) -> Option<(&String, &Value)> {
 }
 
 /// Every difference between the target's `covered` operations and the served
-/// document's, each a line naming the operation and where.
-fn differences(target: &Value, served: &Value, covered: &[(&str, &str)]) -> Vec<String> {
+/// document's, but those of the `known_schemas`.
+fn differences(
+    target: &Value,
+    served: &Value,
+    covered: &[(&str, &str)],
+    known_schemas: &[(&str, &str)],
+) -> Found {
     let mut compare = Compare {
         target: Doc {
             root: target,
@@ -472,7 +531,8 @@ fn differences(target: &Value, served: &Value, covered: &[(&str, &str)]) -> Vec<
             name: "served",
         },
         side: Side::Parameter,
-        differences: Vec::new(),
+        known_schemas,
+        found: Found::default(),
     };
     for (method, path) in covered {
         let operation = |doc: &Value| doc.get("paths")?.get(*path)?.get(*method).cloned();
@@ -585,7 +645,7 @@ fn differences(target: &Value, served: &Value, covered: &[(&str, &str)]) -> Vec<
             _ => compare.differ(&at, "no success response in one of them".to_owned()),
         }
     }
-    compare.differences
+    compare.found
 }
 
 /// The document the application serves at `/api-docs/openapi.json`. The
@@ -609,7 +669,8 @@ async fn served_document() -> Result<Value, Box<dyn std::error::Error>> {
 
 /// The differences found that [`KNOWN`] doesn't list, and the known ones not
 /// found.
-fn unexpected(found: &[String]) -> (Vec<&String>, Vec<&str>) {
+fn unexpected(found: &Found) -> (Vec<&String>, Vec<&str>) {
+    let found = &found.differences;
     let new = found
         .iter()
         .filter(|found| !KNOWN.iter().any(|(known, _)| known == found))
@@ -622,21 +683,37 @@ fn unexpected(found: &[String]) -> (Vec<&String>, Vec<&str>) {
     (new, gone)
 }
 
+/// The `known_schemas` that no longer differ.
+fn stale_schemas<'a>(found: &Found, known_schemas: &[(&'a str, &str)]) -> Vec<&'a str> {
+    known_schemas
+        .iter()
+        .map(|(name, _)| *name)
+        .filter(|name| !found.known_schemas_differing.contains(*name))
+        .collect()
+}
+
 #[actix_web::test]
 async fn the_served_document_meets_the_target_for_every_covered_operation()
 -> Result<(), Box<dyn std::error::Error>> {
     let target: Value = serde_json::from_str(TARGET)?;
     let served = served_document().await?;
-    let found = differences(&target, &served, COVERED);
+    let found = differences(&target, &served, COVERED, KNOWN_SCHEMAS);
     let (new, gone) = unexpected(&found);
+    let stale = stale_schemas(&found, KNOWN_SCHEMAS);
     assert!(
-        new.is_empty() && gone.is_empty(),
-        "the served document breaks the contract:\n{}{}",
+        new.is_empty() && gone.is_empty() && stale.is_empty(),
+        "the served document breaks the contract:\n{}{}{}",
         new.iter()
             .map(|line| format!("  {line}\n"))
             .collect::<String>(),
         gone.iter()
             .map(|line| format!("  known, but no longer found (remove it from KNOWN): {line}\n"))
+            .collect::<String>(),
+        stale
+            .iter()
+            .map(|name| format!(
+                "  known schema, but no longer differs (remove it from KNOWN_SCHEMAS): `{name}`\n"
+            ))
             .collect::<String>()
     );
     Ok(())
@@ -655,7 +732,7 @@ async fn a_mismatch_breaks_the_contract_with_a_readable_list()
     if let Some(parameters) = served["paths"]["/api/v1/users"]["get"]["parameters"].as_array_mut() {
         parameters.retain(|parameter| parameter["name"] != "q");
     }
-    let found = differences(&target, &served, COVERED);
+    let found = differences(&target, &served, COVERED, KNOWN_SCHEMAS);
     let (new, _) = unexpected(&found);
     let new: Vec<&str> = new.iter().map(|line| line.as_str()).collect();
     assert_eq!(
@@ -707,7 +784,7 @@ async fn additive_changes_keep_the_contract() -> Result<(), Box<dyn std::error::
     if let Some(required) = user["required"].as_array_mut() {
         required.push(Value::from("language"));
     }
-    let found = differences(&target, &served, COVERED);
+    let found = differences(&target, &served, COVERED, KNOWN_SCHEMAS);
     let (new, gone) = unexpected(&found);
     assert!(new.is_empty() && gone.is_empty(), "{new:?} {gone:?}");
     Ok(())
@@ -729,7 +806,7 @@ async fn breaking_changes_still_break_the_contract() -> Result<(), Box<dyn std::
     if let Some(properties) = properties.as_object_mut() {
         properties.remove("display_name");
     }
-    let found = differences(&target, &served, COVERED);
+    let found = differences(&target, &served, COVERED, KNOWN_SCHEMAS);
     let (new, _) = unexpected(&found);
     let new: Vec<&str> = new.iter().map(|line| line.as_str()).collect();
     assert_eq!(
@@ -757,7 +834,7 @@ fn one_operation(schema: Value, schemas: Value) -> Value {
 
 /// The differences between two one-operation documents.
 fn things_differences(target: &Value, served: &Value) -> Vec<String> {
-    differences(target, served, &[("get", "/things")])
+    differences(target, served, &[("get", "/things")], &[]).differences
 }
 
 /// A `$ref` on one side needs a `$ref` to the same name on the other: a
@@ -796,4 +873,61 @@ async fn a_target_response_without_a_body_accepts_any_served_body() {
         things_differences(&with_body, &bodiless),
         ["GET /things: response 200: target has a body, served has none"]
     );
+}
+
+/// A schema in [`KNOWN_SCHEMAS`] is the project's own: every difference
+/// found comparing it is skipped, where either document refers to it.
+#[actix_web::test]
+async fn a_known_schema_is_skipped() {
+    let target = one_operation(
+        serde_json::json!({"$ref": "#/components/schemas/Thing"}),
+        serde_json::json!({"Thing": {"type": "object", "properties": {"id": {"type": "string"}}}}),
+    );
+    let served = one_operation(
+        serde_json::json!({"$ref": "#/components/schemas/Thing"}),
+        serde_json::json!({"Thing": {
+            "type": "object",
+            "properties": {"id": {"type": "integer"}, "name": {"type": "string"}},
+        }}),
+    );
+    let known = [("Thing", "the project's own")];
+    let found = differences(&target, &served, &[("get", "/things")], &known);
+    assert!(found.differences.is_empty(), "{:?}", found.differences);
+    assert!(stale_schemas(&found, &known).is_empty());
+}
+
+/// A schema in [`KNOWN_SCHEMAS`] that no longer differs is stale, like a
+/// [`KNOWN`] entry no longer found.
+#[actix_web::test]
+async fn a_known_schema_that_no_longer_differs_is_stale() {
+    let thing = one_operation(
+        serde_json::json!({"$ref": "#/components/schemas/Thing"}),
+        serde_json::json!({"Thing": {"type": "string"}}),
+    );
+    let known = [("Thing", "the project's own")];
+    let found = differences(&thing, &thing, &[("get", "/things")], &known);
+    assert!(found.differences.is_empty());
+    assert_eq!(stale_schemas(&found, &known), ["Thing"]);
+}
+
+/// One line makes `UserResponse` the project's own: its retyped field and
+/// the account routes' differently named answers are all skipped. The
+/// [`KNOWN`] differences of other schemas remain.
+#[actix_web::test]
+async fn a_known_schema_replaces_a_known_entry_per_difference()
+-> Result<(), Box<dyn std::error::Error>> {
+    let target: Value = serde_json::from_str(TARGET)?;
+    let mut served = served_document().await?;
+    served["components"]["schemas"]["UserResponse"]["properties"]["email"]["type"] =
+        Value::from("integer");
+    let known = [("UserResponse", "the project's own")];
+    let found = differences(&target, &served, COVERED, &known);
+    let others: Vec<&String> = found
+        .differences
+        .iter()
+        .filter(|found| !KNOWN.iter().any(|(known, _)| known == found))
+        .collect();
+    assert!(others.is_empty(), "{others:?}");
+    assert!(stale_schemas(&found, &known).is_empty());
+    Ok(())
 }

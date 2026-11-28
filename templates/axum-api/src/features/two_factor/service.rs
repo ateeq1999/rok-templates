@@ -14,7 +14,7 @@ use rok_data::Model;
 use sqlx::{PgConnection, PgPool};
 
 use super::dto::{
-    DisableTotpDto, EnableTotpDto, TokenResponse, TotpEnabledResponse, TotpSetupResponse,
+    DisableTotpDto, EnableTotpDto, TotpEnabledResponse, TotpSetupResponse, TwoFactorTokenResponse,
     VerifyTotpDto,
 };
 use crate::db::queries::two_factor as queries;
@@ -42,6 +42,8 @@ pub struct TwoFactorService {
     pub templates: Arc<Templates>,
     /// Encrypts two-factor secrets at rest (`TOTP_ENCRYPTION_KEY`).
     pub totp: Arc<TotpCipher>,
+    /// The name authenticator apps show beside the account (`TOTP_ISSUER`).
+    pub totp_issuer: String,
 }
 
 /// Setup, enable, disable, and a sign-in's second step.
@@ -53,7 +55,7 @@ impl TwoFactorService {
     /// is a `400`.
     pub async fn setup_totp(&self, id: UserId) -> Result<TotpSetupResponse, AppError> {
         let user = self.live_user(id).await?;
-        let enrollment = totp::enroll(&user.email)?;
+        let enrollment = totp::enroll(&self.totp_issuer, &user.email)?;
         let sealed = self.totp.seal(user.id.into(), &enrollment.secret)?;
         if queries::store_totp_secret(&self.pool, user.id, Some(&sealed)).await? == 0 {
             return Err(totp_already_on());
@@ -139,7 +141,10 @@ impl TwoFactorService {
     /// lockout like a wrong password, and the token stays usable until it
     /// expires. Success spends the token and the code, and forgets the
     /// failures. A disabled account is a `403`.
-    pub async fn verify_totp(&self, input: VerifyTotpDto) -> Result<TokenResponse, AppError> {
+    pub async fn verify_totp(
+        &self,
+        input: VerifyTotpDto,
+    ) -> Result<TwoFactorTokenResponse, AppError> {
         let pending = token::hash(&input.pending_token);
         let id = queries::pending_sign_in(&self.pool, &pending)
             .await?
@@ -211,8 +216,13 @@ fn totp_already_on() -> AppError {
 
 impl TwoFactorService {
     /// A session for `id`, as `auth`'s sign-in answers one.
-    fn session(&self, id: UserId, role: Role, version: i32) -> Result<TokenResponse, AppError> {
-        Ok(TokenResponse {
+    fn session(
+        &self,
+        id: UserId,
+        role: Role,
+        version: i32,
+    ) -> Result<TwoFactorTokenResponse, AppError> {
+        Ok(TwoFactorTokenResponse {
             access_token: self.keys.issue(id.into(), role, version)?,
             expires_in: i64::try_from(self.keys.ttl().as_secs()).unwrap_or(i64::MAX),
             token_type: "Bearer".to_owned(),

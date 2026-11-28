@@ -6,7 +6,8 @@
 //! the App's own checks with Flutter's tooling: `flutter pub get
 //! --enforce-lockfile` (its pinned `pubspec.lock`, never a new resolution; it
 //! resolves the generated `clients/dart` by path), `flutter analyze` and
-//! `flutter test`. Skips with a printed note when `flutter` is absent.
+//! `flutter test`, which runs the sign-in screen's golden test with the
+//! App's bundled fonts (and its golden image written byte for byte). Skips with a printed note when `flutter` is absent.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -112,6 +113,8 @@ fn monorepo_scaffold_writes_the_mobile_app_whole() -> Result<()> {
         "android/app/src/main/res/mipmap-hdpi/ic_launcher.png",
         "ios/Runner/Assets.xcassets/AppIcon.appiconset/Icon-App-1024x1024@1x.png",
         "web/favicon.png",
+        "fonts/inter/Inter-Regular.ttf",
+        "test/golden/goldens/sign_in_view.png",
     ] {
         ensure!(
             std::fs::read(mobile.join(file))? == std::fs::read(template.join(file))?,
@@ -123,6 +126,7 @@ fn monorepo_scaffold_writes_the_mobile_app_whole() -> Result<()> {
         "pubspec.yaml",
         "pubspec.lock",
         "analysis_options.yaml",
+        "fonts/inter/OFL.txt",
     ] {
         ensure!(
             mobile.join(file).is_file(),

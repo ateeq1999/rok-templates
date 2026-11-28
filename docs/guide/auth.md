@@ -178,6 +178,12 @@ The recovery codes are stored as HMAC-SHA256 under a key derived from
 checked against guesses. `src/shared/security/totp.rs` holds all of it,
 with no business meaning; the flows are `src/features/two_factor/`.
 
+**The issuer.** Authenticator apps show the account under `TOTP_ISSUER`,
+by default the project name without a trailing `-api` (`karibupass` for
+`karibupass-api`). Set it to your product's name before users enroll:
+an app keeps the issuer it was given, so changing it later renames no
+existing entry.
+
 **Changing the key.** There is no rotation: a new `TOTP_ENCRYPTION_KEY`
 can't open the secrets or match the recovery codes stored under the old
 one, so every user with two-factor on would have to set it up again. Keep
@@ -363,6 +369,7 @@ development only (`app/seed.rs`, its SQL in `queries/seed.sql`).
 | `JWT_SECRET` | required | the HS256 key, at least 32 bytes (`openssl rand -base64 48`) |
 | `JWT_TTL` | `3600` | seconds a session token lasts |
 | `TOTP_ENCRYPTION_KEY` | required | the AES-256 key two-factor secrets are sealed under, and the recovery codes' HMAC key is derived from: 32 bytes in base64 (`openssl rand -base64 32`) |
+| `TOTP_ISSUER` | the project name without a trailing `-api` | the name authenticator apps show beside the account (`karibupass` for `karibupass-api`); no `:` |
 | `REQUIRE_VERIFIED_EMAIL` | `true` | sign-in answers `403` until the email is verified |
 | `APP_URL` | `http://localhost:8080` | the base of mailed links: your front end's URL |
 | `MAIL_TRANSPORT` | `log` | `log` (each mail is logged) or `smtp` |
@@ -381,7 +388,11 @@ The upload settings (`STORAGE_URL`, `MEDIA_MAX_UPLOAD_BYTES`,
 
 The defaults suit development: mail is logged (`RUST_LOG=debug` shows
 each body, links included), the breach check is off, and email
-verification is required.
+verification is required. The `log` transport is for running locally;
+tests read the queued mail through the memory transport instead
+(`MemoryMailer`: `tests/support`'s `mailed(pool)` sends the queue through
+one and returns what it sent), as they would an SMS port added the same
+way ([A provider that calls back](recipes/provider-callbacks.md)).
 
 **The breach check** sends Have I Been Pwned's range API the first five hex
 characters of the password's SHA-1, never the password. If the service

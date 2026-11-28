@@ -250,6 +250,15 @@ export type NewAccountResponse = {
 
 export type OidcClient = "web" | "mobile"
 
+export type OidcTokenResponse = {
+  /** The JWT to send as `Authorization: Bearer <access_token>`. */
+  access_token: string
+  /** Seconds until it expires. */
+  expires_in: number
+  /** Always `Bearer`. */
+  token_type: string
+}
+
 export type PaginatedResponse_AuditLogEntryResponse = {
   /** The page's rows. */
   items: Array<{
@@ -410,6 +419,20 @@ export type TotpSetupResponse = {
    * cannot scan the QR code.
    */
   secret: string
+}
+
+export type TwoFactorMessageResponse = {
+  /** What happened. */
+  message: string
+}
+
+export type TwoFactorTokenResponse = {
+  /** The JWT to send as `Authorization: Bearer <access_token>`. */
+  access_token: string
+  /** Seconds until it expires. */
+  expires_in: number
+  /** Always `Bearer`. */
+  token_type: string
 }
 
 export type UpdateProfileDto = {

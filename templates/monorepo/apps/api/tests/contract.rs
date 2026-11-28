@@ -118,6 +118,14 @@ const KNOWN: &[(&str, &str)] = &[
         "DELETE /api/v1/users/me/avatar: response 200: target refers to `UserResponse`, served to `AccountResponse`",
         NAMED_APART,
     ),
+    (
+        "POST /api/v1/auth/2fa/disable: response 200: target refers to `MessageResponse`, served to `TwoFactorMessageResponse`",
+        TWO_FACTOR_NAMED_APART,
+    ),
+    (
+        "POST /api/v1/auth/2fa/verify: response 200: target refers to `TokenResponse`, served to `TwoFactorTokenResponse`",
+        TWO_FACTOR_NAMED_APART,
+    ),
 ];
 
 /// Why the account routes' answers are not named `UserResponse`.
@@ -125,6 +133,12 @@ const NAMED_APART: &str = "the `users` feature's `UserResponse` is generated fro
      `account` and `auth` features may not import it, and their own copies under the same name \
      would replace it in the document (utoipa keeps one schema per name), so they are \
      `AccountResponse` and `NewAccountResponse`, of the same shape";
+
+/// Why the `two_factor` feature's answers are not named like `auth`'s.
+const TWO_FACTOR_NAMED_APART: &str = "`two_factor` may not import `auth`'s `TokenResponse` and \
+     `MessageResponse`, and `rok gen` refuses its own copies under the same names (one schema \
+     per name), so they are `TwoFactorTokenResponse` and `TwoFactorMessageResponse`, of the same \
+     shape";
 
 /// The keywords that describe a schema rather than constrain it.
 const ANNOTATIONS: &[&str] = &[

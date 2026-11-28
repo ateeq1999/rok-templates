@@ -130,6 +130,7 @@ impl AppState {
             outbox: Arc::new(outbox.clone()),
             templates: templates.clone(),
             totp: Arc::new(TotpCipher::new(&config.totp_encryption_key)),
+            totp_issuer: config.totp_issuer.clone(),
         });
         // The API signs the URLs of a store that can't sign its own, under a
         // key derived from `JWT_SECRET` (engine ADR 0024).

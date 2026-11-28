@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "scripts": {
+    "dev:web": "bun run --cwd apps/web dev",
+    "dev:api": "cargo run -p axum-api",
+    "test:web": "bun run --cwd apps/web test"
+  }
+}

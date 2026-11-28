@@ -405,6 +405,42 @@ mod tests {
         );
     }
 
+    /// Every template ships, at its root (the Monorepo's included),
+    /// `.vscode/settings.json` sending rust-analyzer's builds to
+    /// `target/rust-analyzer`, so the editor never holds `cargo test`'s
+    /// build lock. It is scaffolded once (the user's: `rok gen` never
+    /// rewrites it), and the README says how other editors do the same.
+    #[test]
+    fn every_template_gives_rust_analyzer_its_own_target() {
+        for name in names() {
+            let files = files(name).unwrap_or_else(|| panic!("template `{name}` has no files"));
+            let text = |path: &str| {
+                files
+                    .iter()
+                    .find(|file| file.path == path)
+                    .map(|file| String::from_utf8_lossy(file.bytes).replace("\r\n", "\n"))
+                    .unwrap_or_else(|| panic!("template `{name}` has no `{path}`"))
+            };
+            let settings = text(".vscode/settings.json");
+            assert!(
+                settings
+                    .lines()
+                    .next()
+                    .is_some_and(|line| line.starts_with("// Scaffolded once by rok-data-sqlc")),
+                "`{name}`'s `.vscode/settings.json` is not marked scaffolded once:\n{settings}"
+            );
+            assert!(
+                settings.contains("\"rust-analyzer.cargo.targetDir\": true"),
+                "`{name}`'s `.vscode/settings.json` leaves rust-analyzer in `target/`:\n{settings}"
+            );
+            let readme = text("README.md");
+            assert!(
+                readme.contains("target/rust-analyzer") && readme.contains("cargo.targetDir"),
+                "`{name}`'s README does not say how other editors give rust-analyzer its own target"
+            );
+        }
+    }
+
     #[test]
     fn the_catalog_names_its_templates() {
         let names: Vec<&str> = names().collect();

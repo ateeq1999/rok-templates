@@ -50,6 +50,18 @@ rok gen
 `rok gen check` fails when a generated file, a Client included, is out
 of date with its source; it builds nothing.
 
+## Your editor
+
+`.vscode/settings.json` (yours, at the workspace root) sets
+`"rust-analyzer.cargo.targetDir": true`:
+rust-analyzer builds in `target/rust-analyzer`, so it never holds the build
+lock `cargo test` waits on. Other editors take the same rust-analyzer
+setting, `cargo.targetDir = true`:
+
+- Neovim (`nvim-lspconfig`): `settings = { ["rust-analyzer"] = { cargo = { targetDir = true } } }`
+- Helix (`languages.toml`): `[language-server.rust-analyzer.config.cargo]` with `targetDir = true`
+- Zed (`settings.json`): `"lsp": { "rust-analyzer": { "initialization_options": { "cargo": { "targetDir": true } } } }`
+
 ## The contract
 
 `apps/api/openapi.json` is the OpenAPI document the API serves at
@@ -69,7 +81,26 @@ You need PostgreSQL and Rust 1.94 or newer; `apps/api/README.md` has
 each step. From the root:
 
 ```sh
-cargo run -p axum-api
+cargo run
+```
+
+The root `Cargo.toml`'s `default-members` is `apps/api`, so a bare `cargo
+run`, `cargo build` or `cargo test` there acts on the API alone; `cargo
+run -p axum-api` names it from anywhere in the workspace, and `cargo test
+--workspace` checks every Rust member (the desktop App and the Rust
+Client too).
+
+## The root scripts
+
+The root `package.json` holds scripts only, with no workspaces and no
+dependencies (the web App stays a plain bun project in `apps/web`), so
+each App runs from the root whatever the shell's directory inside the
+project:
+
+```sh
+bun run dev:api    # cargo run -p axum-api
+bun run dev:web    # the web App's dev server
+bun run test:web   # the web App's tests
 ```
 
 ## CI
@@ -87,16 +118,19 @@ docker build -f apps/api/Dockerfile -t api .
 ## Running the web app
 
 You need bun. With the API running (it listens on `127.0.0.1:8080`, its
-`BIND_ADDR`), from `apps/web`:
+`BIND_ADDR`), install its dependencies once, then start it from the root:
 
 ```sh
-bun install --frozen-lockfile
-bun run dev
+bun install --cwd apps/web --frozen-lockfile
+bun run dev:web
 ```
 
-The dev server (port 3001) forwards `/api` and `/health` to the API;
+(`bun run dev` in `apps/web` does the same.) The dev server
+(`127.0.0.1:3001`) forwards `/api` and `/health` to the API;
 `API_PROXY_TARGET` points it elsewhere (see `apps/web/.env.example`).
-`bun run typecheck` and `bun run test` are its checks.
+`bun run typecheck` and `bun run test` in `apps/web` are its checks
+(`bun run test:web` from the root runs the tests); `bun run e2e`, with
+the API running, its browser smoke flow (`apps/web/README.md`).
 
 ## Running the desktop app
 

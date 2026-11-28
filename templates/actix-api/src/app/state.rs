@@ -66,6 +66,8 @@ pub struct AppState {
     pub media_download_url_ttl: std::time::Duration,
     /// Encrypts two-factor secrets at rest (`TOTP_ENCRYPTION_KEY`).
     pub totp: Arc<TotpCipher>,
+    /// The name authenticator apps show beside the account (`TOTP_ISSUER`).
+    pub totp_issuer: String,
     /// The `OpenID` providers people may sign in with (`OIDC_PROVIDERS`;
     /// none by default: the `oidc` routes answer `404`). A test swaps them
     /// with [`AppState::with_identity_providers`].
@@ -123,6 +125,7 @@ impl AppState {
             media_upload_url_ttl: config.media_upload_url_ttl,
             media_download_url_ttl: config.media_download_url_ttl,
             totp: Arc::new(TotpCipher::new(&config.totp_encryption_key)),
+            totp_issuer: config.totp_issuer.clone(),
             identity_providers: Arc::new(IdentityProviders::from_settings(&config.oidc_providers)),
             app_url: config.app_url.clone(),
             app_scheme: config.app_scheme.clone(),

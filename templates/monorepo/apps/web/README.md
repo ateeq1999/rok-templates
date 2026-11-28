@@ -10,6 +10,55 @@ is no longer maintained. [The monorepo
 guide](https://github.com/ateeq1999/rok-data/blob/main/crates/rok-templates/docs/guide/monorepo.md)
 describes the project around it.
 
+## The dev server
+
+`bun run dev` serves the App at `http://127.0.0.1:3001` and forwards `/api`
+and `/health` to the API at `http://127.0.0.1:8080`. Both are IPv4
+addresses, so scripts and `curl` use the same ones on every OS
+(`localhost` is IPv6 alone on some systems, Windows among them).
+
+To change them:
+
+- **The dev server's address:** `server.host` in `vite.config.ts`, or
+  `bun run dev --host 0.0.0.0` for one run (to open the App from another
+  device on your network, for example). The port is the `--port 3001` of
+  `package.json`'s `dev` script.
+- **The API it forwards to:** the `API_PROXY_TARGET` environment variable,
+  e.g. `API_PROXY_TARGET=http://127.0.0.1:9090 bun run dev` when the API's
+  `BIND_ADDR` is on port 9090.
+
+## Adding a route
+
+Add a file under `src/routes` and run `bun run routes`: the router's own
+CLI (`tsr generate`, pinned to the generator `vite dev` runs) rewrites
+`src/routeTree.gen.ts` without a build. `bun run dev` does the same as you
+save. `tsr.config.json` gives the CLI the footer TanStack Start adds to the
+tree, so both write the same file; the web gate fails when they differ.
+
+## Tests
+
+`bun run test` runs the vitest suite on any Node: its script turns Node's
+own Web Storage off (`NODE_OPTIONS=--no-experimental-webstorage`), which
+since Node 25 puts an unusable `localStorage` over jsdom's.
+
+`bun run e2e` runs the browser smoke flow (Playwright, in `e2e/`): sign in
+with the dev seed's account, land on home, sign out. It needs the API
+running (`cargo run` in `apps/api`, its database migrated) and starts
+`bun run dev` itself unless one already answers at `127.0.0.1:3001`. Once,
+install the browser it drives:
+
+```sh
+bunx playwright install chromium
+bun run e2e
+```
+
+It signs in as the seed's `user@example.com`, running `cargo run --bin
+seed` in `apps/api` first (a new password every run). To sign in as another
+account instead, set `E2E_EMAIL` and `E2E_PASSWORD`. With no API at
+`API_PROXY_TARGET` (default `http://127.0.0.1:8080`) it skips with a note;
+on CI (`CI` set) it fails instead. The web gate runs it in CI against the
+API and PostgreSQL.
+
 ## Adding components
 
 To add components to your app, run the following command:

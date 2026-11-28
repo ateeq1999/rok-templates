@@ -10,8 +10,8 @@ use axum::extract::State;
 use axum::response::{IntoResponse, Response};
 
 use super::dto::{
-    DisableTotpDto, EnableTotpDto, MessageResponse, TokenResponse, TotpEnabledResponse,
-    TotpSetupResponse, VerifyTotpDto,
+    DisableTotpDto, EnableTotpDto, TotpEnabledResponse, TotpSetupResponse,
+    TwoFactorMessageResponse, TwoFactorTokenResponse, VerifyTotpDto,
 };
 use super::service::TwoFactorService;
 use crate::error::AppError;
@@ -78,7 +78,7 @@ pub async fn enable_totp(
     operation_id = "disable",
     request_body = DisableTotpDto,
     responses(
-        (status = 200, description = "Two-factor disabled", body = MessageResponse),
+        (status = 200, description = "Two-factor disabled", body = TwoFactorMessageResponse),
         (status = 400, description = "Wrong current password (`wrong_password`), or a malformed body", body = ErrorBody),
         (status = 401, description = "No valid bearer token", body = ErrorBody),
         (status = 429, description = "Too many requests from this IP", body = ErrorBody),
@@ -93,7 +93,7 @@ pub async fn disable_totp(
     service
         .disable_totp(caller.id.into(), body.into_inner())
         .await?;
-    Ok(Json(MessageResponse::new("two-factor sign-in disabled")).into_response())
+    Ok(Json(TwoFactorMessageResponse::new("two-factor sign-in disabled")).into_response())
 }
 
 /// `POST /api/v1/auth/2fa/verify`: a sign-in's second step, a session,
@@ -105,7 +105,7 @@ pub async fn disable_totp(
     operation_id = "verify",
     request_body = VerifyTotpDto,
     responses(
-        (status = 200, description = "Completes the login", body = TokenResponse),
+        (status = 200, description = "Completes the login", body = TwoFactorTokenResponse),
         (status = 400, description = "pending_token is invalid or expired (`invalid_token`), or a malformed body", body = ErrorBody),
         (status = 401, description = "Wrong authenticator/recovery code, or the account is temporarily locked", body = ErrorBody),
         (status = 403, description = "Account disabled", body = ErrorBody),

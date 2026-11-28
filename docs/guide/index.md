@@ -48,8 +48,8 @@ Running it in production:
 
 - [Observability](observability.md): logs, the request span, trace export
   (OpenTelemetry), metrics (Prometheus), the local Grafana.
-- [Security](security.md): the headers, CORS, rate limits, panics, rotating
-  the secrets, the dependency policy.
+- [Security](security.md): the headers, CORS, rate limits, panics, signed
+  webhooks, rotating the secrets, the dependency policy.
 - [Deploying to AWS](deploying-aws.md): the Terraform, a release, and what
   the Floci test proves and what it does not.
 
@@ -63,6 +63,8 @@ templates; these pages add them to your project:
 - [A shared rate limit on Redis](recipes/redis-rate-limit.md) for many
   replicas
 - [Signed outbound webhooks](recipes/webhooks.md), delivered as jobs
+- [A provider that calls back](recipes/provider-callbacks.md): a port,
+  real and fake transports, and its signed callbacks (`SignedWebhook`)
 - [Sign-in with OIDC](recipes/oidc.md) (an identity provider)
 - [Push notifications](recipes/push-notifications.md) with Firebase Cloud
   Messaging, for the monorepo's mobile App
