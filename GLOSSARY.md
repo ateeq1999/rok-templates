@@ -20,6 +20,10 @@ _Avoid_: package, service (that is a microservice), project
 Code generated from the API contract in one App's language, through which that App calls the API; it lives in the App that calls it.
 _Avoid_: SDK, API wrapper, stub (that is gRPC's)
 
+**Form schema**:
+A web App feature's description of what one screen accepts, built on a Client's request schema and adding only what the screen needs, such as a confirm field or its own wording.
+_Avoid_: feature schema (that meant this and a request schema)
+
 **Capability**:
 A cross-cutting part of a template that every API feature can use, such as mail, storage, rate limiting, jobs or metrics; it ships in the template, is inert until configured, and is the user's once scaffolded.
 _Avoid_: feature (that is an API feature), plugin, add-on, Module (that is a product surface)
