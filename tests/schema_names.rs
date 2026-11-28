@@ -5,10 +5,14 @@
 //! published contract describes a schema the operation does not answer
 //! (the `UserResponse` of `users`, `account` and `auth`, 0027 review).
 //!
-//! Features may not import each other, so a hand-written feature sometimes
-//! keeps its own copy of a small type (`MessageResponse` in `auth` and
-//! `two_factor`): identical copies make the same component and are fine.
-//! This test fails when one name is given to definitions that differ.
+//! `rok gen` refuses a project where two `ToSchema` types share a component
+//! name, even identical copies (the `TokenResponse` of `auth`, `two_factor`
+//! and `oidc`, starter-feedback ticket 96), so a freshly made project would
+//! not generate. Features may not import each other, so a feature that
+//! needs a small type `auth` also has keeps its own copy under its own name
+//! (`TwoFactorTokenResponse`). This test fails when two types of one API
+//! share a component name. A generic type is named per use, so it is left
+//! out, as `rok gen` leaves it out.
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -20,16 +24,9 @@ use anyhow::{Context, Result};
 /// `templates/`, whose `src/` is scanned.
 const APIS: &[&str] = &["axum-api", "actix-api", "monorepo/apps/api"];
 
-/// One `ToSchema` type: the component name it makes and its definition
-/// (derive, attributes and item), each line trimmed.
-#[derive(Debug, PartialEq, Eq)]
-struct Schema {
-    name: String,
-    definition: String,
-}
-
-/// The `ToSchema` types `text` (a Rust source file) defines.
-fn schemas_in(text: &str) -> Vec<Schema> {
+/// The component names of the `ToSchema` types `text` (a Rust source
+/// file) defines, generic types left out.
+fn schemas_in(text: &str) -> Vec<String> {
     let lines: Vec<&str> = text.lines().map(str::trim).collect();
     let mut found = Vec::new();
     let mut at = 0;
@@ -56,17 +53,9 @@ fn schemas_in(text: &str) -> Vec<Schema> {
             at += 1;
         }
         let Some(item) = lines.get(at) else { break };
-        let name = renamed.unwrap_or_else(|| item_name(item));
-        if item.ends_with('{') {
-            while at < lines.len() && lines[at] != "}" {
-                at += 1;
-            }
+        if !is_generic(item) {
+            found.push(renamed.unwrap_or_else(|| item_name(item)));
         }
-        let end = at.min(lines.len() - 1);
-        found.push(Schema {
-            name,
-            definition: lines[start..=end].join("\n"),
-        });
         at += 1;
     }
     found
@@ -79,12 +68,22 @@ fn is_item(line: &str) -> bool {
     line.starts_with("struct ") || line.starts_with("enum ")
 }
 
-/// The name of the struct or enum `line` starts, generics left out.
-fn item_name(line: &str) -> String {
+/// The word after `struct` or `enum` in `line`: the name and any generics.
+fn item_word(line: &str) -> &str {
     line.split_whitespace()
         .skip_while(|word| *word != "struct" && *word != "enum")
         .nth(1)
         .unwrap_or_default()
+}
+
+/// Whether the struct or enum `line` starts takes generic parameters.
+fn is_generic(line: &str) -> bool {
+    item_word(line).contains('<')
+}
+
+/// The name of the struct or enum `line` starts, generics left out.
+fn item_name(line: &str) -> String {
+    item_word(line)
         .split(['<', '{', '(', ';'])
         .next()
         .unwrap_or_default()
@@ -115,25 +114,19 @@ fn rust_files(root: &Path, dir: &Path, files: &mut BTreeMap<String, String>) -> 
     Ok(())
 }
 
-/// Each component name that differing definitions share among `files`
-/// (path → source), as a line naming the name and the files.
+/// Each component name more than one type shares among `files` (path →
+/// source), as a line naming the name and the files.
 fn collisions(files: &BTreeMap<String, String>) -> Vec<String> {
-    let mut by_name: BTreeMap<String, Vec<(&str, String)>> = BTreeMap::new();
+    let mut by_name: BTreeMap<String, Vec<&str>> = BTreeMap::new();
     for (path, text) in files {
-        for schema in schemas_in(text) {
-            by_name
-                .entry(schema.name)
-                .or_default()
-                .push((path, schema.definition));
+        for name in schemas_in(text) {
+            by_name.entry(name).or_default().push(path);
         }
     }
     by_name
         .into_iter()
-        .filter(|(_, definitions)| definitions.iter().any(|(_, d)| *d != definitions[0].1))
-        .map(|(name, definitions)| {
-            let paths: Vec<&str> = definitions.iter().map(|(path, _)| *path).collect();
-            format!("`{name}`: {}", paths.join(", "))
-        })
+        .filter(|(_, paths)| paths.len() > 1)
+        .map(|(name, paths)| format!("`{name}`: {}", paths.join(", ")))
         .collect()
 }
 
@@ -142,8 +135,10 @@ fn templates() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("templates")
 }
 
+/// `rok gen` refuses a project whose `ToSchema` types share a component
+/// name, so every API template must give each its own.
 #[test]
-fn no_two_different_schemas_of_an_api_template_share_a_component_name() -> Result<()> {
+fn no_two_schemas_of_an_api_template_share_a_component_name() -> Result<()> {
     for api in APIS {
         let src = templates().join(api).join("src");
         let mut files = BTreeMap::new();
@@ -151,34 +146,30 @@ fn no_two_different_schemas_of_an_api_template_share_a_component_name() -> Resul
         let found = collisions(&files);
         assert!(
             found.is_empty(),
-            "templates/{api}: different `ToSchema` types share a component name, so the \
-             contract describes only one of them (rename one, or `#[schema(as = ...)]`):\n  {}",
+            "templates/{api}: `ToSchema` types share a component name, so `rok gen` fails \
+             on a fresh project (rename one, or `#[schema(as = ...)]`):\n  {}",
             found.join("\n  ")
         );
     }
     Ok(())
 }
 
-/// The scanner reads the component names a derive, a renaming attribute
-/// and a generic make, and names a collision but not identical copies.
+/// The scanner reads the component names a derive and a renaming attribute
+/// make, leaves generic types out, and names every shared name, identical
+/// copies included.
 #[test]
-fn the_scanner_names_differing_definitions_but_not_identical_copies() {
+fn the_scanner_names_every_shared_component_name() {
     let users = "/// A row.\n#[derive(\n    Debug, utoipa::ToSchema,\n)]\npub struct UserResponse {\n    pub id: i64,\n}\n";
     let account = "#[derive(Debug, utoipa::ToSchema)]\n#[schema(as = crate::Profile)]\npub struct UserResponse {\n    pub id: i64,\n}\n\n#[derive(utoipa::ToSchema)]\npub struct Page<T> {\n    pub items: Vec<T>,\n}\n#[derive(Debug)]\npub struct Plain;\n";
-    let names: Vec<String> = schemas_in(account).into_iter().map(|s| s.name).collect();
-    assert_eq!(names, ["Profile", "Page"]);
+    assert_eq!(schemas_in(account), ["Profile"]);
 
-    let auth = "#[derive(Debug, utoipa::ToSchema)]\npub struct UserResponse {\n    pub email: String,\n}\n";
     let files = BTreeMap::from([
         ("users.rs".to_owned(), users.to_owned()),
-        ("copy.rs".to_owned(), users.to_owned()),
         ("account.rs".to_owned(), account.to_owned()),
+        ("pages.rs".to_owned(), account.replace("Profile", "Other")),
     ]);
     assert!(collisions(&files).is_empty());
     let mut files = files;
-    files.insert("auth.rs".to_owned(), auth.to_owned());
-    assert_eq!(
-        collisions(&files),
-        ["`UserResponse`: auth.rs, copy.rs, users.rs"]
-    );
+    files.insert("copy.rs".to_owned(), users.to_owned());
+    assert_eq!(collisions(&files), ["`UserResponse`: copy.rs, users.rs"]);
 }

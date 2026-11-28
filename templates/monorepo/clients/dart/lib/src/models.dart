@@ -980,6 +980,39 @@ enum OidcClient {
   String toJson() => value;
 }
 
+/// The `OidcTokenResponse` model.
+final class OidcTokenResponse {
+  /// Makes one from its fields.
+  const OidcTokenResponse({
+    required this.accessToken,
+    required this.expiresIn,
+    required this.tokenType,
+  });
+
+  /// Reads one from its JSON.
+  factory OidcTokenResponse.fromJson(Map<String, Object?> json) => OidcTokenResponse(
+    accessToken: json['access_token'] as String,
+    expiresIn: (json['expires_in'] as num).toInt(),
+    tokenType: json['token_type'] as String,
+  );
+
+  /// The JWT to send as `Authorization: Bearer <access_token>`.
+  final String accessToken;
+
+  /// Seconds until it expires.
+  final int expiresIn;
+
+  /// Always `Bearer`.
+  final String tokenType;
+
+  /// Its JSON.
+  Map<String, Object?> toJson() => {
+    'access_token': accessToken,
+    'expires_in': expiresIn,
+    'token_type': tokenType,
+  };
+}
+
 /// The `PaginatedResponseAuditLogEntryResponse` model.
 final class PaginatedResponseAuditLogEntryResponse {
   /// Makes one from its fields.
@@ -1344,6 +1377,60 @@ final class TotpSetupResponse {
     'provisioning_uri': provisioningUri,
     'qr_code_data_uri': qrCodeDataUri,
     'secret': secret,
+  };
+}
+
+/// The `TwoFactorMessageResponse` model.
+final class TwoFactorMessageResponse {
+  /// Makes one from its fields.
+  const TwoFactorMessageResponse({
+    required this.message,
+  });
+
+  /// Reads one from its JSON.
+  factory TwoFactorMessageResponse.fromJson(Map<String, Object?> json) => TwoFactorMessageResponse(
+    message: json['message'] as String,
+  );
+
+  /// What happened.
+  final String message;
+
+  /// Its JSON.
+  Map<String, Object?> toJson() => {
+    'message': message,
+  };
+}
+
+/// The `TwoFactorTokenResponse` model.
+final class TwoFactorTokenResponse {
+  /// Makes one from its fields.
+  const TwoFactorTokenResponse({
+    required this.accessToken,
+    required this.expiresIn,
+    required this.tokenType,
+  });
+
+  /// Reads one from its JSON.
+  factory TwoFactorTokenResponse.fromJson(Map<String, Object?> json) => TwoFactorTokenResponse(
+    accessToken: json['access_token'] as String,
+    expiresIn: (json['expires_in'] as num).toInt(),
+    tokenType: json['token_type'] as String,
+  );
+
+  /// The JWT to send as `Authorization: Bearer <access_token>`.
+  final String accessToken;
+
+  /// Seconds until it expires.
+  final int expiresIn;
+
+  /// Always `Bearer`.
+  final String tokenType;
+
+  /// Its JSON.
+  Map<String, Object?> toJson() => {
+    'access_token': accessToken,
+    'expires_in': expiresIn,
+    'token_type': tokenType,
   };
 }
 

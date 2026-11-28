@@ -78,7 +78,7 @@ pub struct HandoffDto {
 
 /// A session: a bearer token and how long it lasts.
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, utoipa::ToSchema)]
-pub struct TokenResponse {
+pub struct OidcTokenResponse {
     /// The JWT to send as `Authorization: Bearer <access_token>`.
     pub access_token: String,
     /// Seconds until it expires.

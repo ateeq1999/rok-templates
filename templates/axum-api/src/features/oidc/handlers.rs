@@ -16,8 +16,8 @@ use axum::http::StatusCode;
 use axum::response::{IntoResponse, Redirect, Response};
 
 use super::dto::{
-    CallbackQuery, ClientQuery, HandoffDto, IdentityResponse, LinkResponse, SignInProviderResponse,
-    TokenResponse,
+    CallbackQuery, ClientQuery, HandoffDto, IdentityResponse, LinkResponse, OidcTokenResponse,
+    SignInProviderResponse,
 };
 use super::service::OidcService;
 use crate::db::user_identities::models::UserIdentityId;
@@ -158,7 +158,7 @@ pub async fn list_sign_in_providers(
     operation_id = "exchange_handoff",
     request_body = HandoffDto,
     responses(
-        (status = 200, description = "A session", body = TokenResponse),
+        (status = 200, description = "A session", body = OidcTokenResponse),
         (status = 400, description = "The code expired, was already used, or never existed", body = ErrorBody),
         (status = 404, description = "No OpenID provider is configured", body = ErrorBody),
         (status = 422, description = "No code", body = ErrorBody),

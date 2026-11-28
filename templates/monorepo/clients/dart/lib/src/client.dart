@@ -149,17 +149,17 @@ final class AuthApi {
   final Transport _transport;
 
   /// `POST /api/v1/auth/2fa/disable`: two-factor off, `200`.
-  Future<MessageResponse> disable(
+  Future<TwoFactorMessageResponse> disable(
     DisableTotpDto body, {
     RequestOptions? options,
-  }) => _transport.json<MessageResponse>(
+  }) => _transport.json<TwoFactorMessageResponse>(
     Call(
       'POST',
       '/api/v1/auth/2fa/disable',
       json: body.toJson(),
       secured: true,
     ),
-    (json) => MessageResponse.fromJson(json as Map<String, Object?>),
+    (json) => TwoFactorMessageResponse.fromJson(json as Map<String, Object?>),
     options,
   );
 
@@ -195,16 +195,16 @@ final class AuthApi {
 
   /// `POST /api/v1/auth/2fa/verify`: a sign-in's second step, a session,
   /// `200`.
-  Future<TokenResponse> verify2fa(
+  Future<TwoFactorTokenResponse> verify2fa(
     VerifyTotpDto body, {
     RequestOptions? options,
-  }) => _transport.json<TokenResponse>(
+  }) => _transport.json<TwoFactorTokenResponse>(
     Call(
       'POST',
       '/api/v1/auth/2fa/verify',
       json: body.toJson(),
     ),
-    (json) => TokenResponse.fromJson(json as Map<String, Object?>),
+    (json) => TwoFactorTokenResponse.fromJson(json as Map<String, Object?>),
     options,
   );
 
@@ -312,16 +312,16 @@ final class AuthApi {
 
   /// `POST /api/v1/auth/oidc/handoff`: trades the code of the mobile App's
   /// deep link (`<APP_SCHEME>://auth/oidc?code=…`) for a session, `200`.
-  Future<TokenResponse> exchangeHandoff(
+  Future<OidcTokenResponse> exchangeHandoff(
     HandoffDto body, {
     RequestOptions? options,
-  }) => _transport.json<TokenResponse>(
+  }) => _transport.json<OidcTokenResponse>(
     Call(
       'POST',
       '/api/v1/auth/oidc/handoff',
       json: body.toJson(),
     ),
-    (json) => TokenResponse.fromJson(json as Map<String, Object?>),
+    (json) => OidcTokenResponse.fromJson(json as Map<String, Object?>),
     options,
   );
 

@@ -190,6 +190,16 @@ are this file's `## [X.Y.Z]` section.
 
 **Fixed**
 
+- `rok gen` runs on a freshly made project (starter-feedback ticket 96):
+  it refuses two `ToSchema` types of one name, and `auth`, `two_factor`
+  and `oidc` each had a `TokenResponse` (`auth` and `two_factor` each a
+  `MessageResponse`). `auth` keeps its names; `two_factor`'s are
+  `TwoFactorTokenResponse` and `TwoFactorMessageResponse`, and `oidc`'s
+  is `OidcTokenResponse`, in the axum, actix and monorepo API templates.
+  The monorepo's contract and Clients name them too: `verify2fa`,
+  `disable` and `exchangeHandoff` answer the renamed types, of the same
+  shape. `tests/schema_names.rs` fails when two types of one API share a
+  component name, identical copies included.
 - The API templates' database tests can't pass unrun in CI: with `CI` set
   and no `DATABASE_URL` (exported or in `.env`), `Database::fresh` fails
   with "DATABASE_URL is required in CI"; locally they still skip with a
