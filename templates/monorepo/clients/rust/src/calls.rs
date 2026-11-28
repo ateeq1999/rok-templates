@@ -130,7 +130,7 @@ impl Auth<'_> {
     pub async fn disable(
         &self,
         body: &types::DisableTotpDto,
-    ) -> Result<types::MessageResponse, ApiError> {
+    ) -> Result<types::TwoFactorMessageResponse, ApiError> {
         let path = "/api/v1/auth/2fa/disable";
         let call = self.client.call(Method::POST, path, true)?;
         call.json(body).json_answer().await
@@ -164,7 +164,7 @@ impl Auth<'_> {
     pub async fn verify2fa(
         &self,
         body: &types::VerifyTotpDto,
-    ) -> Result<types::TokenResponse, ApiError> {
+    ) -> Result<types::TwoFactorTokenResponse, ApiError> {
         let path = "/api/v1/auth/2fa/verify";
         let call = self.client.call(Method::POST, path, false)?;
         call.json(body).json_answer().await
@@ -251,7 +251,7 @@ impl Auth<'_> {
     pub async fn exchange_handoff(
         &self,
         body: &types::HandoffDto,
-    ) -> Result<types::TokenResponse, ApiError> {
+    ) -> Result<types::OidcTokenResponse, ApiError> {
         let path = "/api/v1/auth/oidc/handoff";
         let call = self.client.call(Method::POST, path, false)?;
         call.json(body).json_answer().await

@@ -14,7 +14,7 @@ use rok_data::Model;
 use sqlx::{PgConnection, PgPool};
 
 use super::dto::{
-    DisableTotpDto, EnableTotpDto, TokenResponse, TotpEnabledResponse, TotpSetupResponse,
+    DisableTotpDto, EnableTotpDto, TotpEnabledResponse, TotpSetupResponse, TwoFactorTokenResponse,
     VerifyTotpDto,
 };
 use crate::db::queries::two_factor as queries;
@@ -141,7 +141,10 @@ impl TwoFactorService {
     /// lockout like a wrong password, and the token stays usable until it
     /// expires. Success spends the token and the code, and forgets the
     /// failures. A disabled account is a `403`.
-    pub async fn verify_totp(&self, input: VerifyTotpDto) -> Result<TokenResponse, AppError> {
+    pub async fn verify_totp(
+        &self,
+        input: VerifyTotpDto,
+    ) -> Result<TwoFactorTokenResponse, AppError> {
         let pending = token::hash(&input.pending_token);
         let id = queries::pending_sign_in(&self.pool, &pending)
             .await?
@@ -213,8 +216,13 @@ fn totp_already_on() -> AppError {
 
 impl TwoFactorService {
     /// A session for `id`, as `auth`'s sign-in answers one.
-    fn session(&self, id: UserId, role: Role, version: i32) -> Result<TokenResponse, AppError> {
-        Ok(TokenResponse {
+    fn session(
+        &self,
+        id: UserId,
+        role: Role,
+        version: i32,
+    ) -> Result<TwoFactorTokenResponse, AppError> {
+        Ok(TwoFactorTokenResponse {
             access_token: self.keys.issue(id.into(), role, version)?,
             expires_in: i64::try_from(self.keys.ttl().as_secs()).unwrap_or(i64::MAX),
             token_type: "Bearer".to_owned(),

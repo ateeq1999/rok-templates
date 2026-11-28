@@ -440,6 +440,17 @@ impl std::fmt::Display for OidcClient {
     }
 }
 
+/// The API's `OidcTokenResponse`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct OidcTokenResponse {
+    /// The JWT to send as `Authorization: Bearer <access_token>`.
+    pub access_token: String,
+    /// Seconds until it expires.
+    pub expires_in: i64,
+    /// Always `Bearer`.
+    pub token_type: String,
+}
+
 /// The API's `PaginatedResponse_AuditLogEntryResponse`.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct PaginatedResponseAuditLogEntryResponse {
@@ -604,6 +615,24 @@ pub struct TotpSetupResponse {
     /// Base32-encoded; lets the user type the secret in by hand if they
     /// cannot scan the QR code.
     pub secret: String,
+}
+
+/// The API's `TwoFactorMessageResponse`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TwoFactorMessageResponse {
+    /// What happened.
+    pub message: String,
+}
+
+/// The API's `TwoFactorTokenResponse`.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct TwoFactorTokenResponse {
+    /// The JWT to send as `Authorization: Bearer <access_token>`.
+    pub access_token: String,
+    /// Seconds until it expires.
+    pub expires_in: i64,
+    /// Always `Bearer`.
+    pub token_type: String,
 }
 
 /// The API's `UpdateProfileDto`.
